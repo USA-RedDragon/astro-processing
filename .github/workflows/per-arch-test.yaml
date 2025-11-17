@@ -25,7 +25,7 @@ jobs:
       - run: cd frontend && npm ci --ignore-scripts
       - run: cd frontend && npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: frontend
           path: frontend/dist
