@@ -52,7 +52,7 @@
     "@vue/tsconfig": "^0.8.1",
     "axios": "1.13.2",
     "cypress": "15.6.0",
-    "cypress-mochawesome-reporter": "3.8.4",
+    "cypress-mochawesome-reporter": "4.0.2",
     "cypress-multi-reporters": "2.0.5",
     "eslint-config-google": "^0.14.0",
     "eslint-plugin-cypress": "^4.3.0",
