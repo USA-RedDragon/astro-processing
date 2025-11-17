@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/USA-RedDragon/configulator v0.0.1
-	github.com/lmittmann/tint v1.0.7
+	github.com/lmittmann/tint v1.1.2
 	github.com/spf13/cobra v1.10.1
 )
 
