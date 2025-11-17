@@ -1,0 +1,293 @@
+name: Tests
+
+on:
+  pull_request:
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: frontend
+          path: frontend/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  frontend-eslint:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - run: cd frontend && npm ci --ignore-scripts
+
+      - name: Save Code Linting Report JSON
+        run: cd frontend && npm run lint:report
+
+      - name: Annotate Code Linting Results
+        if: always()
+        uses: ataylorme/eslint-annotate-action@v2
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          report-json: "frontend/eslint_report.json"
+          check-name: Frontend ESLint Report Analysis
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-eslint-report
+          if-no-files-found: error
+          retention-days: 30
+          path: frontend/eslint_report.json
+
+  frontend-unit-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run test:unit
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-unit-test-report
+          if-no-files-found: error
+          retention-days: 30
+          path: frontend/reports/unit
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "frontend/reports/unit/*.xml"
+          test_files_prefix: "frontend"
+          require_tests: true
+          check_retries: true
+          detailed_summary: true
+          fail_on_failure: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          check_name: Frontend Unit Tests
+          job_name: Tests
+
+  frontend-e2e-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: ["firefox", "chrome", "electron"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+
+      - run: cd frontend && npm ci
+      - run: cd frontend && NODE_ENV=test npm run build
+      - run: cd frontend && BROWSER=${{ matrix.browser }} NODE_ENV=test npm run test:e2e:${{ matrix.browser }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-e2e-test-report-${{ matrix.browser }}
+          if-no-files-found: error
+          retention-days: 30
+          path: frontend/reports/e2e
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "frontend/reports/e2e/*.xml"
+          test_files_prefix: "frontend"
+          require_tests: true
+          check_retries: true
+          detailed_summary: true
+          fail_on_failure: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          check_name: Frontend E2E Tests (${{ matrix.browser }})
+          job_name: Tests
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-e2e-screenshots-${{ matrix.browser }}
+          path: frontend/cypress/screenshots
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-e2e-videos-${{ matrix.browser }}
+          path: frontend/cypress/videos
+          if-no-files-found: ignore
+          retention-days: 30
+
+  backend-benchmark-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: CGO_ENABLED=0 go test -run ^$ -benchmem -bench=. ./...
+
+  backend-race-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Race tests
+        run: |
+          go test ./... -race
+
+  backend-unit-tests:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Unit tests
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go install github.com/vakenbolt/go-test-report@latest
+          env CGO_ENABLED=0 go test -v ./... 2>&1 > out.txt || true
+          env CGO_ENABLED=0 go test -v ./... -json 2>&1 > json-out.txt || true
+          cat out.txt | go-junit-report -out report.xml -iocopy
+          cat json-out.txt | go-test-report -o report.html
+
+      - name: Publish Test Report
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: "report.xml"
+          require_tests: true
+          check_retries: true
+          detailed_summary: true
+          fail_on_failure: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          check_name: Backend Unit Tests
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-report-xml
+          path: report.xml
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-report-html
+          path: report.html
+          if-no-files-found: error
+          retention-days: 30
+
+  backend-unit-tests-coverage:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Unit tests
+        run: |
+          env CGO_ENABLED=0 go test -v ./... -coverprofile coverage.out -coverpkg=./... -covermode atomic
+
+      - uses: codecov/codecov-action@v5
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: backend
+          fail_ci_if_error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 30
