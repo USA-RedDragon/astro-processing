@@ -4,7 +4,7 @@ const baseURL = '/api/v1';
 
 const instance = axios.create({
   baseURL,
-  withCredentials: true,
+  withCredentials: false,
 });
 
 instance.interceptors.response.use(
@@ -12,17 +12,6 @@ instance.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response === undefined) {
-      return Promise.reject(error);
-    }
-    const status = error.response.status;
-    if (
-      window.location.pathname.startsWith('/admin') &&
-      (status === 401 || status === 403)
-    ) {
-      window.location.href = '/login';
-    }
-
     return Promise.reject(error);
   },
 );
