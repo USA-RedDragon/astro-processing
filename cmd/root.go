@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"syscall"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/server"
+	"github.com/USA-RedDragon/astro-processing/internal/store"
 	"github.com/USA-RedDragon/configulator"
 	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
+	"github.com/ztrue/shutdown"
 )
 
 func NewCommand(version, commit string) *cobra.Command {
@@ -53,6 +57,36 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 	slog.SetDefault(logger)
 
 	slog.Info("astro-processing", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
+
+	store, err := store.NewStore(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %w", err)
+	}
+
+	slog.Info("Connected to datastore", "type", cfg.Storage.Type)
+
+	server := server.NewServer(cfg, store)
+
+	if err := server.Start(); err != nil {
+		return fmt.Errorf("failed to start server: %w", err)
+	}
+	slog.Info("Server started successfully")
+
+	stop := func(sig os.Signal) {
+		// Remove control codes from the current line in the terminal
+		fmt.Println("")
+
+		slog.Info("Received signal", "signal", sig)
+
+		err := server.Stop()
+		if err != nil {
+			slog.Error("Failed to stop server", "error", err)
+		} else {
+			slog.Info("Server stopped gracefully")
+		}
+	}
+	shutdown.AddWithParam(stop)
+	shutdown.Listen(syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP)
 
 	return nil
 }
