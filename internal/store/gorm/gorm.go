@@ -49,7 +49,7 @@ func (g *Gorm) WithContext(ctx context.Context) *Gorm {
 
 func (g *Gorm) ListTargets() ([]targetscheduler.Target, error) {
 	var targets []targetscheduler.Target
-	if err := g.db.Find(&targets).Error; err != nil {
+	if err := g.db.Preload("Project").Find(&targets).Error; err != nil {
 		return nil, fmt.Errorf("failed to list targets: %w", err)
 	}
 	return targets, nil
@@ -57,7 +57,7 @@ func (g *Gorm) ListTargets() ([]targetscheduler.Target, error) {
 
 func (g *Gorm) GetTargetByID(id int) (*targetscheduler.Target, error) {
 	var target targetscheduler.Target
-	if err := g.db.First(&target, id).Error; err != nil {
+	if err := g.db.Preload("Project").First(&target, id).Error; err != nil {
 		return nil, fmt.Errorf("failed to get target by ID: %w", err)
 	}
 	return &target, nil
