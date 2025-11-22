@@ -7,3 +7,7 @@ type ImageData struct {
 	Width           *int    `json:"width" gorm:"column:width"`
 	Height          *int    `json:"height" gorm:"column:height"`
 }
+
+func (ImageData) TableName() string {
+	return "imagedata"
+}

@@ -27,3 +27,7 @@ type Project struct {
 	SmartExposureOrder    *int             `json:"smart_exposure_order" gorm:"column:smartexposureorder"`
 	GUID                  *string          `json:"guid" gorm:"column:guid;size:255"`
 }
+
+func (Project) TableName() string {
+	return "project"
+}

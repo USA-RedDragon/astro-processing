@@ -8,3 +8,7 @@ type FilterCadenceItem struct {
 	Action       int  `json:"action" gorm:"column:action;not null"`
 	ReferenceIdx *int `json:"reference_idx" gorm:"column:referenceIdx"`
 }
+
+func (FilterCadenceItem) TableName() string {
+	return "filtercadenceitem"
+}

@@ -6,3 +6,7 @@ type RuleWeight struct {
 	Weight    float64 `json:"weight" gorm:"column:weight;not null"`
 	ProjectID *int    `json:"project_id" gorm:"column:projectid"`
 }
+
+func (RuleWeight) TableName() string {
+	return "ruleweight"
+}

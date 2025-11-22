@@ -23,3 +23,7 @@ type ExposureTemplate struct {
 	MinutesOffset           *int     `json:"minutes_offset" gorm:"column:minutesOffset"`
 	GUID                    *string  `json:"guid" gorm:"column:guid;size:255"`
 }
+
+func (ExposureTemplate) TableName() string {
+	return "exposuretemplate"
+}

@@ -38,3 +38,7 @@ type ProfilePreference struct {
 	GUID                                 *string  `json:"guid" gorm:"column:guid;size:255"`
 	EnableProfileTargetCompletionReset   *int     `json:"enable_profile_target_completion_reset" gorm:"column:enableProfileTargetCompletionReset"`
 }
+
+func (ProfilePreference) TableName() string {
+	return "profilepreference"
+}

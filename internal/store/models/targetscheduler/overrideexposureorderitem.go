@@ -7,3 +7,7 @@ type OverrideExposureOrderItem struct {
 	Action       int  `json:"action" gorm:"column:action;not null"`
 	ReferenceIdx *int `json:"reference_idx" gorm:"column:referenceIdx"`
 }
+
+func (OverrideExposureOrderItem) TableName() string {
+	return "overrideexposureorderitem"
+}

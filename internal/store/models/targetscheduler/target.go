@@ -24,3 +24,7 @@ type Target struct {
 	UnusedOEO        *string  `json:"-" gorm:"column:unusedOEO;size:255"`
 	GUID             *string  `json:"guid" gorm:"column:guid;size:255"`
 }
+
+func (Target) TableName() string {
+	return "target"
+}

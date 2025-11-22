@@ -13,3 +13,7 @@ type AcquiredImage struct {
 	ExposureID    *int    `json:"exposure_id" gorm:"column:exposureId"`
 	GUID          *string `json:"guid" gorm:"column:guid;size:255"`
 }
+
+func (AcquiredImage) TableName() string {
+	return "acquiredimage"
+}

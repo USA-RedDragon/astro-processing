@@ -12,3 +12,7 @@ type ExposurePlan struct {
 	Enabled            *int    `json:"enabled" gorm:"column:enabled"`
 	GUID               *string `json:"guid" gorm:"column:guid;size:255"`
 }
+
+func (ExposurePlan) TableName() string {
+	return "exposureplan"
+}

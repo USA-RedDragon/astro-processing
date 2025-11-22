@@ -16,3 +16,7 @@ type FlatHistory struct {
 	ROI              *float64 `json:"roi" gorm:"column:roi"`
 	LightSessionID   int      `json:"light_session_id" gorm:"column:lightSessionId;not null"`
 }
+
+func (FlatHistory) TableName() string {
+	return "flathistory"
+}
