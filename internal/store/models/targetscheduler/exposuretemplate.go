@@ -1,7 +1,7 @@
 package targetscheduler
 
 type ExposureTemplate struct {
-	ID                      int      `json:"-" gorm:"column:Id;primaryKey"`
+	ID                      int      `json:"id" gorm:"column:Id;primaryKey"`
 	ProfileID               string   `json:"profile_id" gorm:"column:profileId;size:255;not null"`
 	Name                    string   `json:"name" gorm:"column:name;size:255;not null"`
 	FilterName              string   `json:"filter_name" gorm:"column:filtername;size:255;not null"`
@@ -21,7 +21,7 @@ type ExposureTemplate struct {
 	MoonDownEnabled         *int     `json:"moon_down_enabled" gorm:"column:moondownenabled"`
 	DitherEvery             *int     `json:"dither_every" gorm:"column:ditherevery"`
 	MinutesOffset           *int     `json:"minutes_offset" gorm:"column:minutesOffset"`
-	GUID                    *string  `json:"guid" gorm:"column:guid;size:255"`
+	GUID                    *string  `json:"-" gorm:"column:guid;size:255"`
 }
 
 func (ExposureTemplate) TableName() string {

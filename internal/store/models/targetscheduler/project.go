@@ -4,7 +4,7 @@ type ProjectState int
 type ProjectPriority int
 
 type Project struct {
-	ID                    int              `json:"-" gorm:"column:Id;primaryKey"`
+	ID                    int              `json:"id" gorm:"column:Id;primaryKey"`
 	ProfileID             string           `json:"profile_id" gorm:"column:profileId;size:255;not null"`
 	Name                  string           `json:"name" gorm:"column:name;size:255;not null"`
 	Description           *string          `json:"description" gorm:"column:description;size:255"`
@@ -25,7 +25,7 @@ type Project struct {
 	FlatsHandling         int              `json:"flats_handling" gorm:"column:flatsHandling;not null"`
 	MaximumAltitude       *float64         `json:"maximum_altitude" gorm:"column:maximumAltitude"`
 	SmartExposureOrder    *int             `json:"smart_exposure_order" gorm:"column:smartexposureorder"`
-	GUID                  *string          `json:"guid" gorm:"column:guid;size:255"`
+	GUID                  *string          `json:"-" gorm:"column:guid;size:255"`
 }
 
 func (Project) TableName() string {

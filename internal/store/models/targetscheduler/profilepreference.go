@@ -1,7 +1,7 @@
 package targetscheduler
 
 type ProfilePreference struct {
-	ID                                   int      `json:"-" gorm:"column:Id;primaryKey"`
+	ID                                   int      `json:"id" gorm:"column:Id;primaryKey"`
 	ProfileID                            string   `json:"profile_id" gorm:"column:profileId;size:255;not null"`
 	EnableGradeRMS                       *int     `json:"enable_grade_rms" gorm:"column:enableGradeRMS"`
 	EnableGradeStars                     *int     `json:"enable_grade_stars" gorm:"column:enableGradeStars"`
@@ -35,7 +35,7 @@ type ProfilePreference struct {
 	EnableSlewCenter                     *int     `json:"enable_slew_center" gorm:"column:enableSlewCenter"`
 	LogLevel                             *int     `json:"log_level" gorm:"column:logLevel"`
 	EnableStopOnHumidity                 *int     `json:"enable_stop_on_humidity" gorm:"column:enableStopOnHumidity"`
-	GUID                                 *string  `json:"guid" gorm:"column:guid;size:255"`
+	GUID                                 *string  `json:"-" gorm:"column:guid;size:255"`
 	EnableProfileTargetCompletionReset   *int     `json:"enable_profile_target_completion_reset" gorm:"column:enableProfileTargetCompletionReset"`
 }
 

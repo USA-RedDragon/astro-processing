@@ -1,5 +1,7 @@
 package targetscheduler
 
+import "encoding/json"
+
 type Epoch int
 
 // Must match NINA's enum
@@ -11,8 +13,26 @@ const (
 	EpochJ2050
 )
 
+func (e Epoch) String() string {
+	switch e {
+	case EpochJNOW:
+		return "JNOW"
+	case EpochB1950:
+		return "B1950"
+	case EpochJ2000:
+		return "J2000"
+	case EpochJ2050:
+		return "J2050"
+	}
+	return "Unknown"
+}
+
+func (e Epoch) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.String())
+}
+
 type Target struct {
-	ID               int      `json:"-" gorm:"column:Id;primaryKey"`
+	ID               int      `json:"id" gorm:"column:Id;primaryKey"`
 	Name             string   `json:"name" gorm:"column:name;size:255;not null"`
 	Active           int      `json:"active" gorm:"column:active;not null"`
 	RA               *float64 `json:"ra" gorm:"column:ra"`
@@ -21,8 +41,9 @@ type Target struct {
 	Rotation         float64  `json:"rotation" gorm:"column:rotation"`
 	RegionOfInterest float64  `json:"region_of_interest" gorm:"column:roi"`
 	ProjectID        *int     `json:"project_id" gorm:"column:projectid"`
+	Project          *Project `json:"project,omitempty" gorm:"foreignKey:ProjectID;references:ID"`
 	UnusedOEO        *string  `json:"-" gorm:"column:unusedOEO;size:255"`
-	GUID             *string  `json:"guid" gorm:"column:guid;size:255"`
+	GUID             *string  `json:"-" gorm:"column:guid;size:255"`
 }
 
 func (Target) TableName() string {

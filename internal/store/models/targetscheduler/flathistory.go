@@ -1,7 +1,7 @@
 package targetscheduler
 
 type FlatHistory struct {
-	ID               int      `json:"-" gorm:"column:Id;primaryKey"`
+	ID               int      `json:"id" gorm:"column:Id;primaryKey"`
 	TargetID         *int     `json:"target_id" gorm:"column:targetId"`
 	LightSessionDate *int     `json:"light_session_date" gorm:"column:lightSessionDate"`
 	FlatsTakenDate   *int     `json:"flats_taken_date" gorm:"column:flatsTakenDate"`
