@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	v1TargetsControllers "github.com/USA-RedDragon/astro-processing/internal/server/controllers/v1/targets"
+	"github.com/USA-RedDragon/astro-processing/internal/server/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +17,10 @@ func applyRoutes(r *gin.Engine) {
 }
 
 func v1(r *gin.RouterGroup) {
+	r.GET("/version", func(c *gin.Context) {
+		di := c.MustGet(middleware.DepInjectionKey).(*middleware.DepInjection)
+		c.String(http.StatusOK, "%s", di.Version)
+	})
 	v1Targets := r.Group("/targets")
 	v1Targets.GET("", v1TargetsControllers.ListTargets)
 	v1Targets.GET("/:target_id", v1TargetsControllers.GetTarget)
