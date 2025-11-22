@@ -39,12 +39,7 @@ func NewServer(config *config.Config, store store.Store, version string) *Server
 	}
 
 	applyMiddleware(r, config, store, version)
-	r.Use(func(ctx *gin.Context) {
-		ctx.Set("store", store)
-		ctx.Set("config", config)
-	})
-
-	applyRoutes(r, config)
+	applyRoutes(r)
 
 	var metricsServer *http.Server
 	var pprofServer *http.Server
