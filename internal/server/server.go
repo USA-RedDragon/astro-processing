@@ -12,6 +12,7 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/config"
 	"github.com/USA-RedDragon/astro-processing/internal/server/middleware"
 	"github.com/USA-RedDragon/astro-processing/internal/store"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -85,6 +86,28 @@ func NewServer(config *config.Config, store store.Store, version string) *Server
 func applyMiddleware(r *gin.Engine, config *config.Config, store store.Store, version string) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
+
+	if config.HTTP.CORS.Enabled {
+		slog.Debug("CORS enabled")
+		corsConfig := cors.DefaultConfig()
+		corsConfig.AllowWildcard = true
+		corsConfig.AllowMethods = config.HTTP.CORS.AllowedMethods
+		corsConfig.AllowHeaders = config.HTTP.CORS.AllowedHeaders
+		corsConfig.AllowOrigins = config.HTTP.CORS.AllowedOrigins
+		corsConfig.AllowCredentials = config.HTTP.CORS.AllowCredentials
+
+		for _, origin := range config.HTTP.CORS.AllowedOrigins {
+			if origin == "*" {
+				corsConfig.AllowAllOrigins = true
+				corsConfig.AllowOrigins = nil
+				corsConfig.AllowCredentials = false
+				break
+			}
+		}
+
+		r.Use(cors.New(corsConfig))
+	}
+
 	r.TrustedPlatform = "X-Real-IP"
 
 	err := r.SetTrustedProxies(config.HTTP.TrustedProxies)

@@ -28,6 +28,15 @@ type HTTP struct {
 	Bind           string   `name:"bind" description:"Address to listen on" default:"[::]"`
 	Port           int      `name:"port" description:"Port to listen on" default:"8080"`
 	TrustedProxies []string `name:"trusted-proxies" description:"Trusted proxies for the HTTP server"`
+	CORS           CORS     `name:"cors" description:"CORS configuration"`
+}
+
+type CORS struct {
+	Enabled          bool     `name:"enabled" description:"Enable CORS"`
+	AllowedOrigins   []string `name:"allowed-origins" description:"List of allowed origins for CORS" default:"*"`
+	AllowedMethods   []string `name:"allowed-methods" description:"List of allowed HTTP methods for CORS" default:"GET,POST,PUT,DELETE,OPTIONS"`
+	AllowedHeaders   []string `name:"allowed-headers" description:"List of allowed HTTP headers for CORS" default:"Origin,Content-Type,Accept,Authorization"`
+	AllowCredentials bool     `name:"allow-credentials" description:"Allow credentials for CORS"`
 }
 
 type Metrics struct {

@@ -10,6 +10,13 @@ http:
   port: 8080
   # List of trusted proxy IPs for X-Forwarded-* headers
   trusted-proxies: []
+  # CORS configuration
+  cors:
+    enabled: false
+    allowed-origins: ["*"]
+    allowed-methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allowed-headers: ["Origin", "Content-Type", "Accept", "Authorization"]
+    allow-credentials: false
 
 # Prometheus metrics endpoint
 metrics:
