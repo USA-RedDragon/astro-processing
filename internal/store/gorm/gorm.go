@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	v1 "github.com/USA-RedDragon/astro-processing/internal/server/apimodels/v1"
 	"github.com/USA-RedDragon/astro-processing/internal/store/models/targetscheduler"
 	"github.com/USA-RedDragon/astro-processing/internal/types"
 	"github.com/glebarez/sqlite"
@@ -52,4 +53,121 @@ func (g *Gorm) ListTargets() ([]targetscheduler.Target, error) {
 		return nil, fmt.Errorf("failed to list targets: %w", err)
 	}
 	return targets, nil
+}
+
+func (g *Gorm) GetTargetByID(id int) (*targetscheduler.Target, error) {
+	var target targetscheduler.Target
+	if err := g.db.First(&target, id).Error; err != nil {
+		return nil, fmt.Errorf("failed to get target by ID: %w", err)
+	}
+	return &target, nil
+}
+
+func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, error) {
+	var response v1.TargetImageStatsResponse
+	response.Filters = make(map[string]v1.TargetImageStats)
+
+	// Get total stats for this target
+	var totalStats v1.TargetImageStats
+
+	// Get total acquired images for this target
+	var acquiredCount int64
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Where("\"targetId\" = ?", targetID).
+		Count(&acquiredCount).Error; err != nil {
+		return response, fmt.Errorf("failed to count acquired images: %w", err)
+	}
+	totalStats.AcquiredImages = int(acquiredCount)
+
+	// Get accepted images (gradingStatus = 1)
+	var acceptedCount int64
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Where("\"targetId\" = ? AND \"gradingStatus\" = ?", targetID, 1).
+		Count(&acceptedCount).Error; err != nil {
+		return response, fmt.Errorf("failed to count accepted images: %w", err)
+	}
+	totalStats.AcceptedImages = int(acceptedCount)
+
+	// Get rejected images (gradingStatus = 2)
+	var rejectedCount int64
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Where("\"targetId\" = ? AND \"gradingStatus\" = ?", targetID, 2).
+		Count(&rejectedCount).Error; err != nil {
+		return response, fmt.Errorf("failed to count rejected images: %w", err)
+	}
+	totalStats.RejectedImages = int(rejectedCount)
+
+	// Get desired images from exposure plans for this target
+	var desiredSum int
+	if err := g.db.Model(&targetscheduler.ExposurePlan{}).
+		Where("targetid = ?", targetID).
+		Select("COALESCE(SUM(desired), 0)").
+		Scan(&desiredSum).Error; err != nil {
+		return response, fmt.Errorf("failed to sum desired images: %w", err)
+	}
+	totalStats.DesiredImages = desiredSum
+
+	response.Total = totalStats
+
+	// Get stats per filter
+	type FilterStats struct {
+		FilterName    string
+		AcquiredCount int64
+		AcceptedCount int64
+		RejectedCount int64
+	}
+
+	var filterStats []FilterStats
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Select("filtername as filter_name, COUNT(*) as acquired_count, "+
+			"SUM(CASE WHEN \"gradingStatus\" = 1 THEN 1 ELSE 0 END) as accepted_count, "+
+			"SUM(CASE WHEN \"gradingStatus\" = 2 THEN 1 ELSE 0 END) as rejected_count").
+		Where("\"targetId\" = ?", targetID).
+		Group("filtername").
+		Scan(&filterStats).Error; err != nil {
+		return response, fmt.Errorf("failed to get filter stats: %w", err)
+	}
+
+	// Get desired counts per filter from exposure plans
+	type FilterDesired struct {
+		FilterName string
+		Desired    int
+	}
+
+	var filterDesired []FilterDesired
+	if err := g.db.Table("exposureplan AS ep").
+		Select("et.filtername as filter_name, COALESCE(SUM(ep.desired), 0) as desired").
+		Joins("JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
+		Where("ep.targetid = ?", targetID).
+		Group("et.filtername").
+		Scan(&filterDesired).Error; err != nil {
+		return response, fmt.Errorf("failed to get filter desired counts: %w", err)
+	}
+
+	// Build desired map for easy lookup
+	desiredMap := make(map[string]int)
+	for _, fd := range filterDesired {
+		desiredMap[fd.FilterName] = fd.Desired
+	}
+
+	// Populate filter stats
+	for _, fs := range filterStats {
+		response.Filters[fs.FilterName] = v1.TargetImageStats{
+			AcquiredImages: int(fs.AcquiredCount),
+			AcceptedImages: int(fs.AcceptedCount),
+			RejectedImages: int(fs.RejectedCount),
+			DesiredImages:  desiredMap[fs.FilterName],
+		}
+	}
+
+	// Add filters that have desired counts but no acquired images yet
+	for filterName, desired := range desiredMap {
+		if _, exists := response.Filters[filterName]; !exists {
+			response.Filters[filterName] = v1.TargetImageStats{
+				DesiredImages: desired,
+			}
+		}
+	}
+
+	return response, nil
 }

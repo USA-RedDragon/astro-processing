@@ -18,4 +18,6 @@ func applyRoutes(r *gin.Engine) {
 func v1(r *gin.RouterGroup) {
 	v1Targets := r.Group("/targets")
 	v1Targets.GET("", v1TargetsControllers.ListTargets)
+	v1Targets.GET("/:target_id", v1TargetsControllers.GetTarget)
+	v1Targets.GET("/:target_id/image/stats", v1TargetsControllers.GetTargetImageStats)
 }

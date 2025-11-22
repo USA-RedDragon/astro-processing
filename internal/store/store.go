@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	v1 "github.com/USA-RedDragon/astro-processing/internal/server/apimodels/v1"
 	"github.com/USA-RedDragon/astro-processing/internal/store/gorm"
 	"github.com/USA-RedDragon/astro-processing/internal/store/models/targetscheduler"
 	"github.com/USA-RedDragon/astro-processing/internal/types"
@@ -12,6 +13,8 @@ import (
 type Store interface {
 	WithContext(ctx context.Context) Store
 	ListTargets() ([]targetscheduler.Target, error)
+	GetTargetByID(id int) (*targetscheduler.Target, error)
+	GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, error)
 }
 
 type gormStore struct {
