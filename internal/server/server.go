@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/server/middleware"
 	"github.com/USA-RedDragon/astro-processing/internal/store"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,7 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
-func NewServer(config *config.Config, store store.Store) *Server {
+func NewServer(config *config.Config, store store.Store, version string) *Server {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -37,7 +38,7 @@ func NewServer(config *config.Config, store store.Store) *Server {
 		writeTimeout = 60 * time.Second
 	}
 
-	applyMiddleware(r, config)
+	applyMiddleware(r, config, store, version)
 	r.Use(func(ctx *gin.Context) {
 		ctx.Set("store", store)
 		ctx.Set("config", config)
@@ -50,7 +51,7 @@ func NewServer(config *config.Config, store store.Store) *Server {
 
 	if config.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config)
+		applyMiddleware(metricsRouter, config, store, version)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsServer = &http.Server{
@@ -63,7 +64,7 @@ func NewServer(config *config.Config, store store.Store) *Server {
 
 	if config.PProf.Enabled {
 		pprofRouter := gin.New()
-		applyMiddleware(pprofRouter, config)
+		applyMiddleware(pprofRouter, config, store, version)
 		pprof.Register(pprofRouter)
 		pprofServer = &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.PProf.Bind, config.PProf.Port),
@@ -84,6 +85,25 @@ func NewServer(config *config.Config, store store.Store) *Server {
 		pprofServer:   pprofServer,
 		config:        config,
 	}
+}
+
+func applyMiddleware(r *gin.Engine, config *config.Config, store store.Store, version string) {
+	r.Use(gin.Recovery())
+	r.Use(gin.Logger())
+	r.TrustedPlatform = "X-Real-IP"
+
+	err := r.SetTrustedProxies(config.HTTP.TrustedProxies)
+	if err != nil {
+		slog.Error("Failed to set trusted proxies", "error", err.Error())
+	}
+
+	var di = &middleware.DepInjection{
+		Config:  config,
+		Store:   store,
+		Version: version,
+	}
+
+	r.Use(middleware.Inject(di))
 }
 
 func (s *Server) Start() error {

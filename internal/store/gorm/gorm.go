@@ -1,9 +1,11 @@
 package gorm
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/store/models/targetscheduler"
 	"github.com/USA-RedDragon/astro-processing/internal/types"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
@@ -33,12 +35,21 @@ func NewGormStore(cfg *config.Config) (*Gorm, error) {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// err = db.AutoMigrate(&models.User{}, &models.Progress{})
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to migrate database: %w", err)
-	// }
-
 	return &Gorm{
 		db: db,
 	}, nil
+}
+
+func (g *Gorm) WithContext(ctx context.Context) *Gorm {
+	return &Gorm{
+		db: g.db.WithContext(ctx),
+	}
+}
+
+func (g *Gorm) ListTargets() ([]targetscheduler.Target, error) {
+	var targets []targetscheduler.Target
+	if err := g.db.Find(&targets).Error; err != nil {
+		return nil, fmt.Errorf("failed to list targets: %w", err)
+	}
+	return targets, nil
 }
