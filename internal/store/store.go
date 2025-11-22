@@ -15,6 +15,10 @@ type Store interface {
 	ListTargets() ([]targetscheduler.Target, error)
 	GetTargetByID(id int) (*targetscheduler.Target, error)
 	GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, error)
+	ListProjects() ([]targetscheduler.Project, error)
+	GetProjectByID(id int) (*targetscheduler.Project, error)
+	ListTargetsByProjectID(projectID int) ([]targetscheduler.Target, error)
+	GetProjectImageStats(projectID int) (v1.ProjectStatsResponse, error)
 }
 
 type gormStore struct {
