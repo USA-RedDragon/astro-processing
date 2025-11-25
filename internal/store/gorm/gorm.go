@@ -49,7 +49,12 @@ func (g *Gorm) WithContext(ctx context.Context) *Gorm {
 
 func (g *Gorm) ListTargets() ([]targetscheduler.Target, error) {
 	var targets []targetscheduler.Target
-	if err := g.db.Find(&targets).Error; err != nil {
+	if err := g.db.
+		Select("target.*").
+		Joins("LEFT JOIN acquiredimage ON acquiredimage.\"targetId\" = target.\"Id\"").
+		Group("target.\"Id\"").
+		Order("MAX(COALESCE(acquiredimage.acquireddate, 0)) DESC").
+		Find(&targets).Error; err != nil {
 		return nil, fmt.Errorf("failed to list targets: %w", err)
 	}
 	return targets, nil
@@ -174,7 +179,13 @@ func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, e
 
 func (g *Gorm) ListProjects() ([]targetscheduler.Project, error) {
 	var projects []targetscheduler.Project
-	if err := g.db.Find(&projects).Error; err != nil {
+	if err := g.db.
+		Select("project.*").
+		Joins("LEFT JOIN target ON target.projectid = project.\"Id\"").
+		Joins("LEFT JOIN acquiredimage ON acquiredimage.\"targetId\" = target.\"Id\"").
+		Group("project.\"Id\"").
+		Order("MAX(COALESCE(acquiredimage.acquireddate, 0)) DESC").
+		Find(&projects).Error; err != nil {
 		return nil, fmt.Errorf("failed to list projects: %w", err)
 	}
 	return projects, nil
@@ -190,7 +201,13 @@ func (g *Gorm) GetProjectByID(id int) (*targetscheduler.Project, error) {
 
 func (g *Gorm) ListTargetsByProjectID(projectID int) ([]targetscheduler.Target, error) {
 	var targets []targetscheduler.Target
-	if err := g.db.Where("projectid = ?", projectID).Find(&targets).Error; err != nil {
+	if err := g.db.
+		Select("target.*").
+		Joins("LEFT JOIN acquiredimage ON acquiredimage.\"targetId\" = target.\"Id\"").
+		Where("target.projectid = ?", projectID).
+		Group("target.\"Id\"").
+		Order("MAX(COALESCE(acquiredimage.acquireddate, 0)) DESC").
+		Find(&targets).Error; err != nil {
 		return nil, fmt.Errorf("failed to list targets by project ID: %w", err)
 	}
 	return targets, nil
