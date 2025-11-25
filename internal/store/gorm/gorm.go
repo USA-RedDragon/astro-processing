@@ -127,62 +127,146 @@ func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, e
 
 	response.Total = totalStats
 
-	// Get stats per filter
-	type FilterStats struct {
-		FilterName    string
-		AcquiredCount int64
-		AcceptedCount int64
-		RejectedCount int64
+	// Get stats per exposure template (not just filter)
+	type ExposureTemplateStats struct {
+		ExposureTemplateID int
+		FilterName         string
+		DefaultExposure    *float64
+		Gain               *int
+		Offset             *int
+		AcquiredCount      int64
+		AcceptedCount      int64
+		RejectedCount      int64
 	}
 
-	var filterStats []FilterStats
-	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
-		Select("filtername as filter_name, COUNT(*) as acquired_count, "+
-			"SUM(CASE WHEN \"gradingStatus\" = 1 THEN 1 ELSE 0 END) as accepted_count, "+
-			"SUM(CASE WHEN \"gradingStatus\" = 2 THEN 1 ELSE 0 END) as rejected_count").
-		Where("\"targetId\" = ?", targetID).
-		Group("filtername").
-		Scan(&filterStats).Error; err != nil {
-		return response, fmt.Errorf("failed to get filter stats: %w", err)
+	var templateStats []ExposureTemplateStats
+	if err := g.db.Table("acquiredimage as ai").
+		Select(`COALESCE(et."Id", 0) as exposure_template_id, 
+			COALESCE(et.filtername, ai.filtername) as filter_name, 
+			et.defaultexposure as default_exposure, 
+			et.gain, 
+			et.offset, 
+			COUNT(*) as acquired_count,
+			SUM(CASE WHEN ai."gradingStatus" = 1 THEN 1 ELSE 0 END) as accepted_count,
+			SUM(CASE WHEN ai."gradingStatus" = 2 THEN 1 ELSE 0 END) as rejected_count`).
+		Joins("LEFT JOIN exposureplan ep ON ai.\"exposureId\" = ep.\"Id\"").
+		Joins("LEFT JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
+		Where("ai.\"targetId\" = ?", targetID).
+		Group("COALESCE(et.\"Id\", 0), COALESCE(et.filtername, ai.filtername), et.defaultexposure, et.gain, et.offset").
+		Scan(&templateStats).Error; err != nil {
+		return response, fmt.Errorf("failed to get exposure template stats: %w", err)
 	}
 
-	// Get desired counts per filter from exposure plans
-	type FilterDesired struct {
-		FilterName string
-		Desired    int
+	// Get desired counts per exposure template from exposure plans
+	type ExposureTemplateDesired struct {
+		ExposureTemplateID int
+		FilterName         string
+		DefaultExposure    *float64
+		Gain               *int
+		Offset             *int
+		Desired            int
 	}
 
-	var filterDesired []FilterDesired
+	var templateDesired []ExposureTemplateDesired
 	if err := g.db.Table("exposureplan AS ep").
-		Select("et.filtername as filter_name, COALESCE(SUM(ep.desired), 0) as desired").
+		Select(`et."Id" as exposure_template_id, et.filtername as filter_name, et.defaultexposure as default_exposure, et.gain, et.offset, COALESCE(SUM(ep.desired), 0) as desired`).
 		Joins("JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
 		Where("ep.targetid = ?", targetID).
-		Group("et.filtername").
-		Scan(&filterDesired).Error; err != nil {
-		return response, fmt.Errorf("failed to get filter desired counts: %w", err)
+		Group("et.\"Id\", et.filtername, et.defaultexposure, et.gain, et.offset").
+		Scan(&templateDesired).Error; err != nil {
+		return response, fmt.Errorf("failed to get exposure template desired counts: %w", err)
 	}
 
 	// Build desired map for easy lookup
-	desiredMap := make(map[string]int)
-	for _, fd := range filterDesired {
-		desiredMap[fd.FilterName] = fd.Desired
+	desiredMap := make(map[int]int) // key: ExposureTemplateID
+	for _, td := range templateDesired {
+		desiredMap[td.ExposureTemplateID] = td.Desired
 	}
 
-	// Populate filter stats
-	for _, fs := range filterStats {
-		response.Filters[fs.FilterName] = v1.TargetImageStats{
-			AcquiredImages: int(fs.AcquiredCount),
-			AcceptedImages: int(fs.AcceptedCount),
-			RejectedImages: int(fs.RejectedCount),
-			DesiredImages:  desiredMap[fs.FilterName],
+	// Populate stats per exposure template
+	for _, ts := range templateStats {
+		// Skip orphaned images (those without an exposure template)
+		if ts.ExposureTemplateID == 0 {
+			continue
+		}
+
+		// Build human-readable key with filter name and exposure settings
+		filterName := ts.FilterName
+		if filterName == "" {
+			filterName = "Unknown Filter"
+		}
+
+		var parts []string
+		if ts.DefaultExposure != nil && *ts.DefaultExposure > 0 {
+			parts = append(parts, fmt.Sprintf("Exp: %.1fs", *ts.DefaultExposure))
+		}
+		if ts.Gain != nil {
+			parts = append(parts, fmt.Sprintf("Gain: %d", *ts.Gain))
+		}
+		if ts.Offset != nil {
+			parts = append(parts, fmt.Sprintf("Offset: %d", *ts.Offset))
+		}
+
+		var key string
+		if len(parts) > 0 {
+			key = filterName + " ("
+			for i, part := range parts {
+				if i > 0 {
+					key += ", "
+				}
+				key += part
+			}
+			key += ")"
+		} else {
+			// No settings available, just use filter name
+			key = filterName
+		}
+
+		response.Filters[key] = v1.TargetImageStats{
+			AcquiredImages: int(ts.AcquiredCount),
+			AcceptedImages: int(ts.AcceptedCount),
+			RejectedImages: int(ts.RejectedCount),
+			DesiredImages:  desiredMap[ts.ExposureTemplateID],
 		}
 	}
 
-	// Add filters that have desired counts but no acquired images yet
-	for filterName, desired := range desiredMap {
-		if _, exists := response.Filters[filterName]; !exists {
-			response.Filters[filterName] = v1.TargetImageStats{
-				DesiredImages: desired,
+	// Add templates that have desired counts but no acquired images yet
+	for _, td := range templateDesired {
+		// Build human-readable key with filter name and exposure settings
+		filterName := td.FilterName
+		if filterName == "" {
+			filterName = "Unknown Filter"
+		}
+
+		var parts []string
+		if td.DefaultExposure != nil && *td.DefaultExposure > 0 {
+			parts = append(parts, fmt.Sprintf("Exp: %.1fs", *td.DefaultExposure))
+		}
+		if td.Gain != nil {
+			parts = append(parts, fmt.Sprintf("Gain: %d", *td.Gain))
+		}
+		if td.Offset != nil {
+			parts = append(parts, fmt.Sprintf("Offset: %d", *td.Offset))
+		}
+
+		var key string
+		if len(parts) > 0 {
+			key = filterName + " ("
+			for i, part := range parts {
+				if i > 0 {
+					key += ", "
+				}
+				key += part
+			}
+			key += ")"
+		} else {
+			// No settings available, just use filter name
+			key = filterName
+		}
+
+		if _, exists := response.Filters[key]; !exists {
+			response.Filters[key] = v1.TargetImageStats{
+				DesiredImages: td.Desired,
 			}
 		}
 	}
