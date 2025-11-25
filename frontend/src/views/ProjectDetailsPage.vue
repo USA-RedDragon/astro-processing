@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
-    <template v-if="projectWithStats">
-      <ProjectCard :project="projectWithStats" />
+    <template v-if="project">
+      <ProjectCard :project="project" />
     </template>
 
     <!-- Targets Section -->
@@ -37,7 +37,7 @@ export default {
   },
   data() {
     return {
-      project: undefined,
+      project: undefined as ProjectWithStats | undefined,
       stats: undefined,
       targets: [] as TargetWithStats[],
     };
@@ -57,7 +57,10 @@ export default {
 
       API.get(`/projects/${this.$route.params.id}/stats`)
         .then((response) => {
-          this.stats = response.data;
+          if (this.project) {
+            this.project.stats = response.data;
+            this.project.last_image_date = response.data.last_image_date;
+          }
         })
         .catch((error) => {
           console.error('Error fetching project stats:', error);
@@ -85,18 +88,6 @@ export default {
             console.error(`Error fetching stats for target ${target.id}:`, error);
           });
       });
-    },
-  },
-  computed: {
-    projectWithStats(): ProjectWithStats | undefined {
-      if (this.project && this.stats) {
-        const proj = this.project as ProjectWithStats;
-        return {
-          ...proj,
-          stats: this.stats,
-        };
-      }
-      return undefined;
     },
   },
 };

@@ -18,6 +18,9 @@
             <p v-if="target.rotation !== null" class="text-xs text-muted-foreground">
               <span class="font-medium">Rotation:</span> {{ target.rotation }}°
             </p>
+            <p v-if="target.stats?.last_image_date" class="text-xs text-muted-foreground">
+              <span class="font-medium">Last Image:</span> {{ formatDate(target.stats.last_image_date) }}
+            </p>
           </div>
         </CardHeader>
 

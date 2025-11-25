@@ -26,6 +26,7 @@ export interface ListProjectsResponse {
 }
 
 export interface ProjectWithStats extends Project {
+  last_image_date?: number;
   stats?: Stats;
 }
 
@@ -34,6 +35,7 @@ export interface Stats {
   accepted_images: number;
   rejected_images: number;
   acquired_images: number;
+  last_image_date?: number;
 }
 
 export const PROJECT_STATE_DRAFT = "Draft";

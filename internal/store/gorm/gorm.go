@@ -2,6 +2,7 @@ package gorm
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
@@ -71,6 +72,18 @@ func (g *Gorm) GetTargetByID(id int) (*targetscheduler.Target, error) {
 func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, error) {
 	var response v1.TargetImageStatsResponse
 	response.Filters = make(map[string]v1.TargetImageStats)
+
+	// Get last image date for this target
+	var lastImageDate sql.NullInt64
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Where("\"targetId\" = ?", targetID).
+		Select("MAX(acquireddate)").
+		Scan(&lastImageDate).Error; err != nil {
+		return response, fmt.Errorf("failed to get last image date: %w", err)
+	}
+	if lastImageDate.Valid {
+		response.LastImageDate = int(lastImageDate.Int64)
+	}
 
 	// Get total stats for this target
 	var totalStats v1.TargetImageStats
@@ -218,6 +231,19 @@ func (g *Gorm) GetProjectImageStats(projectID int) (v1.ProjectStatsResponse, err
 
 	// Get total stats for this project
 	var totalStats v1.TargetImageStats
+
+	// Get last image date for this project
+	var lastImageDate sql.NullInt64
+	if err := g.db.Model(&targetscheduler.AcquiredImage{}).
+		Joins("JOIN target ON acquiredimage.\"targetId\" = target.\"Id\"").
+		Where("target.projectid = ?", projectID).
+		Select("MAX(acquireddate)").
+		Scan(&lastImageDate).Error; err != nil {
+		return response, fmt.Errorf("failed to get last image date: %w", err)
+	}
+	if lastImageDate.Valid {
+		response.LastImageDate = int(lastImageDate.Int64)
+	}
 
 	// Get total acquired images for this project
 	var acquiredCount int64

@@ -20,7 +20,7 @@
 </template>
 
 <script lang="ts">
-import API from '@/services/API';
+import API from '@/lib/API';
 import type {
   ListProjectsResponse,
   ProjectWithStats,
@@ -74,11 +74,12 @@ export default {
               return {
                 ...project,
                 stats: statsResponse.data,
-              };
+                last_image_date: statsResponse.data.last_image_date,
+              } as ProjectWithStats;
             } catch (err) {
               // If stats fail, return project without stats
               console.error(`Failed to fetch stats for project ${project.id}:`, err);
-              return project;
+              return project as ProjectWithStats;
             }
           })
         );

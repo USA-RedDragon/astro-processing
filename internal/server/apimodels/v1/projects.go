@@ -13,5 +13,6 @@ type ListProjectTargetsResponse struct {
 }
 
 type ProjectStatsResponse struct {
+	LastImageDate int `json:"last_image_date"`
 	TargetImageStats
 }

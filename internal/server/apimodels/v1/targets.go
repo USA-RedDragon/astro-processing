@@ -10,8 +10,9 @@ type CleanedTarget struct {
 }
 
 type TargetImageStatsResponse struct {
-	Total   TargetImageStats            `json:"total"`
-	Filters map[string]TargetImageStats `json:"filters"`
+	LastImageDate int                         `json:"last_image_date"`
+	Total         TargetImageStats            `json:"total"`
+	Filters       map[string]TargetImageStats `json:"filters"`
 }
 
 type TargetImageStats struct {

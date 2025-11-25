@@ -24,16 +24,10 @@ export type EpochCode =
   | typeof EPOCH_J2000
   | typeof EPOCH_J2050;
 
-export interface TargetImageStats {
-  desired_images: number;
-  accepted_images: number;
-  rejected_images: number;
-  acquired_images: number;
-}
-
 export interface TargetImageStatsResponse {
   total: Stats;
   filters: Record<string, Stats>;
+  last_image_date: number;
 }
 
 export interface ListTargetsResponse {
@@ -42,4 +36,5 @@ export interface ListTargetsResponse {
 
 export interface TargetWithStats extends Target {
   stats?: TargetImageStatsResponse;
+  last_image_date?: number;
 }

@@ -32,6 +32,9 @@
             <p v-if="project.active_date" class="text-xs text-muted-foreground">
               <span class="font-medium">Activated:</span> {{ formatDate(project.active_date) }}
             </p>
+            <p v-if="project.last_image_date" class="text-xs text-muted-foreground">
+              <span class="font-medium">Last Image:</span> {{ formatDate(project.last_image_date) }}
+            </p>
           </div>
         </CardHeader>
 
