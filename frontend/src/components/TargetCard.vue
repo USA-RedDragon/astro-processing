@@ -30,7 +30,7 @@
             <StatsDisplay :stats="target.stats.total" total />
 
             <div v-if="target.stats.filters && target.stats.filters.length > 0" class="text-sm space-y-1">
-              <div class="font-semibold mb-1">By Filter:</div>
+              <div class="font-semibold mt-2 mb-1">By Filter:</div>
               <div
                 v-for="(filterStats, index) in target.stats.filters"
                 :key="index"
