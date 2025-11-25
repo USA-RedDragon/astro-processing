@@ -8,9 +8,16 @@
         </div>
 
         <CardHeader>
-          <CardTitle class="pr-24">{{ project.name }}</CardTitle>
-          <p v-if="project.name" class="text-xs text-muted-foreground mt-1">
-            {{ project.name }}
+          <CardTitle class="pr-24">
+            <a v-if="titleLink" :href="titleLink" class="underline hover:text-primary transition">
+              {{ project.name }}
+            </a>
+            <span v-else>
+              {{ project.name }}
+            </span>
+          </CardTitle>
+          <p v-if="project.description" class="text-xs text-muted-foreground mt-1">
+            {{ project.description }}
           </p>
         </CardHeader>
 
@@ -42,34 +49,7 @@
 
         <!-- Circular Progress at bottom right -->
         <div v-if="project.stats" class="absolute bottom-0 right-0">
-          <div class="relative w-16 h-16">
-            <svg class="transform -rotate-90 w-16 h-16">
-              <circle
-                cx="32"
-                cy="32"
-                r="20"
-                stroke="currentColor"
-                stroke-width="3"
-                fill="transparent"
-                class="text-muted"
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r="20"
-                :stroke="getProgressColor(project)"
-                stroke-width="3"
-                fill="transparent"
-                :stroke-dasharray="circumference"
-                :stroke-dashoffset="getStrokeDashoffset(project)"
-                class="transition-all duration-300"
-                stroke-linecap="round"
-              />
-            </svg>
-            <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-xs font-bold">{{ getProgressPercentage(project) }}%</span>
-            </div>
-          </div>
+          <ProgressCircle :percentage="getProgressPercentage(project)" />
         </div>
         </Card>
 </template>
@@ -82,6 +62,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import ProgressCircle from '@/components/ProgressCircle.vue';
 
 import { PROJECT_STATE_ACTIVE, type ProjectWithStats } from '@/types/Project';
 
@@ -94,15 +75,17 @@ export default {
     CardContent,
     CardHeader,
     CardTitle,
+    ProgressCircle,
   },
   props: {
     project: {
       type: Object as PropType<ProjectWithStats>,
       required: true,
     },
-    circumference: {
-      type: Number,
-      default: 2 * Math.PI * 20, // 2 * π * r (r = 20)
+    titleLink: {
+      type: String,
+      required: false,
+      default: null,
     },
   },
   data: function() {
@@ -119,16 +102,6 @@ export default {
       const { accepted_images, desired_images } = project.stats;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
-    },
-    getStrokeDashoffset(project: ProjectWithStats): number {
-      const percentage = this.getProgressPercentage(project);
-      return this.circumference - (percentage / 100) * this.circumference;
-    },
-    getProgressColor(project: ProjectWithStats): string {
-      const percentage = this.getProgressPercentage(project);
-      if (percentage >= 100) return 'hsl(142, 76%, 36%)'; // green
-      if (percentage >= 50) return 'hsl(48, 96%, 53%)'; // yellow
-      return 'hsl(221, 83%, 53%)'; // blue
     },
     formatCoordinate(coord: number): string {
       return coord.toFixed(4);

@@ -9,7 +9,7 @@
     <div v-else class="space-y-8">
       <div v-if="projects.length > 0" class="info px-4">
         <div v-for="project in projects" :key="project.id">
-          <ProjectCard :project="project" />
+          <ProjectCard :project="project" :titleLink="`/project/${project.id}`" />
         </div>
       </div>
     </div>
