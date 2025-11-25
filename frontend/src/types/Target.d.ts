@@ -11,12 +11,6 @@ export interface Target {
   project?: Project;
 }
 
-export interface Project {
-  id: number;
-  name: string;
-  description?: string;
-}
-
 export interface TargetImageStats {
   desired_images: number;
   accepted_images: number;
@@ -25,8 +19,8 @@ export interface TargetImageStats {
 }
 
 export interface TargetImageStatsResponse {
-  total: TargetImageStats;
-  filters: Record<string, TargetImageStats>;
+  total: Stats;
+  filters: Record<string, Stats>;
 }
 
 export interface ListTargetsResponse {

@@ -27,6 +27,8 @@ import { Badge } from '@/components/ui/badge';
 import API from '@/services/API';
 import type {
   ListProjectsResponse,
+  ProjectWithStats,
+  Stats,
 } from '@/types/Project';
 import ProjectCard from '@/components/ProjectCard.vue';
 
@@ -35,7 +37,7 @@ type ProjectGroup = {
   projectId: number | null;
   projectName: string | null;
   projectDescription?: string;
-  targets: TargetWithStats[];
+  projects: ProjectWithStats[];
 };
 
 export default {
@@ -77,7 +79,7 @@ export default {
         const projectsWithStats = await Promise.all(
           projects.map(async (project) => {
             try {
-              const statsResponse = await API.get<ProjectImageStatsResponse>(`/projects/${project.id}/stats`);
+              const statsResponse = await API.get<Stats>(`/projects/${project.id}/stats`);
               return {
                 ...project,
                 stats: statsResponse.data,
@@ -103,10 +105,10 @@ export default {
       let totalAccepted = 0;
       let totalDesired = 0;
 
-      for (const target of group.targets) {
-        if (target.stats) {
-          totalAccepted += target.stats.accepted_images;
-          totalDesired += target.stats.desired_images;
+      for (const project of group.projects) {
+        if (project.stats) {
+          totalAccepted += project.stats.accepted_images;
+          totalDesired += project.stats.desired_images;
         }
       }
 

@@ -1,7 +1,57 @@
 package targetscheduler
 
+import "encoding/json"
+
 type ProjectState int
+
+const (
+	ProjectStateDraft    ProjectState = 0
+	ProjectStateActive   ProjectState = 1
+	ProjectStateInactive ProjectState = 2
+	ProjectStateClosed   ProjectState = 3
+)
+
+func (ps ProjectState) String() string {
+	switch ps {
+	case ProjectStateDraft:
+		return "Draft"
+	case ProjectStateActive:
+		return "Active"
+	case ProjectStateInactive:
+		return "Inactive"
+	case ProjectStateClosed:
+		return "Closed"
+	}
+	return "Unknown"
+}
+
+func (e ProjectState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.String())
+}
+
 type ProjectPriority int
+
+const (
+	ProjectPriorityLow    ProjectPriority = 0
+	ProjectPriorityNormal ProjectPriority = 1
+	ProjectPriorityHigh   ProjectPriority = 2
+)
+
+func (pp ProjectPriority) String() string {
+	switch pp {
+	case ProjectPriorityLow:
+		return "Low"
+	case ProjectPriorityNormal:
+		return "Normal"
+	case ProjectPriorityHigh:
+		return "High"
+	}
+	return "Unknown"
+}
+
+func (e ProjectPriority) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.String())
+}
 
 type Project struct {
 	ID                    int              `json:"id" gorm:"column:Id;primaryKey"`

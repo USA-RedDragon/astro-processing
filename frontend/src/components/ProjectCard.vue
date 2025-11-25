@@ -9,8 +9,8 @@
 
         <CardHeader>
           <CardTitle class="pr-24">{{ project.name }}</CardTitle>
-          <p v-if="project.project?.name" class="text-xs text-muted-foreground mt-1">
-            {{ project.project.name }}
+          <p v-if="project.name" class="text-xs text-muted-foreground mt-1">
+            {{ project.name }}
           </p>
         </CardHeader>
 
@@ -83,9 +83,8 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-import type {
-  projectWithStats,
-} from '@/types/project';
+import { PROJECT_STATE_ACTIVE, type ProjectWithStats } from '@/types/Project';
+
 import type { PropType } from 'vue';
 
 export default {
@@ -98,7 +97,7 @@ export default {
   },
   props: {
     project: {
-      type: Object as PropType<projectWithStats>,
+      type: Object as PropType<ProjectWithStats>,
       required: true,
     },
     circumference: {
@@ -115,17 +114,17 @@ export default {
   unmounted() {
   },
   methods: {
-    getProgressPercentage(project: projectWithStats): number {
+    getProgressPercentage(project: ProjectWithStats): number {
       if (!project.stats) return 0;
       const { accepted_images, desired_images } = project.stats;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
     },
-    getStrokeDashoffset(project: projectWithStats): number {
+    getStrokeDashoffset(project: ProjectWithStats): number {
       const percentage = this.getProgressPercentage(project);
       return this.circumference - (percentage / 100) * this.circumference;
     },
-    getProgressColor(project: projectWithStats): string {
+    getProgressColor(project: ProjectWithStats): string {
       const percentage = this.getProgressPercentage(project);
       if (percentage >= 100) return 'hsl(142, 76%, 36%)'; // green
       if (percentage >= 50) return 'hsl(48, 96%, 53%)'; // yellow
@@ -135,7 +134,7 @@ export default {
       return coord.toFixed(4);
     },
     getStatusVariant(
-      project: projectWithStats,
+      project: ProjectWithStats,
     ): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (project.stats) {
         const { accepted_images, desired_images } = project.stats;
@@ -143,16 +142,16 @@ export default {
           return 'default'; // completed
         }
       }
-      return project.active ? 'secondary' : 'outline';
+      return project.state === PROJECT_STATE_ACTIVE ? 'secondary' : 'outline';
     },
-    getStatusText(project: projectWithStats): string {
+    getStatusText(project: ProjectWithStats): string {
       if (project.stats) {
         const { accepted_images, desired_images } = project.stats;
         if (accepted_images >= desired_images) {
           return 'Completed';
         }
       }
-      return project.active ? 'Active' : 'Inactive';
+      return project.state ?? 'Unknown';
     },
   },
 };
