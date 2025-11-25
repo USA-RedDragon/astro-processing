@@ -137,9 +137,9 @@ export default {
 }
 
 .info {
-  -webkit-column-count: 4;
-  -moz-column-count: 4;
-  column-count: 4;
+  -webkit-column-count: 3;
+  -moz-column-count: 3;
+  column-count: 3;
   column-gap: 1rem;
 }
 
@@ -148,25 +148,32 @@ export default {
   margin-bottom: 1rem;
 }
 
-@media (max-width: 2100px) {
+@media (min-width: 2400px) {
   .info {
     -moz-column-count: 4;
     -webkit-column-count: 4;
     column-count: 4;
   }
 }
-@media (max-width: 1200px) {
+@media (max-width: 1600px) {
   .info {
     -moz-column-count: 3;
     -webkit-column-count: 3;
     column-count: 3;
   }
 }
-@media (max-width: 600px) {
+@media (max-width: 1200px) {
   .info {
     -moz-column-count: 2;
     -webkit-column-count: 2;
     column-count: 2;
+  }
+}
+@media (max-width: 800px) {
+  .info {
+    -moz-column-count: 1;
+    -webkit-column-count: 1;
+    column-count: 1;
   }
 }
 </style>
