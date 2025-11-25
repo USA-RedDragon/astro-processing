@@ -17,13 +17,6 @@
 </template>
 
 <script lang="ts">
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import API from '@/services/API';
 import type {
   ListProjectsResponse,
@@ -42,11 +35,6 @@ type ProjectGroup = {
 
 export default {
   components: {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-    Badge,
     ProjectCard,
   },
   created() {

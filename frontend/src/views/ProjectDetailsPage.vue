@@ -22,8 +22,6 @@
 </template>
 
 <script lang="ts">
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import TargetCard from '@/components/TargetCard.vue';
 
 import API from '@/services/API';
@@ -34,11 +32,6 @@ import type { ProjectWithStats } from '@/types/Project';
 export default {
   name: 'ProjectDetailsPage',
   components: {
-    Card,
-    CardHeader,
-    CardTitle,
-    CardContent,
-    Badge,
     TargetCard,
     ProjectCard
   },
