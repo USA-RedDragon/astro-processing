@@ -8,9 +8,12 @@
     </div>
     <div v-else class="space-y-8">
       <div v-if="projects.length > 0" class="info px-4">
-        <div v-for="project in projects" :key="project.id">
-          <ProjectCard :project="project" :titleLink="`/project/${project.id}`" />
-        </div>
+        <ProjectCard
+          v-for="project in projects"
+          :key="project.id"
+          :project="project"
+          :titleLink="`/project/${project.id}`"
+        />
       </div>
     </div>
   </div>
@@ -137,43 +140,29 @@ export default {
 }
 
 .info {
-  -webkit-column-count: 3;
-  -moz-column-count: 3;
-  column-count: 3;
-  column-gap: 1rem;
-}
-
-.info > div {
-  break-inside: avoid;
-  margin-bottom: 1rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
 }
 
 @media (min-width: 2400px) {
   .info {
-    -moz-column-count: 4;
-    -webkit-column-count: 4;
-    column-count: 4;
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 @media (max-width: 1600px) {
   .info {
-    -moz-column-count: 3;
-    -webkit-column-count: 3;
-    column-count: 3;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 @media (max-width: 1200px) {
   .info {
-    -moz-column-count: 2;
-    -webkit-column-count: 2;
-    column-count: 2;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 800px) {
   .info {
-    -moz-column-count: 1;
-    -webkit-column-count: 1;
-    column-count: 1;
+    grid-template-columns: repeat(1, 1fr);
   }
 }
 </style>
