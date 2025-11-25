@@ -15,9 +15,8 @@ dockers:
       - "ghcr.io/usa-reddragon/astro-processing:v{{ .Major }}.{{ .Minor }}-amd64"
       - "ghcr.io/usa-reddragon/astro-processing:latest-amd64"
     use: buildx
+    dockerfile: dockers/backend/Dockerfile
     goarch: amd64
-    extra_files:
-      - frontend
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -34,9 +33,8 @@ dockers:
       - "ghcr.io/usa-reddragon/astro-processing:v{{ .Major }}.{{ .Minor }}-arm64"
       - "ghcr.io/usa-reddragon/astro-processing:latest-arm64"
     use: buildx
+    dockerfile: dockers/backend/Dockerfile
     goarch: arm64
-    extra_files:
-      - frontend
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
