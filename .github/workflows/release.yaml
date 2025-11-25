@@ -22,6 +22,8 @@ jobs:
       push: true
       image-name: usa-reddragon/astro-processing-frontend
       dockerfile: docker/frontend/Dockerfile
+      # beta for main push, unset otherwise
+      version: ${{ github.ref_name == 'main' && 'beta' || '' }}
 
   release:
     name: Release
