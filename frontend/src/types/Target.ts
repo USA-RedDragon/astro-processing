@@ -26,8 +26,19 @@ export type EpochCode =
 
 export interface TargetImageStatsResponse {
   total: Stats;
-  filters: Record<string, Stats>;
+  filters: TargetFilterStats[];
   last_image_date: number;
+}
+
+export interface TargetFilterStats {
+  filter_name: string;
+  exposure_time?: number;
+  gain?: number;
+  offset?: number;
+  desired_images: number;
+  accepted_images: number;
+  rejected_images: number;
+  acquired_images: number;
 }
 
 export interface ListTargetsResponse {

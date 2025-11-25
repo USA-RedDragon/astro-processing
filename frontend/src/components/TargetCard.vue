@@ -29,15 +29,20 @@
           <div v-if="target.stats && target.stats.total">
             <StatsDisplay :stats="target.stats.total" total />
 
-            <div v-if="target.stats.filters && Object.keys(target.stats.filters).length > 0" class="text-sm space-y-1">
+            <div v-if="target.stats.filters && target.stats.filters.length > 0" class="text-sm space-y-1">
               <div class="font-semibold mb-1">By Filter:</div>
               <div
-                v-for="(stats, filterName) in target.stats.filters"
-                :key="filterName"
-                class="flex justify-between items-center text-xs py-1"
+                v-for="(filterStats, index) in target.stats.filters"
+                :key="index"
+                class="flex justify-between items-center text-xs py-1 px-2 rounded"
+                :class="{
+                  'bg-green-500/20 dark:bg-green-500/30':
+                    filterStats.accepted_images >= filterStats.desired_images &&
+                    filterStats.desired_images > 0
+                }"
               >
-                <span class="font-medium">{{ filterName }}:</span>
-                <StatsDisplay :stats="stats" />
+                <span class="font-medium">{{ formatFilterName(filterStats) }}:</span>
+                <StatsDisplay :stats="filterStats" />
               </div>
             </div>
           </div>
@@ -62,7 +67,7 @@ import { Badge } from '@/components/ui/badge';
 import StatsDisplay from '@/components/StatsDisplay.vue';
 import ProgressCircle from '@/components/ProgressCircle.vue';
 
-import type { TargetWithStats } from '@/types/Target';
+import type { TargetWithStats, TargetFilterStats } from '@/types/Target';
 
 import type { PropType } from 'vue';
 import { formatDate, formatRA, formatDec } from '@/lib/formatters';
@@ -95,6 +100,30 @@ export default {
     formatDate,
     formatRA,
     formatDec,
+    formatFilterName(filterStats: TargetFilterStats): string {
+      let name = filterStats.filter_name;
+      const parts = [];
+
+      if (filterStats.exposure_time !== undefined && filterStats.exposure_time !== null) {
+        parts.push(`${filterStats.exposure_time.toFixed(1)}s`);
+      }
+      if (filterStats.gain !== undefined && filterStats.gain !== null) {
+        parts.push(`Gain ${filterStats.gain}`);
+      }
+      if (filterStats.offset !== undefined && filterStats.offset !== null) {
+        if (filterStats.offset === -1) {
+          parts.push(`Offset Default`);
+        } else {
+          parts.push(`Offset ${filterStats.offset}`);
+        }
+      }
+
+      if (parts.length > 0) {
+        name += ` (${parts.join(', ')})`;
+      }
+
+      return name;
+    },
     getProgressPercentage(target: TargetWithStats): number {
       if (!target.stats || !target.stats.total) return 0;
       const { accepted_images, desired_images } = target.stats.total;

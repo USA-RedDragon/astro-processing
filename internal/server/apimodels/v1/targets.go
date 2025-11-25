@@ -10,9 +10,20 @@ type CleanedTarget struct {
 }
 
 type TargetImageStatsResponse struct {
-	LastImageDate int                         `json:"last_image_date"`
-	Total         TargetImageStats            `json:"total"`
-	Filters       map[string]TargetImageStats `json:"filters"`
+	LastImageDate int                 `json:"last_image_date"`
+	Total         TargetImageStats    `json:"total"`
+	Filters       []TargetFilterStats `json:"filters"`
+}
+
+type TargetFilterStats struct {
+	FilterName     string   `json:"filter_name"`
+	ExposureTime   *float64 `json:"exposure_time,omitempty"`
+	Gain           *int     `json:"gain,omitempty"`
+	Offset         *int     `json:"offset,omitempty"`
+	DesiredImages  int      `json:"desired_images"`
+	AcceptedImages int      `json:"accepted_images"`
+	RejectedImages int      `json:"rejected_images"`
+	AcquiredImages int      `json:"acquired_images"`
 }
 
 type TargetImageStats struct {

@@ -71,7 +71,7 @@ func (g *Gorm) GetTargetByID(id int) (*targetscheduler.Target, error) {
 
 func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, error) {
 	var response v1.TargetImageStatsResponse
-	response.Filters = make(map[string]v1.TargetImageStats)
+	response.Filters = make([]v1.TargetFilterStats, 0)
 
 	// Get last image date for this target
 	var lastImageDate sql.NullInt64
@@ -190,84 +190,53 @@ func (g *Gorm) GetTargetImageStats(targetID int) (v1.TargetImageStatsResponse, e
 			continue
 		}
 
-		// Build human-readable key with filter name and exposure settings
 		filterName := ts.FilterName
 		if filterName == "" {
 			filterName = "Unknown Filter"
 		}
 
-		var parts []string
-		if ts.DefaultExposure != nil && *ts.DefaultExposure > 0 {
-			parts = append(parts, fmt.Sprintf("Exp: %.1fs", *ts.DefaultExposure))
-		}
-		if ts.Gain != nil {
-			parts = append(parts, fmt.Sprintf("Gain: %d", *ts.Gain))
-		}
-		if ts.Offset != nil {
-			parts = append(parts, fmt.Sprintf("Offset: %d", *ts.Offset))
-		}
-
-		var key string
-		if len(parts) > 0 {
-			key = filterName + " ("
-			for i, part := range parts {
-				if i > 0 {
-					key += ", "
-				}
-				key += part
-			}
-			key += ")"
-		} else {
-			// No settings available, just use filter name
-			key = filterName
-		}
-
-		response.Filters[key] = v1.TargetImageStats{
+		response.Filters = append(response.Filters, v1.TargetFilterStats{
+			FilterName:     filterName,
+			ExposureTime:   ts.DefaultExposure,
+			Gain:           ts.Gain,
+			Offset:         ts.Offset,
 			AcquiredImages: int(ts.AcquiredCount),
 			AcceptedImages: int(ts.AcceptedCount),
 			RejectedImages: int(ts.RejectedCount),
 			DesiredImages:  desiredMap[ts.ExposureTemplateID],
-		}
+		})
 	}
 
 	// Add templates that have desired counts but no acquired images yet
 	for _, td := range templateDesired {
-		// Build human-readable key with filter name and exposure settings
-		filterName := td.FilterName
-		if filterName == "" {
-			filterName = "Unknown Filter"
-		}
-
-		var parts []string
-		if td.DefaultExposure != nil && *td.DefaultExposure > 0 {
-			parts = append(parts, fmt.Sprintf("Exp: %.1fs", *td.DefaultExposure))
-		}
-		if td.Gain != nil {
-			parts = append(parts, fmt.Sprintf("Gain: %d", *td.Gain))
-		}
-		if td.Offset != nil {
-			parts = append(parts, fmt.Sprintf("Offset: %d", *td.Offset))
-		}
-
-		var key string
-		if len(parts) > 0 {
-			key = filterName + " ("
-			for i, part := range parts {
-				if i > 0 {
-					key += ", "
-				}
-				key += part
+		// Check if this template already exists in the response
+		found := false
+		for _, existing := range response.Filters {
+			if existing.FilterName == td.FilterName &&
+				((existing.ExposureTime == nil && td.DefaultExposure == nil) || (existing.ExposureTime != nil && td.DefaultExposure != nil && *existing.ExposureTime == *td.DefaultExposure)) &&
+				((existing.Gain == nil && td.Gain == nil) || (existing.Gain != nil && td.Gain != nil && *existing.Gain == *td.Gain)) &&
+				((existing.Offset == nil && td.Offset == nil) || (existing.Offset != nil && td.Offset != nil && *existing.Offset == *td.Offset)) {
+				found = true
+				break
 			}
-			key += ")"
-		} else {
-			// No settings available, just use filter name
-			key = filterName
 		}
 
-		if _, exists := response.Filters[key]; !exists {
-			response.Filters[key] = v1.TargetImageStats{
-				DesiredImages: td.Desired,
+		if !found {
+			filterName := td.FilterName
+			if filterName == "" {
+				filterName = "Unknown Filter"
 			}
+
+			response.Filters = append(response.Filters, v1.TargetFilterStats{
+				FilterName:     filterName,
+				ExposureTime:   td.DefaultExposure,
+				Gain:           td.Gain,
+				Offset:         td.Offset,
+				DesiredImages:  td.Desired,
+				AcquiredImages: 0,
+				AcceptedImages: 0,
+				RejectedImages: 0,
+			})
 		}
 	}
 
