@@ -62,6 +62,7 @@ import ProgressCircle from '@/components/ProgressCircle.vue';
 import type { TargetWithStats } from '@/types/Target';
 
 import type { PropType } from 'vue';
+import { formatDate, formatRA, formatDec } from '@/lib/formatters';
 
 export default {
   components: {
@@ -88,31 +89,14 @@ export default {
   unmounted() {
   },
   methods: {
+    formatDate,
+    formatRA,
+    formatDec,
     getProgressPercentage(target: TargetWithStats): number {
       if (!target.stats || !target.stats.total) return 0;
       const { accepted_images, desired_images } = target.stats.total;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
-    },
-    formatRA(ra: number): string {
-      // Convert decimal degrees to hours
-      const hours = ra / 15;
-      const h = Math.floor(hours);
-      const m = Math.floor((hours - h) * 60);
-      const s = Math.round(((hours - h) * 60 - m) * 60);
-      return `${h}h ${m}m ${s}s`;
-    },
-    formatDec(dec: number): string {
-      // Format declination in degrees, arcminutes, arcseconds
-      const sign = dec >= 0 ? '+' : '-';
-      const absDec = Math.abs(dec);
-      const d = Math.floor(absDec);
-      const m = Math.floor((absDec - d) * 60);
-      const s = Math.round(((absDec - d) * 60 - m) * 60);
-      return `${sign}${d}° ${m}' ${s}"`;
-    },
-    formatCoordinate(coord: number): string {
-      return coord.toFixed(4);
     },
     getStatusVariant(
       target: TargetWithStats,

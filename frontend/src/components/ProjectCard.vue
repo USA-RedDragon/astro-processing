@@ -69,6 +69,7 @@ import {
 
 import type { PropType } from 'vue';
 import StatsDisplay from './StatsDisplay.vue';
+import { formatDate } from '@/lib/formatters';
 
 export default {
   components: {
@@ -100,22 +101,12 @@ export default {
   unmounted() {
   },
   methods: {
+    formatDate,
     getProgressPercentage(project: ProjectWithStats): number {
       if (!project.stats) return 0;
       const { accepted_images, desired_images } = project.stats;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
-    },
-    formatDate(timestamp: number): string {
-      const date = new Date(timestamp * 1000);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      });
-    },
-    formatCoordinate(coord: number): string {
-      return coord.toFixed(4);
     },
     getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (priority === PROJECT_PRIORITY_HIGH) return 'destructive';

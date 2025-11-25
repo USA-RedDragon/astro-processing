@@ -12,7 +12,7 @@
 </template>
 
 <script lang="ts">
-import API from '@/services/API';
+import API from '@/lib/API';
 export default {
   data: function() {
     return {
@@ -20,8 +20,7 @@ export default {
       version: '',
     };
   },
-  // Get version from API onMounted
-  mounted() {
+  created() {
     API.get('/version')
       .then((response) => {
         this.version = response.data;

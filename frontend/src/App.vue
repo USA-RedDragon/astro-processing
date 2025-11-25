@@ -24,8 +24,7 @@ export default {
     return {
     };
   },
-  created() {},
-  mounted() {
+  created() {
     this.fetchData();
   },
   unmounted() {

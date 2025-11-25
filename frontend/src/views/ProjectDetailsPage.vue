@@ -24,7 +24,7 @@
 <script lang="ts">
 import TargetCard from '@/components/TargetCard.vue';
 
-import API from '@/services/API';
+import API from '@/lib/API';
 import type { TargetWithStats, ListTargetsResponse } from '@/types/Target';
 import ProjectCard from '@/components/ProjectCard.vue';
 import type { ProjectWithStats } from '@/types/Project';
