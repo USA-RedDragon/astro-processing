@@ -9,9 +9,16 @@
 
         <CardHeader>
           <CardTitle class="pr-24">{{ target.name }}</CardTitle>
-          <p v-if="target.name" class="text-xs text-muted-foreground mt-1">
-            {{ target.name }}
-          </p>
+          <div class="flex flex-col gap-1 mt-2">
+            <p v-if="target.ra !== null && target.dec !== null" class="text-xs text-muted-foreground">
+              <span class="font-medium">RA:</span> {{ formatRA(target.ra) }}
+              <span class="font-medium ml-2">Dec:</span> {{ formatDec(target.dec) }}
+              <span class="ml-2">({{ target.epoch_code }})</span>
+            </p>
+            <p v-if="target.rotation !== null" class="text-xs text-muted-foreground">
+              <span class="font-medium">Rotation:</span> {{ target.rotation }}°
+            </p>
+          </div>
         </CardHeader>
 
         <CardContent class="space-y-4 pb-12">
@@ -86,6 +93,23 @@ export default {
       const { accepted_images, desired_images } = target.stats.total;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
+    },
+    formatRA(ra: number): string {
+      // Convert decimal degrees to hours
+      const hours = ra / 15;
+      const h = Math.floor(hours);
+      const m = Math.floor((hours - h) * 60);
+      const s = Math.round(((hours - h) * 60 - m) * 60);
+      return `${h}h ${m}m ${s}s`;
+    },
+    formatDec(dec: number): string {
+      // Format declination in degrees, arcminutes, arcseconds
+      const sign = dec >= 0 ? '+' : '-';
+      const absDec = Math.abs(dec);
+      const d = Math.floor(absDec);
+      const m = Math.floor((absDec - d) * 60);
+      const s = Math.round(((absDec - d) * 60 - m) * 60);
+      return `${sign}${d}° ${m}' ${s}"`;
     },
     formatCoordinate(coord: number): string {
       return coord.toFixed(4);

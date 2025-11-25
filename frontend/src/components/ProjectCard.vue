@@ -1,14 +1,20 @@
 <template>
         <Card class="project-card relative overflow-hidden">
         <!-- Status Badge at top right -->
-        <div class="absolute top-5 right-2 z-10">
+        <div class="absolute top-5 right-2 z-10 flex gap-2">
+          <Badge v-if="project.is_mosaic" variant="outline" class="text-sm">
+            Mosaic
+          </Badge>
+          <Badge v-if="project.priority" :variant="getPriorityVariant(project.priority)" class="text-sm">
+            {{ project.priority }}
+          </Badge>
           <Badge :variant="getStatusVariant(project)">
             {{ getStatusText(project) }}
           </Badge>
         </div>
 
         <CardHeader>
-          <CardTitle class="pr-24">
+          <CardTitle class="pr-64">
             <a v-if="titleLink" :href="titleLink" class="underline hover:text-primary transition">
               {{ project.name }}
             </a>
@@ -16,35 +22,24 @@
               {{ project.name }}
             </span>
           </CardTitle>
-          <p v-if="project.description" class="text-xs text-muted-foreground mt-1">
-            {{ project.description }}
-          </p>
+          <div class="flex flex-col gap-1 mt-2">
+            <p v-if="project.description" class="text-xs text-muted-foreground">
+              {{ project.description }}
+            </p>
+            <p v-if="project.create_date" class="text-xs text-muted-foreground">
+              <span class="font-medium">Created:</span> {{ formatDate(project.create_date) }}
+            </p>
+            <p v-if="project.active_date" class="text-xs text-muted-foreground">
+              <span class="font-medium">Activated:</span> {{ formatDate(project.active_date) }}
+            </p>
+          </div>
         </CardHeader>
 
         <CardContent class="space-y-4 pb-12">
           <!-- Image Statistics -->
           <div v-if="project.stats">
-            <p class="text-sm text-muted-foreground mb-2">Image Statistics</p>
-            <div class="space-y-1 text-sm">
-              <div class="flex justify-between">
-                <span>Desired:</span>
-                <span class="font-semibold">{{ project.stats.desired_images }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Acquired:</span>
-                <span class="font-semibold">{{ project.stats.acquired_images }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Accepted:</span>
-                <span class="font-semibold text-green-600">{{ project.stats.accepted_images }}</span>
-              </div>
-              <div class="flex justify-between">
-                <span>Rejected:</span>
-                <span class="font-semibold text-red-600">{{ project.stats.rejected_images }}</span>
-              </div>
-            </div>
+            <StatsDisplay :stats="project.stats" total />
           </div>
-
         </CardContent>
 
         <!-- Circular Progress at bottom right -->
@@ -64,9 +59,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import ProgressCircle from '@/components/ProgressCircle.vue';
 
-import { PROJECT_STATE_ACTIVE, type ProjectWithStats } from '@/types/Project';
+import {
+  PROJECT_STATE_ACTIVE,
+  PROJECT_PRIORITY_HIGH,
+  PROJECT_PRIORITY_LOW,
+  type ProjectWithStats,
+  type ProjectPriority,
+} from '@/types/Project';
 
 import type { PropType } from 'vue';
+import StatsDisplay from './StatsDisplay.vue';
 
 export default {
   components: {
@@ -76,6 +78,7 @@ export default {
     CardHeader,
     CardTitle,
     ProgressCircle,
+    StatsDisplay,
   },
   props: {
     project: {
@@ -103,8 +106,21 @@ export default {
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
     },
+    formatDate(timestamp: number): string {
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    },
     formatCoordinate(coord: number): string {
       return coord.toFixed(4);
+    },
+    getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
+      if (priority === PROJECT_PRIORITY_HIGH) return 'destructive';
+      if (priority === PROJECT_PRIORITY_LOW) return 'outline';
+      return 'secondary';
     },
     getStatusVariant(
       project: ProjectWithStats,

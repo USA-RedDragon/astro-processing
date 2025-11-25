@@ -1,21 +1,20 @@
 <template>
   <div class="text-sm mb-3" v-if="total">
-    <div class="font-semibold mb-1">Total:</div>
     <div class="flex gap-3 text-xs">
       <span>
-        <span class="text-muted-foreground">Desired:</span>
+        <span>Desired:</span>
         <span :class="desiredClass + ' ml-1'">{{ stats.desired_images }}</span>
       </span>
       <span>
-        <span class="text-muted-foreground">Acquired:</span>
+        <span>Acquired:</span>
         <span :class="acquiredClass + ' ml-1'">{{ stats.acquired_images }}</span>
       </span>
       <span>
-        <span class="text-muted-foreground">Accepted:</span>
+        <span>Accepted:</span>
         <span :class="acceptedClass + ' ml-1'">{{ stats.accepted_images }}</span>
       </span>
       <span>
-        <span class="text-muted-foreground">Rejected:</span>
+        <span>Rejected:</span>
         <span :class="rejectedClass + ' ml-1'">{{ stats.rejected_images }}</span>
       </span>
     </div>
