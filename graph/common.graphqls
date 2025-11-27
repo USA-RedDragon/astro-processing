@@ -1,0 +1,11 @@
+type ImagingStats {
+  desired_images: Int!
+  accepted_images: Int!
+  rejected_images: Int!
+  acquired_images: Int!
+}
+
+extend type Query {
+  version: String!
+  commit: String!
+}

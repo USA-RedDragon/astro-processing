@@ -1,0 +1,38 @@
+extend type Query {
+  targets: [Target!]!
+  target(id: ID!): Target
+}
+
+enum Epoch {
+  JNOW
+  B1950
+  J2000
+  J2050
+}
+
+type Target {
+  id: ID!
+  name: String!
+  active: Boolean!
+  ra: Float
+  dec: Float
+  epoch: Epoch!
+  rotation: Float!
+  region_of_interest: Float!
+  project: Project
+  stats: TargetStats!
+}
+
+type TargetStats {
+  last_image_date: Int
+  total: ImagingStats!
+  filters: [TargetFilterStats!]!
+}
+
+type TargetFilterStats {
+  filter_name: String!
+  exposure_time: Int
+  gain: Int
+  offset: Int
+  imaging: ImagingStats!
+}

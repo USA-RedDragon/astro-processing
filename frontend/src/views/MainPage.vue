@@ -21,19 +21,52 @@
 
 <script lang="ts">
 import API from '@/lib/API';
-import type {
-  ListProjectsResponse,
-  ProjectWithStats,
-  Stats,
-} from '@/types/Project';
 import ProjectCard from '@/components/ProjectCard.vue';
+import type { Project } from '../graphql/graphql';
+
+const GET_PROJECTS_QUERY = `
+  query GetProjects {
+    projects {
+      id
+      profile_id
+      name
+      description
+      state
+      priority
+      create_date
+      active_date
+      inactive_date
+      minimum_time
+      minimum_altitude
+      use_custom_horizon
+      horizon_offset
+      meridian_window
+      filter_switch_frequency
+      dither_every
+      enable_grader
+      is_mosaic
+      flats_handling
+      maximum_altitude
+      smart_exposure_order
+      stats {
+        imaging {
+          desired_images
+          accepted_images
+          rejected_images
+          acquired_images
+        }
+        last_image_date
+      }
+    }
+  }
+`;
 
 type ProjectGroup = {
   key: string;
   projectId: number | null;
   projectName: string | null;
   projectDescription?: string;
-  projects: ProjectWithStats[];
+  projects: Project[];
 };
 
 export default {
@@ -49,7 +82,7 @@ export default {
   },
   data: function() {
     return {
-      projects: [] as ProjectWithStats[],
+      projects: [] as Project[],
       loading: true,
       error: null as string | null,
       circumference: 2 * Math.PI * 28, // 28 is the radius for target cards
@@ -62,33 +95,16 @@ export default {
         this.loading = true;
         this.error = null;
 
-        // Fetch all targets
-        const response = await API.get<ListProjectsResponse>('/projects');
-        const projects = response.data.projects;
+        // Fetch all projects with their stats via GraphQL
+        const response = await API.request(GET_PROJECTS_QUERY);
+        const projects = response.projects;
 
-        // Fetch stats for each target
-        const projectsWithStats = await Promise.all(
-          projects.map(async (project) => {
-            try {
-              const statsResponse = await API.get<Stats>(`/projects/${project.id}/stats`);
-              return {
-                ...project,
-                stats: statsResponse.data,
-                last_image_date: statsResponse.data.last_image_date,
-              } as ProjectWithStats;
-            } catch (err) {
-              // If stats fail, return project without stats
-              console.error(`Failed to fetch stats for project ${project.id}:`, err);
-              return project as ProjectWithStats;
-            }
-          })
-        );
-
-        this.projects = projectsWithStats;
+        // Use projects directly since GraphQL includes all needed data
+        this.projects = projects;
       } catch (err) {
         const error = err as Error;
-        this.error = error.message || 'Failed to fetch targets';
-        console.error('Error fetching targets:', err);
+        this.error = error.message || 'Failed to fetch projects';
+        console.error('Error fetching projects:', err);
       } finally {
         this.loading = false;
       }
@@ -99,8 +115,8 @@ export default {
 
       for (const project of group.projects) {
         if (project.stats) {
-          totalAccepted += project.stats.accepted_images;
-          totalDesired += project.stats.desired_images;
+          totalAccepted += project.stats.imaging.accepted_images;
+          totalDesired += project.stats.imaging.desired_images;
         }
       }
 

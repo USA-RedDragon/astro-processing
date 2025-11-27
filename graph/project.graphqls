@@ -1,0 +1,49 @@
+extend type Query {
+  projects: [Project!]!
+  project(id: ID!): Project
+}
+
+enum ProjectState {
+  DRAFT
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum ProjectPriority {
+  LOW
+  NORMAL
+  HIGH
+}
+
+type Project {
+  id: ID!
+  profile_id: String!
+  name: String!
+  description: String
+  state: ProjectState
+  priority: ProjectPriority
+  create_date: Int
+  active_date: Int
+  inactive_date: Int
+  minimum_time: Int
+  minimum_altitude: Float
+  use_custom_horizon: Boolean
+  horizon_offset: Float
+  meridian_window: Int
+  filter_switch_frequency: Int
+  dither_every: Int
+  enable_grader: Boolean
+  is_mosaic: Boolean
+  # Maybe an enum or bool
+  flats_handling: Int
+  maximum_altitude: Float
+  smart_exposure_order: Int
+  targets: [Target!]!
+  stats: ProjectStats!
+}
+
+type ProjectStats {
+  imaging: ImagingStats!
+  last_image_date: Int
+}

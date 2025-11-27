@@ -32,8 +32,8 @@
             <p v-if="project.active_date" class="text-xs text-muted-foreground">
               <span class="font-medium">Activated:</span> {{ formatDate(project.active_date) }}
             </p>
-            <p v-if="project.last_image_date" class="text-xs text-muted-foreground">
-              <span class="font-medium">Last Image:</span> {{ formatDate(project.last_image_date) }}
+            <p v-if="project.stats.last_image_date" class="text-xs text-muted-foreground">
+              <span class="font-medium">Last Image:</span> {{ formatDate(project.stats.last_image_date) }}
             </p>
           </div>
         </CardHeader>
@@ -41,7 +41,7 @@
         <CardContent class="space-y-4 pb-12">
           <!-- Image Statistics -->
           <div v-if="project.stats">
-            <StatsDisplay :stats="project.stats" total />
+            <StatsDisplay :stats="project.stats.imaging" total />
           </div>
         </CardContent>
 
@@ -62,17 +62,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import ProgressCircle from '@/components/ProgressCircle.vue';
 
-import {
-  PROJECT_STATE_ACTIVE,
-  PROJECT_PRIORITY_HIGH,
-  PROJECT_PRIORITY_LOW,
-  type ProjectWithStats,
-  type ProjectPriority,
-} from '@/types/Project';
-
 import type { PropType } from 'vue';
 import StatsDisplay from './StatsDisplay.vue';
 import { formatDate } from '@/lib/formatters';
+import type {
+  Project,
+  ProjectPriority,
+} from '../graphql/graphql';
 
 export default {
   components: {
@@ -86,7 +82,7 @@ export default {
   },
   props: {
     project: {
-      type: Object as PropType<ProjectWithStats>,
+      type: Object as PropType<Project>,
       required: true,
     },
     titleLink: {
@@ -105,31 +101,31 @@ export default {
   },
   methods: {
     formatDate,
-    getProgressPercentage(project: ProjectWithStats): number {
+    getProgressPercentage(project: Project): number {
       if (!project.stats) return 0;
-      const { accepted_images, desired_images } = project.stats;
+      const { accepted_images, desired_images } = project.stats.imaging;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
     },
     getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (priority === PROJECT_PRIORITY_HIGH) return 'destructive';
-      if (priority === PROJECT_PRIORITY_LOW) return 'outline';
+      if (priority === 'HIGH') return 'destructive';
+      if (priority === 'LOW') return 'outline';
       return 'secondary';
     },
     getStatusVariant(
-      project: ProjectWithStats,
+      project: Project,
     ): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (project.stats) {
-        const { accepted_images, desired_images } = project.stats;
+        const { accepted_images, desired_images } = project.stats.imaging;
         if (accepted_images >= desired_images) {
           return 'default'; // completed
         }
       }
-      return project.state === PROJECT_STATE_ACTIVE ? 'secondary' : 'outline';
+      return project.state === 'ACTIVE' ? 'secondary' : 'outline';
     },
-    getStatusText(project: ProjectWithStats): string {
+    getStatusText(project: Project): string {
       if (project.stats) {
-        const { accepted_images, desired_images } = project.stats;
+        const { accepted_images, desired_images } = project.stats.imaging;
         if (accepted_images >= desired_images) {
           return 'Completed';
         }

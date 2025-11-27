@@ -13,6 +13,14 @@
 
 <script lang="ts">
 import API from '@/lib/API';
+
+const GET_VERSION_QUERY = `
+  query GetVersion {
+    version
+    commit
+  }
+`;
+
 export default {
   data: function() {
     return {
@@ -20,14 +28,13 @@ export default {
       version: '',
     };
   },
-  created() {
-    API.get('/version')
-      .then((response) => {
-        this.version = response.data;
-      })
-      .catch((error) => {
-        console.log(error);
-      });
+  async created() {
+    try {
+      const response = await API.request(GET_VERSION_QUERY);
+      this.version = `${response.version}-${response.commit}`;
+    } catch (error) {
+      console.log(error);
+    }
   },
 };
 </script>

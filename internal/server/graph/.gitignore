@@ -1,0 +1,3 @@
+model/*_gen.go
+generated.go
+*.generated.go

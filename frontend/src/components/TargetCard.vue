@@ -11,9 +11,9 @@
           <CardTitle class="pr-24">{{ target.name }}</CardTitle>
           <div class="flex flex-col gap-1 mt-2">
             <p v-if="target.ra !== null && target.dec !== null" class="text-xs text-muted-foreground">
-              <span class="font-medium">RA:</span> {{ formatRA(target.ra) }}
-              <span class="font-medium ml-2">Dec:</span> {{ formatDec(target.dec) }}
-              <span class="ml-2">({{ target.epoch_code }})</span>
+              <span class="font-medium">RA:</span> {{ target.ra != null ? formatRA(target.ra) : '' }}
+              <span class="font-medium ml-2">Dec:</span> {{ target.dec != null ? formatDec(target.dec) : '' }}
+              <span class="ml-2">({{ target.epoch }})</span>
             </p>
             <p v-if="target.rotation !== null" class="text-xs text-muted-foreground">
               <span class="font-medium">Rotation:</span> {{ target.rotation }}°
@@ -37,12 +37,12 @@
                 class="flex justify-between items-center text-xs py-1 px-2 rounded"
                 :class="{
                   'bg-green-500/20 dark:bg-green-500/30':
-                    filterStats.accepted_images >= filterStats.desired_images &&
-                    filterStats.desired_images > 0
+                    filterStats.imaging.accepted_images >= filterStats.imaging.desired_images &&
+                    filterStats.imaging.desired_images > 0
                 }"
               >
                 <span class="font-medium">{{ formatFilterName(filterStats) }}:</span>
-                <StatsDisplay :stats="filterStats" />
+                <StatsDisplay :stats="filterStats.imaging" />
               </div>
             </div>
           </div>
@@ -67,10 +67,9 @@ import { Badge } from '@/components/ui/badge';
 import StatsDisplay from '@/components/StatsDisplay.vue';
 import ProgressCircle from '@/components/ProgressCircle.vue';
 
-import type { TargetWithStats, TargetFilterStats } from '@/types/Target';
-
 import type { PropType } from 'vue';
 import { formatDate, formatRA, formatDec } from '@/lib/formatters';
+import type { Target, TargetFilterStats } from '../graphql/graphql';
 
 export default {
   components: {
@@ -84,7 +83,7 @@ export default {
   },
   props: {
     target: {
-      type: Object as PropType<TargetWithStats>,
+      type: Object as PropType<Target>,
       required: true,
     },
   },
@@ -124,14 +123,14 @@ export default {
 
       return name;
     },
-    getProgressPercentage(target: TargetWithStats): number {
+    getProgressPercentage(target: Target): number {
       if (!target.stats || !target.stats.total) return 0;
       const { accepted_images, desired_images } = target.stats.total;
       if (desired_images === 0) return 0;
       return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
     },
     getStatusVariant(
-      target: TargetWithStats,
+      target: Target,
     ): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (target.stats && target.stats.total) {
         const { accepted_images, desired_images } = target.stats.total;
@@ -141,7 +140,7 @@ export default {
       }
       return target.active ? 'secondary' : 'outline';
     },
-    getStatusText(target: TargetWithStats): string {
+    getStatusText(target: Target): string {
       if (target.stats && target.stats.total) {
         const { accepted_images, desired_images } = target.stats.total;
         if (accepted_images >= desired_images) {

@@ -23,11 +23,77 @@
 
 <script lang="ts">
 import TargetCard from '@/components/TargetCard.vue';
-
-import API from '@/lib/API';
-import type { TargetWithStats, ListTargetsResponse } from '@/types/Target';
 import ProjectCard from '@/components/ProjectCard.vue';
-import type { ProjectWithStats } from '@/types/Project';
+import API from '@/lib/API';
+import type { Target, Project } from '../graphql/graphql';
+
+const GET_PROJECT_WITH_TARGETS_QUERY = `
+  query GetProject($id: ID!) {
+    project(id: $id) {
+      id
+      profile_id
+      name
+      description
+      state
+      priority
+      create_date
+      active_date
+      inactive_date
+      minimum_time
+      minimum_altitude
+      use_custom_horizon
+      horizon_offset
+      meridian_window
+      filter_switch_frequency
+      dither_every
+      enable_grader
+      is_mosaic
+      flats_handling
+      maximum_altitude
+      smart_exposure_order
+      targets {
+        id
+        name
+        active
+        ra
+        dec
+        epoch
+        rotation
+        region_of_interest
+        stats {
+          last_image_date
+          total {
+            desired_images
+            accepted_images
+            rejected_images
+            acquired_images
+          }
+          filters {
+            filter_name
+            exposure_time
+            gain
+            offset
+            imaging {
+              desired_images
+              accepted_images
+              rejected_images
+              acquired_images
+            }
+          }
+        }
+      }
+      stats {
+        imaging {
+          desired_images
+          accepted_images
+          rejected_images
+          acquired_images
+        }
+        last_image_date
+      }
+    }
+  }
+`;
 
 export default {
   name: 'ProjectDetailsPage',
@@ -37,57 +103,34 @@ export default {
   },
   data() {
     return {
-      project: undefined as ProjectWithStats | undefined,
+      project: undefined as Project | undefined,
       stats: undefined,
-      targets: [] as TargetWithStats[],
+      targets: [] as Target[],
     };
   },
   created() {
     this.fetchData();
   },
   methods: {
-    fetchData() {
-      API.get(`/projects/${this.$route.params.id}`)
-        .then((response) => {
-          this.project = response.data;
-        })
-        .catch((error) => {
-          console.error('Error fetching project data:', error);
+    async fetchData() {
+      try {
+        const projectId = this.$route.params.id as string;
+
+        // Fetch project with all targets and their stats in a single GraphQL query
+        const response = await API.request(GET_PROJECT_WITH_TARGETS_QUERY, {
+          id: projectId,
         });
 
-      API.get(`/projects/${this.$route.params.id}/stats`)
-        .then((response) => {
-          if (this.project) {
-            this.project.stats = response.data;
-            this.project.last_image_date = response.data.last_image_date;
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching project stats:', error);
-        });
+        if (response.project) {
+          // Set project data with stats already included
+          this.project = response.project as Project;
 
-      API.get<ListTargetsResponse>(`/projects/${this.$route.params.id}/targets`)
-        .then((response) => {
-          this.targets = response.data.targets;
-          // Fetch stats for each target
-          this.fetchTargetStats();
-        })
-        .catch((error) => {
-          console.error('Error fetching project targets:', error);
-        });
-    },
-    fetchTargetStats() {
-      this.targets.forEach((target, index) => {
-        API.get(`/targets/${target.id}/image/stats`)
-          .then((response) => {
-            if (this.targets[index]) {
-              this.targets[index].stats = response.data;
-            }
-          })
-          .catch((error) => {
-            console.error(`Error fetching stats for target ${target.id}:`, error);
-          });
-      });
+          // Set targets data with stats already included
+          this.targets = response.project.targets as Target[];
+        }
+      } catch (error) {
+        console.error('Error fetching project data:', error);
+      }
     },
   },
 };

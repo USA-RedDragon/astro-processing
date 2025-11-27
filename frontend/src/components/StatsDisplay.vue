@@ -54,7 +54,7 @@
 </template>
 
 <script lang="ts">
-import type { Stats } from '@/types/Project';
+import type { ImagingStats } from '../graphql/graphql';
 import type { PropType } from 'vue';
 
 export default {
@@ -65,7 +65,7 @@ export default {
       default: false,
     },
     stats: {
-      type: Object as PropType<Stats>,
+      type: Object as PropType<ImagingStats>,
       required: true,
     },
     desiredClass: {

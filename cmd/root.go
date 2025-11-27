@@ -8,7 +8,6 @@ import (
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
 	"github.com/USA-RedDragon/astro-processing/internal/server"
-	"github.com/USA-RedDragon/astro-processing/internal/store"
 	"github.com/USA-RedDragon/configulator"
 	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
@@ -58,14 +57,10 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 
 	slog.Info("astro-processing", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
-	store, err := store.NewStore(cfg)
+	server, err := server.NewServer(cfg, cmd.Annotations["version"], cmd.Annotations["commit"])
 	if err != nil {
-		return fmt.Errorf("failed to create store: %w", err)
+		return fmt.Errorf("failed to create server: %w", err)
 	}
-
-	slog.Info("Connected to datastore", "type", cfg.Storage.Type)
-
-	server := server.NewServer(cfg, store, cmd.Annotations["version"])
 
 	if err := server.Start(); err != nil {
 		return fmt.Errorf("failed to start server: %w", err)

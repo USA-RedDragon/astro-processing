@@ -1,6 +1,10 @@
 package targetscheduler
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
+)
 
 type Epoch int
 
@@ -48,4 +52,33 @@ type Target struct {
 
 func (Target) TableName() string {
 	return "target"
+}
+
+func getEpoch(code Epoch) model.Epoch {
+	switch code {
+	case EpochB1950:
+		return model.EpochB1950
+	case EpochJ2000:
+		return model.EpochJ2000
+	case EpochJ2050:
+		return model.EpochJ2050
+	}
+	return model.EpochJnow
+}
+
+func (t *Target) GraphQL() *model.Target {
+	ret := &model.Target{
+		ID:               t.ID,
+		Name:             t.Name,
+		Active:           t.Active == 1,
+		Ra:               t.RA,
+		Dec:              t.Dec,
+		Epoch:            getEpoch(t.EpochCode),
+		Rotation:         t.Rotation,
+		RegionOfInterest: t.RegionOfInterest,
+	}
+	if t.ProjectID != nil {
+		ret.Project = &model.Project{ID: *t.ProjectID}
+	}
+	return ret
 }

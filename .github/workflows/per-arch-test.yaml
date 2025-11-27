@@ -23,6 +23,7 @@ jobs:
           node-version-file: .node-version
 
       - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run generate:graphql
       - run: cd frontend && npm run build
 
       - uses: actions/upload-artifact@v5
@@ -47,6 +48,8 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - run: go generate ./...
 
       - run: docker run --privileged --rm tonistiigi/binfmt --install all
 

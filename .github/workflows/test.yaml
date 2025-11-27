@@ -26,6 +26,7 @@ jobs:
           node-version-file: .node-version
 
       - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run generate:graphql
       - run: cd frontend && npm run build
 
       - uses: actions/upload-artifact@v5
@@ -51,6 +52,7 @@ jobs:
           node-version-file: .node-version
 
       - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run generate:graphql
 
       - name: Save Code Linting Report JSON
         run: cd frontend && npm run lint:report
@@ -87,6 +89,7 @@ jobs:
           node-version-file: .node-version
 
       - run: cd frontend && npm ci --ignore-scripts
+      - run: cd frontend && npm run generate:graphql
       - run: cd frontend && npm run test:unit
 
       - uses: actions/upload-artifact@v5
@@ -132,6 +135,7 @@ jobs:
           node-version-file: .node-version
 
       - run: cd frontend && npm ci
+      - run: cd frontend && npm run generate:graphql
       - run: cd frontend && NODE_ENV=test npm run build
       - run: cd frontend && BROWSER=${{ matrix.browser }} NODE_ENV=test npm run test:e2e:${{ matrix.browser }}
 
@@ -188,6 +192,8 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - run: go generate ./...
+
       - run: CGO_ENABLED=0 go test -run ^$ -benchmem -bench=. ./...
 
   backend-race-tests:
@@ -204,6 +210,8 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - run: go generate ./...
 
       - name: Race tests
         run: |
@@ -223,6 +231,8 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - run: go generate ./...
 
       - name: Unit tests
         run: |
@@ -275,6 +285,8 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - run: go generate ./...
 
       - name: Unit tests
         run: |

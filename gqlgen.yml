@@ -1,0 +1,64 @@
+schema:
+  - graph/*.graphqls
+
+exec:
+  package: graph
+  layout: follow-schema
+  dir: internal/server/graph
+  filename_template: "{name}.generated.go"
+
+model:
+  filename: internal/server/graph/model/models_gen.go
+  package: model
+
+resolver:
+  package: resolvers
+  layout: follow-schema
+  dir: internal/server/graph/resolvers
+  filename_template: "{name}.resolvers.go"
+  preserve_resolver: true
+
+call_argument_directives_with_null: true
+
+# autobind:
+#   - "github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
+
+models:
+  ID:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int
+      - github.com/99designs/gqlgen/graphql.Int32
+
+  Int:
+    model:
+      - github.com/99designs/gqlgen/graphql.Int32
+
+  Target:
+    fields:
+      project:
+        resolver: true
+      stats:
+        resolver: true
+
+  Project:
+    fields:
+      targets:
+        resolver: true
+      stats:
+        resolver: true
+
+  TargetStats:
+    fields:
+      last_image_date:
+        resolver: true
+      total:
+        resolver: true
+      filters:
+        resolver: true
+
+  ProjectStats:
+    fields:
+      imaging:
+        resolver: true
+      last_image_date:
+        resolver: true

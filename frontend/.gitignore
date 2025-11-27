@@ -28,3 +28,4 @@ dist-ssr
 .nyc_output/
 reports/
 eslint_report.json
+src/graphql/

@@ -1,19 +1,36 @@
-import axios from 'axios';
+class SimpleGraphQLClient {
+  private endpoint: string;
 
-const baseURL = '/api/v1';
+  constructor(endpoint: string) {
+    this.endpoint = endpoint;
+  }
 
-const instance = axios.create({
-  baseURL,
-  withCredentials: false,
-});
+  async request(query: string, variables?: Record<string, unknown>) {
+    const response = await fetch(this.endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        query,
+        variables,
+      }),
+    });
 
-instance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
-export default instance;
+    const result = await response.json();
+
+    if (result.errors) {
+      throw new Error(result.errors[0].message);
+    }
+
+    return result.data;
+  }
+}
+
+const graphQLClient = new SimpleGraphQLClient('/query');
+
+export default graphQLClient;

@@ -9,13 +9,20 @@ import (
 	"sync"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
+	"github.com/99designs/gqlgen/graphql/handler/lru"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
+	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
+	"github.com/USA-RedDragon/astro-processing/internal/server/graph/resolvers"
 	"github.com/USA-RedDragon/astro-processing/internal/server/middleware"
-	"github.com/USA-RedDragon/astro-processing/internal/store"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/vektah/gqlparser/v2/ast"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -29,7 +36,39 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
-func NewServer(config *config.Config, store store.Store, version string) *Server {
+func graphqlHandler(cfg *config.Config, version string, commit string) (gin.HandlerFunc, error) {
+	resolver, err := resolvers.NewResolver(cfg, version, commit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resolver: %w", err)
+	}
+
+	h := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+
+	h.AddTransport(transport.Options{})
+	h.AddTransport(transport.GET{})
+	h.AddTransport(transport.POST{})
+
+	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+
+	h.Use(extension.Introspection{})
+	h.Use(extension.AutomaticPersistedQuery{
+		Cache: lru.New[string](100),
+	})
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}, nil
+}
+
+func graphqlPlaygroundHandler() gin.HandlerFunc {
+	h := playground.Handler("GraphQL", "/query")
+
+	return func(c *gin.Context) {
+		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func NewServer(config *config.Config, version string, commit string) (*Server, error) {
 	gin.SetMode(gin.ReleaseMode)
 
 	r := gin.New()
@@ -39,15 +78,18 @@ func NewServer(config *config.Config, store store.Store, version string) *Server
 		writeTimeout = 60 * time.Second
 	}
 
-	applyMiddleware(r, config, store, version)
-	applyRoutes(r)
+	applyMiddleware(r, config, version)
+	err := applyRoutes(r, config, version, commit)
+	if err != nil {
+		return nil, err
+	}
 
 	var metricsServer *http.Server
 	var pprofServer *http.Server
 
 	if config.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, store, version)
+		applyMiddleware(metricsRouter, config, version)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsServer = &http.Server{
@@ -60,7 +102,7 @@ func NewServer(config *config.Config, store store.Store, version string) *Server
 
 	if config.PProf.Enabled {
 		pprofRouter := gin.New()
-		applyMiddleware(pprofRouter, config, store, version)
+		applyMiddleware(pprofRouter, config, version)
 		pprof.Register(pprofRouter)
 		pprofServer = &http.Server{
 			Addr:              fmt.Sprintf("%s:%d", config.PProf.Bind, config.PProf.Port),
@@ -80,10 +122,10 @@ func NewServer(config *config.Config, store store.Store, version string) *Server
 		metricsServer: metricsServer,
 		pprofServer:   pprofServer,
 		config:        config,
-	}
+	}, nil
 }
 
-func applyMiddleware(r *gin.Engine, config *config.Config, store store.Store, version string) {
+func applyMiddleware(r *gin.Engine, config *config.Config, version string) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 
@@ -117,7 +159,6 @@ func applyMiddleware(r *gin.Engine, config *config.Config, store store.Store, ve
 
 	var di = &middleware.DepInjection{
 		Config:  config,
-		Store:   store,
 		Version: version,
 	}
 
