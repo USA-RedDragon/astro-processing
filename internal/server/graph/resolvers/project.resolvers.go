@@ -36,8 +36,54 @@ func (r *projectResolver) Stats(ctx context.Context, obj *model.Project) (*model
 }
 
 // Projects is the resolver for the projects field.
-func (r *queryResolver) Projects(ctx context.Context) ([]*model.Project, error) {
+func (r *queryResolver) Projects(ctx context.Context, orderBy *model.ProjectOrderBy) ([]*model.Project, error) {
 	db := r.db.WithContext(ctx)
+
+	// Apply ordering if provided
+	if orderBy != nil {
+		direction := "ASC"
+		if orderBy.Direction == model.OrderDirectionDesc {
+			direction = "DESC"
+		}
+
+		switch orderBy.Field {
+		case model.ProjectOrderFieldLastImageDate:
+			// Special case: requires subquery
+			db = db.Order(fmt.Sprintf(`(
+				SELECT MAX(acquireddate) 
+				FROM acquiredimage 
+				JOIN target ON acquiredimage."targetId" = target."Id" 
+				WHERE target.projectid = project."Id"
+			) %s NULLS LAST`, direction))
+		case model.ProjectOrderFieldProgress:
+			// Special case: calculate progress as accepted/desired ratio
+			db = db.Order(fmt.Sprintf(`(
+				SELECT CASE 
+					WHEN COALESCE(SUM(ep.desired), 0) = 0 THEN 0 
+					ELSE CAST(
+						(SELECT COUNT(*) FROM acquiredimage WHERE "targetId" IN (SELECT "Id" FROM target WHERE projectid = project."Id") AND "gradingStatus" = 1) 
+						AS FLOAT
+					) / COALESCE(SUM(ep.desired), 1)
+				END
+				FROM target t
+				JOIN exposureplan ep ON ep.targetid = t."Id"
+				WHERE t.projectid = project."Id"
+			) %s NULLS LAST`, direction))
+		case model.ProjectOrderFieldName:
+			db = db.Order(fmt.Sprintf("name %s", direction))
+		case model.ProjectOrderFieldState:
+			db = db.Order(fmt.Sprintf("state %s", direction))
+		case model.ProjectOrderFieldPriority:
+			db = db.Order(fmt.Sprintf("priority %s", direction))
+		case model.ProjectOrderFieldCreateDate:
+			db = db.Order(fmt.Sprintf("createdate %s NULLS LAST", direction))
+		case model.ProjectOrderFieldActiveDate:
+			db = db.Order(fmt.Sprintf("activedate %s NULLS LAST", direction))
+		case model.ProjectOrderFieldMosaic:
+			db = db.Order(fmt.Sprintf("\"isMosaic\" %s", direction))
+		}
+	}
+
 	var projects []targetscheduler.Project
 	if err := db.Find(&projects).Error; err != nil {
 		return nil, err

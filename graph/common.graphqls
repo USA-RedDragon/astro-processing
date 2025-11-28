@@ -5,6 +5,11 @@ type ImagingStats {
   acquired_images: Int!
 }
 
+enum ORDER_DIRECTION {
+  ASC
+  DESC
+}
+
 extend type Query {
   version: String!
   commit: String!

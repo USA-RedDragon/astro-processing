@@ -7,6 +7,36 @@
       <p class="text-lg text-red-500">Error loading targets: {{ error }}</p>
     </div>
     <div v-else class="space-y-8">
+      <!-- Sort Bar -->
+      <div class="px-4 py-4 flex items-center gap-4">
+        <label class="text-sm font-medium">Sort by:</label>
+        <SelectRoot v-model="sortField">
+          <SelectTrigger class="w-[200px]">
+            <SelectValue placeholder="Select sort field" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="LAST_IMAGE_DATE">Last Image Date</SelectItem>
+            <SelectItem value="NAME">Name</SelectItem>
+            <SelectItem value="PRIORITY">Priority</SelectItem>
+            <SelectItem value="STATE">State</SelectItem>
+            <SelectItem value="CREATE_DATE">Create Date</SelectItem>
+            <SelectItem value="ACTIVE_DATE">Active Date</SelectItem>
+            <SelectItem value="PROGRESS">Progress</SelectItem>
+            <SelectItem value="MOSAIC">Mosaic</SelectItem>
+          </SelectContent>
+        </SelectRoot>
+
+        <SelectRoot v-model="sortDirection">
+          <SelectTrigger class="w-[150px]">
+            <SelectValue placeholder="Select direction" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="DESC">Descending</SelectItem>
+            <SelectItem value="ASC">Ascending</SelectItem>
+          </SelectContent>
+        </SelectRoot>
+      </div>
+
       <div v-if="projects.length > 0" class="info px-4">
         <ProjectCard
           v-for="project in projects"
@@ -22,11 +52,18 @@
 <script lang="ts">
 import API from '@/lib/API';
 import ProjectCard from '@/components/ProjectCard.vue';
+import {
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import type { Project } from '../graphql/graphql';
 
 const GET_PROJECTS_QUERY = `
-  query GetProjects {
-    projects {
+  query GetProjects($orderBy: ProjectOrderBy) {
+    projects(orderBy: $orderBy) {
       id
       profile_id
       name
@@ -72,6 +109,11 @@ type ProjectGroup = {
 export default {
   components: {
     ProjectCard,
+    SelectRoot,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
   },
   created() {
     this.fetchData();
@@ -87,7 +129,17 @@ export default {
       error: null as string | null,
       circumference: 2 * Math.PI * 28, // 28 is the radius for target cards
       projectCircumference: 2 * Math.PI * 35, // 35 is the radius for project headers
+      sortField: 'LAST_IMAGE_DATE' as string,
+      sortDirection: 'DESC' as string,
     };
+  },
+  watch: {
+    sortField() {
+      this.fetchData();
+    },
+    sortDirection() {
+      this.fetchData();
+    },
   },
   methods: {
     async fetchData() {
@@ -95,8 +147,13 @@ export default {
         this.loading = true;
         this.error = null;
 
-        // Fetch all projects with their stats via GraphQL
-        const response = await API.request(GET_PROJECTS_QUERY);
+        // Fetch all projects with their stats via GraphQL with sorting
+        const response = await API.request(GET_PROJECTS_QUERY, {
+          orderBy: {
+            field: this.sortField,
+            direction: this.sortDirection,
+          },
+        });
         const projects = response.projects;
 
         // Use projects directly since GraphQL includes all needed data

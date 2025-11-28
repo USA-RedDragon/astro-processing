@@ -17,8 +17,44 @@ import (
 )
 
 // Targets is the resolver for the targets field.
-func (r *queryResolver) Targets(ctx context.Context) ([]*model.Target, error) {
+func (r *queryResolver) Targets(ctx context.Context, orderBy *model.TargetOrderBy) ([]*model.Target, error) {
 	db := r.db.WithContext(ctx)
+
+	// Apply ordering if provided
+	if orderBy != nil {
+		direction := "ASC"
+		if orderBy.Direction == model.OrderDirectionDesc {
+			direction = "DESC"
+		}
+
+		switch orderBy.Field {
+		case model.TargetOrderFieldLastImageDate:
+			// Special case: requires subquery
+			db = db.Order(fmt.Sprintf(`(
+				SELECT MAX(acquireddate) 
+				FROM acquiredimage 
+				WHERE acquiredimage."targetId" = target."Id"
+			) %s NULLS LAST`, direction))
+		case model.TargetOrderFieldProgress:
+			// Special case: calculate progress as accepted/desired ratio
+			db = db.Order(fmt.Sprintf(`(
+				SELECT CASE 
+					WHEN COALESCE(SUM(desired), 0) = 0 THEN 0 
+					ELSE CAST(
+						(SELECT COUNT(*) FROM acquiredimage WHERE "targetId" = target."Id" AND "gradingStatus" = 1) 
+						AS FLOAT
+					) / COALESCE(SUM(desired), 1)
+				END
+				FROM exposureplan
+				WHERE targetid = target."Id"
+			) %s NULLS LAST`, direction))
+		case model.TargetOrderFieldName:
+			db = db.Order(fmt.Sprintf("name %s", direction))
+		case model.TargetOrderFieldActive:
+			db = db.Order(fmt.Sprintf("active %s", direction))
+		}
+	}
+
 	var targets []targetscheduler.Target
 	if err := db.Find(&targets).Error; err != nil {
 		return nil, err

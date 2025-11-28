@@ -1,6 +1,22 @@
 extend type Query {
-  projects: [Project!]!
+  projects(orderBy: ProjectOrderBy): [Project!]!
   project(id: ID!): Project
+}
+
+enum ProjectOrderField {
+  CREATE_DATE
+  ACTIVE_DATE
+  PRIORITY
+  STATE
+  NAME
+  LAST_IMAGE_DATE
+  PROGRESS
+  MOSAIC
+}
+
+input ProjectOrderBy {
+  field: ProjectOrderField!
+  direction: ORDER_DIRECTION!
 }
 
 enum ProjectState {

@@ -1,6 +1,18 @@
 extend type Query {
-  targets: [Target!]!
+  targets(orderBy: TargetOrderBy): [Target!]!
   target(id: ID!): Target
+}
+
+enum TargetOrderField {
+  NAME
+  LAST_IMAGE_DATE
+  ACTIVE
+  PROGRESS
+}
+
+input TargetOrderBy {
+  field: TargetOrderField!
+  direction: ORDER_DIRECTION!
 }
 
 enum Epoch {
