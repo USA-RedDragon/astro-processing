@@ -1,4 +1,4 @@
-FROM node:24.13.0-alpine@sha256:266f8dae214bb44a1caefb9ca4c79e0a6dd363ed9d807b82222efa0e53e5288a AS builder
+FROM node:24.13.0-alpine@sha256:0eac57cde57cee750250965f16f5ff30ee2763b1c664321bdd11428ed2bbc3e0 AS builder
 
 WORKDIR /app/frontend
 
