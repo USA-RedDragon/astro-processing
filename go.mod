@@ -12,7 +12,7 @@ require (
 	github.com/lmittmann/tint v1.1.3
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/cobra v1.10.2
-	github.com/vektah/gqlparser/v2 v2.5.31
+	github.com/vektah/gqlparser/v2 v2.5.32
 	github.com/ztrue/shutdown v0.1.1
 	golang.org/x/sync v0.18.0
 	gorm.io/driver/mysql v1.6.0
