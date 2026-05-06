@@ -47,7 +47,7 @@
     "@graphql-codegen/typescript": "^5.0.6",
     "@graphql-codegen/typescript-operations": "^5.0.6",
     "@iconify-json/radix-icons": "1.2.6",
-    "@iconify/vue": "5.0.0",
+    "@iconify/vue": "5.0.1",
     "@rushstack/eslint-patch": "1.16.1",
     "@tanstack/vue-table": "8.21.3",
     "@tsconfig/node22": "^22.0.5",
