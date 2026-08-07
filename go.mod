@@ -16,7 +16,7 @@ require (
 	github.com/ztrue/shutdown v0.1.1
 	golang.org/x/sync v0.18.0
 	gorm.io/driver/mysql v1.6.0
-	gorm.io/driver/postgres v1.6.0
+	gorm.io/driver/postgres v1.6.2
 	gorm.io/gorm v1.31.1
 )
 
