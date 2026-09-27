@@ -148,8 +148,9 @@ func (r *targetStatsResolver) Total(ctx context.Context, obj *model.TargetStats)
 	var desiredCount int64
 	if err := db.Model(&targetscheduler.ExposurePlan{}).
 		Where("targetid = ?", target.ID).
-		Count(&desiredCount).Error; err != nil {
-		return nil, fmt.Errorf("failed to count desired exposures: %w", err)
+		Select("COALESCE(SUM(desired), 0)").
+		Scan(&desiredCount).Error; err != nil {
+		return nil, fmt.Errorf("failed to sum desired exposures: %w", err)
 	}
 
 	return &model.ImagingStats{
@@ -183,20 +184,32 @@ func (r *targetStatsResolver) Filters(ctx context.Context, obj *model.TargetStat
 
 	var templateStats []exposureTemplateStats
 
-	if err := db.Table("acquiredimage as ai").
+	// Start from the exposure plans so filters with no images yet still show
+	// up, and so desired comes from the plans rather than from image rows.
+	imageCounts := db.Table("acquiredimage").
+		Select(`"exposureId" as exposure_id,
+			COUNT(*) as acquired,
+			SUM(CASE WHEN "gradingStatus" = 1 THEN 1 ELSE 0 END) as accepted,
+			SUM(CASE WHEN "gradingStatus" = 2 THEN 1 ELSE 0 END) as rejected`).
+		Where("\"targetId\" = ?", target.ID).
+		// A bare column name here gets quoted again by gorm, so group by the alias.
+		Group("exposure_id")
+
+	if err := db.Table("exposureplan as ep").
 		Select(`et."Id" as exposure_template_id,
 			et.filtername as filter_name,
-			et.defaultexposure as exposure_time,
+			et.defaultexposure as default_exposure,
 			et.gain,
 			et.offset,
-			COUNT(*) as acquired_count,
-			SUM(CASE WHEN ai."gradingStatus" = 1 THEN 1 ELSE 0 END) as accepted_count,
-			SUM(CASE WHEN ai."gradingStatus" = 2 THEN 1 ELSE 0 END) as rejected_count,
-			COUNT(ep."Id") as desired_count`).
-		Joins("INNER JOIN exposureplan ep ON ai.\"exposureId\" = ep.\"Id\"").
+			COALESCE(SUM(ai.acquired), 0) as acquired_count,
+			COALESCE(SUM(ai.accepted), 0) as accepted_count,
+			COALESCE(SUM(ai.rejected), 0) as rejected_count,
+			COALESCE(SUM(ep.desired), 0) as desired_count`).
 		Joins("INNER JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
-		Where("ai.\"targetId\" = ?", target.ID).
+		Joins("LEFT JOIN (?) ai ON ai.exposure_id = ep.\"Id\"", imageCounts).
+		Where("ep.targetid = ?", target.ID).
 		Group("et.\"Id\", et.filtername, et.defaultexposure, et.gain, et.offset").
+		Order("MIN(ep.\"Id\")").
 		Scan(&templateStats).Error; err != nil {
 		return nil, fmt.Errorf("failed to get filter stats: %w", err)
 	}
