@@ -95,7 +95,7 @@ type Project struct {
 	HorizonOffset         *float64         `json:"horizon_offset" gorm:"column:horizonoffset"`
 	MeridianWindow        *int             `json:"meridian_window" gorm:"column:meridianwindow"`
 	FilterSwitchFrequency *int             `json:"filter_switch_frequency" gorm:"column:filterswitchfrequency"`
-	DitherEvery           *int             `json:"dither_every" gorm:"column: ditherevery"`
+	DitherEvery           *int             `json:"dither_every" gorm:"column:ditherevery"`
 	EnableGrader          *int             `json:"enable_grader" gorm:"column:enablegrader"`
 	IsMosaic              bool             `json:"is_mosaic" gorm:"column:isMosaic;not null"`
 	FlatsHandling         int              `json:"flats_handling" gorm:"column:flatsHandling;not null"`
