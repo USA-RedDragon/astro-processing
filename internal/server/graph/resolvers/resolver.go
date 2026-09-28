@@ -1,7 +1,9 @@
 package resolvers
 
 import (
+	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
@@ -22,6 +24,29 @@ type Resolver struct {
 	commit  string
 	refs    *referenceCache
 	worker  *workerclient.Client
+	covers  coverCache
+}
+
+// coverCache holds the worker's cover previews briefly, so a page of
+// project cards costs one worker call.
+type coverCache struct {
+	mu     sync.Mutex
+	at     time.Time
+	covers *workerclient.Covers
+}
+
+func (r *Resolver) cachedCovers(ctx context.Context) (*workerclient.Covers, error) {
+	r.covers.mu.Lock()
+	defer r.covers.mu.Unlock()
+	if r.covers.covers != nil && time.Since(r.covers.at) < 30*time.Second {
+		return r.covers.covers, nil
+	}
+	c, err := r.worker.Covers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	r.covers.covers, r.covers.at = c, time.Now()
+	return c, nil
 }
 
 func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, error) {

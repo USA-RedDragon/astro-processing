@@ -52,6 +52,8 @@ models:
         resolver: true
       mosaics:
         resolver: true
+      cover:
+        resolver: true
       stats:
         resolver: true
 

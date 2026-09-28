@@ -128,6 +128,27 @@ func (c *Client) Mosaics(ctx context.Context, project string) ([]Mosaic, error) 
 	return mosaics, err
 }
 
+type Cover struct {
+	Palette          string    `json:"palette"` // set for a colour composite
+	Filter           string    `json:"filter"`
+	PreviewURL       string    `json:"preview_url"`
+	EffectiveSeconds float64   `json:"effective_seconds"`
+	UpdatedAt        time.Time `json:"updated_at"`
+}
+
+// Covers holds the best preview per target (by object name) and per mosaic
+// project.
+type Covers struct {
+	Objects map[string]Cover `json:"objects"`
+	Mosaics map[string]Cover `json:"mosaics"`
+}
+
+func (c *Client) Covers(ctx context.Context) (*Covers, error) {
+	var covers Covers
+	err := c.get(ctx, "/api/v1/covers", &covers)
+	return &covers, err
+}
+
 func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {
 	var gaps []DarkGap
 	err := c.get(ctx, "/api/v1/coverage/dark-gaps", &gaps)

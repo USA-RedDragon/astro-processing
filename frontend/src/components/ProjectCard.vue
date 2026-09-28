@@ -1,5 +1,21 @@
 <template>
         <Card class="project-card relative overflow-hidden">
+        <component
+          :is="titleLink ? 'a' : 'div'"
+          v-if="showCover && project.cover"
+          :href="titleLink || undefined"
+          class="block relative -mt-6 mb-2 bg-black"
+        >
+          <img
+            :src="project.cover.preview_url"
+            :alt="`${project.name} preview`"
+            loading="lazy"
+            class="w-full aspect-[16/9] object-cover"
+          >
+          <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+            {{ project.cover.palette || project.cover.filter }}{{ project.cover.mosaic ? ' mosaic' : '' }}
+          </span>
+        </component>
         <!-- Status Badge at top right -->
         <div class="absolute top-5 right-2 z-10 flex gap-2">
           <Badge v-if="project.is_mosaic" variant="outline" class="text-sm">
@@ -84,6 +100,11 @@ export default {
     project: {
       type: Object as PropType<Project>,
       required: true,
+    },
+    // Show the project's cover picture at the top of the card.
+    showCover: {
+      type: Boolean,
+      default: true,
     },
     titleLink: {
       type: String,

@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <template v-if="project">
-      <ProjectCard :project="project" />
+      <ProjectCard :project="project" :show-cover="false" />
     </template>
 
     <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" />

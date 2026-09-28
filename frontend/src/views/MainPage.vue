@@ -82,6 +82,12 @@ const GET_PROJECTS_QUERY = `
       dither_every
       enable_grader
       is_mosaic
+      cover {
+        palette
+        filter
+        preview_url
+        mosaic
+      }
       flats_handling
       maximum_altitude
       smart_exposure_order

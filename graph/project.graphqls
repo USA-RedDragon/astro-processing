@@ -59,6 +59,17 @@ type Project {
   stats: ProjectStats!
   "Mosaics of the project's panels, one per filter. Empty unless its targets are panels."
   mosaics: [Mosaic!]!
+  "A preview for the project's card: its mosaic, or its targets' master with the most effective exposure."
+  cover: ProjectCover
+}
+
+type ProjectCover {
+  "RGB+Ha, RGB, SHO or HOO for a colour composite; empty for one filter."
+  palette: String!
+  "The filter, for a single-filter preview."
+  filter: String!
+  preview_url: String!
+  mosaic: Boolean!
 }
 
 type ProjectStats {
