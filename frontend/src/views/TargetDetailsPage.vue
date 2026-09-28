@@ -15,7 +15,7 @@
       </p>
     </div>
 
-    <MastersCard v-if="masters.length > 0" :masters="masters" />
+    <MastersCard v-if="masters.length > 0" :masters="masters" :updating="updatingFilters" />
 
     <PaletteMixer v-if="masters.length > 0" :masters="masters" />
 
@@ -195,6 +195,7 @@ import PreviewLink from '@/components/PreviewLink.vue';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
 import API from '@/lib/API';
+import { onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
 import { formatDate } from '@/lib/formatters';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
@@ -263,6 +264,60 @@ const GET_TARGET_QUALITY_QUERY = `
   }
 `;
 
+// Refetched when the stacker says previews or masters changed.
+const GET_TARGET_SUBFRAMES_QUERY = `
+  query GetTargetSubframes($id: ID!) {
+    target(id: $id) {
+      stats {
+        quality {
+          filter_name
+          exposure_time
+          subframes
+          nominal_hours
+          effective_hours
+          median_sky
+          median_hfr
+        }
+      }
+      subframes {
+        id
+        acquired_date
+        filter_name
+        exposure_time
+        grading_status
+        file_name
+        sky
+        hfr
+        stars
+        eccentricity
+        guiding_rms_arcsec
+        airmass
+        score
+        preview_url
+      }
+    }
+  }
+`;
+
+const GET_TARGET_MASTERS_QUERY = `
+  query GetTargetMasters($id: ID!) {
+    target(id: $id) {
+      masters {
+        filter
+        subs
+        exposure_hours
+        effective_hours
+        width
+        height
+        updated_at
+        master_url
+        preview_url
+        linear_url
+      }
+    }
+  }
+`;
+
 export default {
   name: 'TargetDetailsPage',
   components: {
@@ -294,9 +349,17 @@ export default {
       threshold: 0.1,
       sort: 'date-desc',
       copied: false,
+      stopEvents: () => {},
+      stopReconnect: () => {},
+      refetchTimers: {} as Record<string, ReturnType<typeof setTimeout>>,
     };
   },
   computed: {
+    // Filters of this target the stacker is working on right now.
+    updatingFilters(): string[] {
+      const name = this.target?.name;
+      return status.workers.filter((w) => w.object === name).map((w) => w.filter);
+    },
     groups(): string[] {
       return [...new Set(this.subframes.map((s) => this.groupOf(s)))].sort();
     },
@@ -338,6 +401,16 @@ export default {
   },
   created() {
     this.fetchData();
+    this.stopEvents = onEvent(this.onLiveEvent);
+    this.stopReconnect = onReconnect(() => {
+      this.refetch('subframes');
+      this.refetch('masters');
+    });
+  },
+  unmounted() {
+    this.stopEvents();
+    this.stopReconnect();
+    Object.values(this.refetchTimers).forEach(clearTimeout);
   },
   methods: {
     formatDate,
@@ -361,6 +434,33 @@ export default {
       await navigator.clipboard.writeText(names);
       this.copied = true;
       setTimeout(() => { this.copied = false; }, 2000);
+    },
+    onLiveEvent(e: LiveEvent) {
+      if (!this.target || e.object !== this.target.name) return;
+      this.refetch(e.type === 'master' ? 'masters' : 'subframes');
+    },
+    // refetch reloads one part of the page, at most every 2 s however many
+    // events arrive.
+    refetch(part: 'subframes' | 'masters') {
+      if (this.refetchTimers[part]) return;
+      this.refetchTimers[part] = setTimeout(async () => {
+        delete this.refetchTimers[part];
+        const id = this.$route.params.id as string;
+        try {
+          if (part === 'masters') {
+            const r = await API.request(GET_TARGET_MASTERS_QUERY, { id });
+            if (r.target) this.masters = r.target.masters as FilterMaster[];
+          } else {
+            const r = await API.request(GET_TARGET_SUBFRAMES_QUERY, { id });
+            if (r.target) {
+              this.quality = r.target.stats.quality as FilterQuality[];
+              this.subframes = r.target.subframes as Subframe[];
+            }
+          }
+        } catch (error) {
+          console.error(`Error refreshing ${part}:`, error);
+        }
+      }, 2000);
     },
     async fetchData() {
       try {

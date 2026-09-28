@@ -7,16 +7,21 @@
       <RouterLink to="/">Home</RouterLink>
       <RouterLink to="/calibration">Calibration</RouterLink>
     </nav>
-    <ColorModeButton class="button" />
+    <div class="button flex items-center justify-end gap-2">
+      <ProcessingIndicator />
+      <ColorModeButton />
+    </div>
   </header>
 </template>
 
 <script lang="ts">
 import ColorModeButton from '@/components/ColorModeButton.vue';
+import ProcessingIndicator from '@/components/ProcessingIndicator.vue';
 
 export default {
   components: {
     ColorModeButton,
+    ProcessingIndicator,
   },
   data: function() {
     return {

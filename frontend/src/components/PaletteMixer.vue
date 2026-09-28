@@ -128,6 +128,8 @@ export default {
   },
   watch: {
     mapping: { handler() { this.render(); }, deep: true },
+    // Redraw when a master is updated; the old image stays until then.
+    masters() { this.render(); },
     haBlend() { this.render(); },
     linked() { this.render(); },
   },
@@ -152,7 +154,8 @@ export default {
       if (!filter) return undefined;
       const master = this.masters.find((m) => m.filter === filter);
       if (!master) return undefined;
-      const key = master.linear_url.split('?')[0] ?? master.linear_url;
+      // The link changes on every fetch; the image only when the master does.
+      const key = `${master.linear_url.split('?')[0]}@${master.updated_at}`;
       let img = cache.get(key);
       if (!img) {
         // The object is stored gzip-encoded; the browser decompresses it.

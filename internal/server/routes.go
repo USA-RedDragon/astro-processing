@@ -1,10 +1,13 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/events"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,6 +21,14 @@ func applyRoutes(r *gin.Engine, config *config.Config, version string, commit st
 	}
 	r.POST("/query", graphqlHandlerFunc)
 	r.GET("/query", graphqlPlaygroundHandler())
+
+	// Rendered previews, updated masters and what the worker is doing, as
+	// server-sent events.
+	relay := events.NewRelay()
+	if config.Worker.URL != "" {
+		go relay.Run(context.Background(), strings.TrimRight(config.Worker.URL, "/")+"/api/v1/events")
+	}
+	r.GET("/events", gin.WrapH(relay))
 
 	return nil
 }
