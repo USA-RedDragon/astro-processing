@@ -70,7 +70,12 @@ import {
   type LinearImage,
   type StretchParams,
 } from '@/lib/stretch';
-import type { FilterMaster } from '../graphql/graphql';
+// Masters and mosaics both work: anything with a filter and a linear preview.
+interface Mixable {
+  filter: string;
+  linear_url: string;
+  updated_at: string;
+}
 
 type Channel = 'r' | 'g' | 'b';
 
@@ -95,7 +100,7 @@ export default {
   components: { Card, CardContent, CardHeader, CardTitle },
   props: {
     masters: {
-      type: Array as PropType<FilterMaster[]>,
+      type: Array as PropType<Mixable[]>,
       required: true,
     },
   },

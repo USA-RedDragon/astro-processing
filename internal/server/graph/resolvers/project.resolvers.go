@@ -9,6 +9,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
@@ -176,6 +177,26 @@ func (r *projectStatsResolver) LastImageDate(ctx context.Context, obj *model.Pro
 		return &val, nil
 	}
 	return nil, nil
+}
+
+// Mosaics is the resolver for the mosaics field.
+func (r *projectResolver) Mosaics(ctx context.Context, obj *model.Project) ([]*model.Mosaic, error) {
+	if r.worker == nil {
+		return []*model.Mosaic{}, nil
+	}
+	mosaics, err := r.worker.Mosaics(ctx, obj.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get mosaics: %w", err)
+	}
+	out := make([]*model.Mosaic, 0, len(mosaics))
+	for _, m := range mosaics {
+		out = append(out, &model.Mosaic{
+			Filter: m.Filter, Panels: int32(m.Panels), PanelsTotal: int32(m.PanelsTotal),
+			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
+			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
+		})
+	}
+	return out, nil
 }
 
 // Project returns graph.ProjectResolver implementation.

@@ -20,7 +20,7 @@ export interface Backlog {
 
 export interface LiveEvent {
   id: number;
-  type: 'preview' | 'master';
+  type: 'preview' | 'master' | 'mosaic';
   object: string;
   filter?: string;
   key?: string;

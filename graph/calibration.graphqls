@@ -50,6 +50,23 @@ type DarkLibraryGap {
   latest_night: String!
 }
 
+"One filter's mosaic of a project's panel masters, plate solved and blended."
+type Mosaic {
+  filter: String!
+  "Panels in the mosaic, of all the project's panels."
+  panels: Int!
+  panels_total: Int!
+  width: Int!
+  height: Int!
+  updated_at: String!
+  "Presigned link to the linear mosaic FITS, valid for an hour."
+  master_url: String!
+  "Presigned link to the auto-stretched JPEG."
+  preview_url: String!
+  "Presigned link to the gzipped linear preview (APLP format) for palette mixing."
+  linear_url: String!
+}
+
 "One filter's stacked master for a target: only subs that scored well, added as they arrive."
 type FilterMaster {
   filter: String!

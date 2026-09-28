@@ -110,6 +110,24 @@ func (c *Client) Masters(ctx context.Context, object string) ([]Master, error) {
 	return masters, err
 }
 
+type Mosaic struct {
+	Filter      string    `json:"filter"`
+	Panels      int       `json:"panels"`
+	PanelsTotal int       `json:"panels_total"`
+	Width       int       `json:"width"`
+	Height      int       `json:"height"`
+	UpdatedAt   time.Time `json:"updated_at"`
+	MasterURL   string    `json:"master_url"`
+	PreviewURL  string    `json:"preview_url"`
+	LinearURL   string    `json:"linear_url"`
+}
+
+func (c *Client) Mosaics(ctx context.Context, project string) ([]Mosaic, error) {
+	var mosaics []Mosaic
+	err := c.get(ctx, "/api/v1/mosaics?project="+url.QueryEscape(project), &mosaics)
+	return mosaics, err
+}
+
 func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {
 	var gaps []DarkGap
 	err := c.get(ctx, "/api/v1/coverage/dark-gaps", &gaps)

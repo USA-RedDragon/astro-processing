@@ -4,6 +4,9 @@
       <ProjectCard :project="project" />
     </template>
 
+    <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" />
+    <PaletteMixer v-if="mosaics.length > 0" :masters="mosaics" />
+
     <!-- Targets Section -->
     <div class="space-y-4">
       <h2 class="text-xl font-semibold">Targets</h2>
@@ -14,7 +17,7 @@
           :target="target"
         />
       </div>
-      <div v-else class="text-center text-muted-foreground py-8">
+      <div v-else-if="loaded" class="text-center text-muted-foreground py-8">
         No targets found for this project.
       </div>
     </div>
@@ -24,8 +27,30 @@
 <script lang="ts">
 import TargetCard from '@/components/TargetCard.vue';
 import ProjectCard from '@/components/ProjectCard.vue';
+import MosaicCard from '@/components/MosaicCard.vue';
+import PaletteMixer from '@/components/PaletteMixer.vue';
 import API from '@/lib/API';
-import type { Target, Project } from '../graphql/graphql';
+import { onEvent, onReconnect, type LiveEvent } from '@/lib/events';
+import type { Mosaic, Target, Project } from '../graphql/graphql';
+
+// Loaded on its own: it waits on the stacker, and most projects have none.
+const GET_PROJECT_MOSAICS_QUERY = `
+  query GetProjectMosaics($id: ID!) {
+    project(id: $id) {
+      mosaics {
+        filter
+        panels
+        panels_total
+        width
+        height
+        updated_at
+        master_url
+        preview_url
+        linear_url
+      }
+    }
+  }
+`;
 
 const GET_PROJECT_WITH_TARGETS_QUERY = `
   query GetProject($id: ID!) {
@@ -99,19 +124,42 @@ export default {
   name: 'ProjectDetailsPage',
   components: {
     TargetCard,
-    ProjectCard
+    ProjectCard,
+    MosaicCard,
+    PaletteMixer,
   },
   data() {
     return {
       project: undefined as Project | undefined,
       stats: undefined,
       targets: [] as Target[],
+      mosaics: [] as Mosaic[],
+      loaded: false,
+      stopEvents: () => {},
+      stopReconnect: () => {},
     };
   },
   created() {
     this.fetchData();
+    this.fetchMosaics();
+    this.stopEvents = onEvent((e: LiveEvent) => {
+      if (e.type === 'mosaic' && this.project && e.object === this.project.name) this.fetchMosaics();
+    });
+    this.stopReconnect = onReconnect(() => this.fetchMosaics());
+  },
+  unmounted() {
+    this.stopEvents();
+    this.stopReconnect();
   },
   methods: {
+    async fetchMosaics() {
+      try {
+        const r = await API.request(GET_PROJECT_MOSAICS_QUERY, { id: this.$route.params.id as string });
+        if (r.project) this.mosaics = r.project.mosaics as Mosaic[];
+      } catch (error) {
+        console.error('Error fetching mosaics:', error);
+      }
+    },
     async fetchData() {
       try {
         const projectId = this.$route.params.id as string;
@@ -130,6 +178,8 @@ export default {
         }
       } catch (error) {
         console.error('Error fetching project data:', error);
+      } finally {
+        this.loaded = true;
       }
     },
   },

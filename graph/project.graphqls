@@ -57,6 +57,8 @@ type Project {
   smart_exposure_order: Int
   targets: [Target!]!
   stats: ProjectStats!
+  "Mosaics of the project's panels, one per filter. Empty unless its targets are panels."
+  mosaics: [Mosaic!]!
 }
 
 type ProjectStats {

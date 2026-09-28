@@ -436,7 +436,7 @@ export default {
       setTimeout(() => { this.copied = false; }, 2000);
     },
     onLiveEvent(e: LiveEvent) {
-      if (!this.target || e.object !== this.target.name) return;
+      if (e.type === 'mosaic' || !this.target || e.object !== this.target.name) return;
       this.refetch(e.type === 'master' ? 'masters' : 'subframes');
     },
     // refetch reloads one part of the page, at most every 2 s however many

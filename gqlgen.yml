@@ -50,6 +50,8 @@ models:
     fields:
       targets:
         resolver: true
+      mosaics:
+        resolver: true
       stats:
         resolver: true
 
