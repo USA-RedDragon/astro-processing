@@ -34,12 +34,22 @@
               <span class="text-muted-foreground">&middot; {{ m.exposure_hours.toFixed(1) }} h total</span>
             </div>
             <div class="text-xs text-muted-foreground">Updated {{ formatDate(Date.parse(m.updated_at) / 1000) }}</div>
-            <a
-              :href="m.master_url"
-              class="inline-block mt-1 border rounded-md px-3 py-1 hover:bg-accent"
-            >
-              Download FITS
-            </a>
+            <div class="flex flex-wrap gap-2 mt-1">
+              <a
+                :href="m.master_url"
+                class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
+              >
+                Download FITS
+              </a>
+              <a
+                v-if="m.fitted_url"
+                :href="m.fitted_url"
+                :title="`Linear fitted to ${m.fit_reference}`"
+                class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
+              >
+                LinearFit FITS
+              </a>
+            </div>
           </div>
         </div>
       </div>

@@ -301,6 +301,8 @@ const GET_TARGET_MASTERS_QUERY = `
         preview_url
         linear_url
         crop { x y w h }
+        fitted_url
+        fit_reference
       }
     }
   }

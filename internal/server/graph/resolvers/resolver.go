@@ -90,3 +90,11 @@ func graphCrop(c *workerclient.Crop) *model.Crop {
 	}
 	return &model.Crop{X: c.X, Y: c.Y, W: c.W, H: c.H}
 }
+
+// optional is nil for an empty string, for nullable GraphQL fields.
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}

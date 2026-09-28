@@ -320,7 +320,8 @@ func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*mod
 			ExposureHours: m.ExposureSeconds / 3600, EffectiveHours: m.EffectiveSeconds / 3600,
 			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
 			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
-			Crop: graphCrop(m.Crop),
+			Crop:      graphCrop(m.Crop),
+			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
 		})
 	}
 	return out, nil

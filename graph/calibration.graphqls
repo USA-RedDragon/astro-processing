@@ -95,4 +95,8 @@ type FilterMaster {
   linear_url: String!
   "Where the preview is cropped to; the linear preview and FITS are whole."
   crop: Crop
+  "Presigned link to the master linear fitted to fit_reference, when the target has other filters."
+  fitted_url: String
+  "The filter the linear fitted master is matched to."
+  fit_reference: String
 }

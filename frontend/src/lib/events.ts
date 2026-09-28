@@ -126,4 +126,6 @@ export const stageLabels: Record<string, string> = {
   adding: 'Adding to master',
   rebuilding: 'Rebuilding master',
   publishing: 'Saving',
+  assembling: 'Assembling mosaic',
+  linear_fit: 'LinearFit',
 };

@@ -1,5 +1,5 @@
 <template>
-  <header>
+  <header :class="{ tucked: hidden }">
     <h1>
       <RouterLink to="/">Astro Processing</RouterLink>
     </h1>
@@ -25,10 +25,29 @@ export default {
   },
   data: function() {
     return {
+      hidden: false,
+      lastY: 0,
     };
   },
-  mounted() {},
+  mounted() {
+    this.lastY = window.scrollY;
+    window.addEventListener('scroll', this.onScroll, { passive: true });
+  },
+  unmounted() {
+    window.removeEventListener('scroll', this.onScroll);
+  },
   methods: {
+    // Hides the header while scrolling down and shows it again on any
+    // scroll up. Small movements are ignored so it doesn't flicker.
+    onScroll() {
+      const y = window.scrollY;
+      const delta = y - this.lastY;
+      if (Math.abs(delta) < 4) {
+        return;
+      }
+      this.hidden = delta > 0 && y > (this.$el as HTMLElement).offsetHeight;
+      this.lastY = y;
+    },
   },
   computed: {
   },
@@ -37,6 +56,10 @@ export default {
 
 <style scoped>
 header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: transform 0.2s ease;
   height: 3em;
   padding: 0.5em;
   margin: auto;
@@ -45,6 +68,10 @@ header {
   justify-content: space-between;
   width: 100%;
   background-color: var(--secondary);
+}
+
+header.tucked:not(:focus-within) {
+  transform: translateY(-100%);
 }
 
 header h1,
