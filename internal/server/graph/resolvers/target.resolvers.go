@@ -7,9 +7,10 @@ package resolvers
 
 import (
 	"context"
-	"log/slog"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
@@ -299,6 +300,27 @@ func (r *targetResolver) Calibration(ctx context.Context, obj *model.Target) ([]
 	out := make([]*model.CalibrationRow, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, toCalibrationRow(row))
+	}
+	return out, nil
+}
+
+// Masters is the resolver for the masters field.
+func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*model.FilterMaster, error) {
+	if r.worker == nil {
+		return []*model.FilterMaster{}, nil
+	}
+	masters, err := r.worker.Masters(ctx, obj.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get masters: %w", err)
+	}
+	out := make([]*model.FilterMaster, 0, len(masters))
+	for _, m := range masters {
+		out = append(out, &model.FilterMaster{
+			Filter: m.Filter, Subs: int32(m.Subs),
+			ExposureHours: m.ExposureSeconds / 3600, EffectiveHours: m.EffectiveSeconds / 3600,
+			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
+			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
+		})
 	}
 	return out, nil
 }

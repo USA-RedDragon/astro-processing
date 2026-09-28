@@ -49,3 +49,21 @@ type DarkLibraryGap {
   nights: Int!
   latest_night: String!
 }
+
+"One filter's stacked master for a target: only subs that scored well, added as they arrive."
+type FilterMaster {
+  filter: String!
+  subs: Int!
+  exposure_hours: Float!
+  "Exposure weighted by sub score."
+  effective_hours: Float!
+  width: Int!
+  height: Int!
+  updated_at: String!
+  "Presigned link to the linear master FITS, valid for an hour."
+  master_url: String!
+  "Presigned link to the auto-stretched JPEG."
+  preview_url: String!
+  "Presigned link to the gzipped linear preview (APLP format) for palette mixing."
+  linear_url: String!
+}

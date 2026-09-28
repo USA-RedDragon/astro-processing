@@ -52,6 +52,19 @@ type Preview struct {
 	URL  string `json:"url"`
 }
 
+type Master struct {
+	Filter           string    `json:"filter"`
+	Subs             int       `json:"subs"`
+	ExposureSeconds  float64   `json:"exposure_seconds"`
+	EffectiveSeconds float64   `json:"effective_seconds"`
+	Width            int       `json:"width"`
+	Height           int       `json:"height"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	MasterURL        string    `json:"master_url"`
+	PreviewURL       string    `json:"preview_url"`
+	LinearURL        string    `json:"linear_url"`
+}
+
 type Client struct {
 	base string
 	http *http.Client
@@ -88,6 +101,13 @@ func (c *Client) Previews(ctx context.Context, object string) (map[string]string
 		out[p.File] = p.URL
 	}
 	return out, nil
+}
+
+// Masters returns a target's stacked masters, one per filter.
+func (c *Client) Masters(ctx context.Context, object string) ([]Master, error) {
+	var masters []Master
+	err := c.get(ctx, "/api/v1/stacks?object="+url.QueryEscape(object), &masters)
+	return masters, err
 }
 
 func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {

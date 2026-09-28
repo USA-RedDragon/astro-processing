@@ -15,6 +15,10 @@
       </p>
     </div>
 
+    <MastersCard v-if="masters.length > 0" :masters="masters" />
+
+    <PaletteMixer v-if="masters.length > 0" :masters="masters" />
+
     <Card v-if="quality.length > 0">
       <CardHeader>
         <CardTitle>Integration</CardTitle>
@@ -85,9 +89,10 @@
           <label class="flex flex-col gap-1">
             <span class="text-muted-foreground">Sort</span>
             <select v-model="sort" class="border rounded-md bg-background px-2 py-1">
+              <option value="date-desc">Newest first</option>
+              <option value="date">Oldest first</option>
               <option value="score-asc">Worst first</option>
               <option value="score-desc">Best first</option>
-              <option value="date">By date</option>
             </select>
           </label>
           <button
@@ -187,9 +192,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import CalibrationCard from '@/components/CalibrationCard.vue';
 import PreviewLink from '@/components/PreviewLink.vue';
+import MastersCard from '@/components/MastersCard.vue';
+import PaletteMixer from '@/components/PaletteMixer.vue';
 import API from '@/lib/API';
 import { formatDate } from '@/lib/formatters';
-import type { CalibrationRow, FilterQuality, Subframe, Target } from '../graphql/graphql';
+import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
 const GET_TARGET_QUALITY_QUERY = `
   query GetTargetQuality($id: ID!) {
@@ -227,6 +234,18 @@ const GET_TARGET_QUALITY_QUERY = `
         score
         preview_url
       }
+      masters {
+        filter
+        subs
+        exposure_hours
+        effective_hours
+        width
+        height
+        updated_at
+        master_url
+        preview_url
+        linear_url
+      }
       calibration {
         night
         filter
@@ -250,6 +269,8 @@ export default {
     Badge,
     CalibrationCard,
     PreviewLink,
+    MastersCard,
+    PaletteMixer,
     Card,
     CardContent,
     CardHeader,
@@ -267,10 +288,11 @@ export default {
       quality: [] as FilterQuality[],
       subframes: [] as Subframe[],
       calibration: [] as CalibrationRow[],
+      masters: [] as FilterMaster[],
       loaded: false,
       filter: '',
       threshold: 0.1,
-      sort: 'score-asc',
+      sort: 'date-desc',
       copied: false,
     };
   },
@@ -297,6 +319,7 @@ export default {
       const rows = [...this.visible];
       if (this.sort === 'score-asc') rows.sort((a, b) => a.score - b.score);
       else if (this.sort === 'score-desc') rows.sort((a, b) => b.score - a.score);
+      else if (this.sort === 'date-desc') rows.sort((a, b) => (b.acquired_date ?? 0) - (a.acquired_date ?? 0));
       else rows.sort((a, b) => (a.acquired_date ?? 0) - (b.acquired_date ?? 0));
       return rows;
     },
@@ -349,6 +372,7 @@ export default {
           this.quality = response.target.stats.quality as FilterQuality[];
           this.subframes = response.target.subframes as Subframe[];
           this.calibration = response.target.calibration as CalibrationRow[];
+          this.masters = response.target.masters as FilterMaster[];
         }
       } catch (error) {
         console.error('Error fetching target quality:', error);

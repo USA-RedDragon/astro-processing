@@ -43,6 +43,8 @@ models:
         resolver: true
       calibration:
         resolver: true
+      masters:
+        resolver: true
 
   Project:
     fields:
