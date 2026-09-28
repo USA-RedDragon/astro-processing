@@ -4,7 +4,8 @@
       <CardTitle>Calibration</CardTitle>
     </CardHeader>
     <CardContent class="space-y-3">
-      <p class="text-sm tabular-nums">
+      <div v-if="loading" class="h-4 w-2/3 rounded bg-muted animate-pulse" />
+      <p v-else class="text-sm tabular-nums">
         Lights with a flat from the same night: {{ sameNightFlats }} / {{ totalLights }}
         &middot; with darks: {{ withDarks }} / {{ totalLights }}
         &middot; with bias: {{ withBias }} / {{ totalLights }}
@@ -24,6 +25,7 @@
             </TableRow>
           </TableHeader>
           <TableBody>
+            <SkeletonRows v-if="loading" :rows="5" :cols="8" />
             <TableRow v-for="r in rows" :key="rowKey(r)">
               <TableCell class="whitespace-nowrap">{{ r.night }}</TableCell>
               <TableCell class="whitespace-nowrap">{{ r.filter }} {{ r.exposure }}s</TableCell>
@@ -53,6 +55,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import SkeletonRows from '@/components/SkeletonRows.vue';
 import type { CalibrationMatch, CalibrationRow } from '../graphql/graphql';
 
 export default {
@@ -69,11 +72,16 @@ export default {
     TableHead,
     TableHeader,
     TableRow,
+    SkeletonRows,
   },
   props: {
     rows: {
       type: Array as PropType<CalibrationRow[]>,
       required: true,
+    },
+    loading: {
+      type: Boolean,
+      default: false,
     },
   },
   computed: {

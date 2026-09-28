@@ -1,5 +1,10 @@
 <template>
   <div class="space-y-6">
+    <div v-if="!target && !loaded" class="space-y-2" aria-busy="true">
+      <div class="h-4 w-32 rounded bg-muted animate-pulse" />
+      <div class="h-7 w-72 rounded bg-muted animate-pulse" />
+      <div class="h-4 w-2/3 rounded bg-muted animate-pulse" />
+    </div>
     <div v-if="target">
       <router-link
         v-if="target.project"
@@ -19,7 +24,7 @@
 
     <PaletteMixer v-if="masters.length > 0" :masters="masters" />
 
-    <Card v-if="quality.length > 0">
+    <Card v-if="quality.length > 0 || !done.subframes">
       <CardHeader>
         <CardTitle>Integration</CardTitle>
       </CardHeader>
@@ -37,6 +42,7 @@
             </TableRow>
           </TableHeader>
           <TableBody>
+            <SkeletonRows v-if="!done.subframes" :rows="3" :cols="6" />
             <TableRow v-for="q in quality" :key="`${q.filter_name}-${q.exposure_time}`">
               <TableCell class="font-medium">{{ q.filter_name }} {{ q.exposure_time }}s</TableCell>
               <TableCell class="text-right">{{ q.subframes }}</TableCell>
@@ -46,7 +52,7 @@
               <TableCell class="text-right">{{ formatNumber(q.median_sky, 0) }}</TableCell>
               <TableCell class="text-right">{{ formatNumber(q.median_hfr, 2) }}</TableCell>
             </TableRow>
-            <TableRow class="font-semibold">
+            <TableRow v-if="done.subframes" class="font-semibold">
               <TableCell>Total</TableCell>
               <TableCell class="text-right">{{ totals.subframes }}</TableCell>
               <TableCell class="text-right">{{ formatHours(totals.nominal) }}</TableCell>
@@ -60,9 +66,13 @@
       </CardContent>
     </Card>
 
-    <CalibrationCard v-if="calibration.length > 0" :rows="calibration" />
+    <CalibrationCard
+      v-if="calibration.length > 0 || !done.calibration"
+      :rows="calibration"
+      :loading="!done.calibration"
+    />
 
-    <Card v-if="subframes.length > 0">
+    <Card v-if="subframes.length > 0 || !done.subframes">
       <CardHeader>
         <CardTitle>Subframes</CardTitle>
       </CardHeader>
@@ -130,8 +140,9 @@
               </TableRow>
             </TableHeader>
             <TableBody>
+              <SkeletonRows v-if="!done.subframes" :rows="8" :cols="11" />
               <TableRow
-                v-for="s in sorted"
+                v-for="s in shown"
                 :key="s.id"
                 :class="{ 'opacity-50': isCulled(s) }"
               >
@@ -165,6 +176,12 @@
             </TableBody>
           </UiTable>
         </div>
+        <div v-if="sorted.length > shown.length" class="flex items-center gap-3 text-sm">
+          <button type="button" class="border rounded-md px-3 py-1 hover:bg-accent" @click="limit += pageSize">
+            Show {{ Math.min(pageSize, sorted.length - shown.length) }} more
+          </button>
+          <span class="text-muted-foreground tabular-nums">{{ shown.length }} of {{ sorted.length }}</span>
+        </div>
       </CardContent>
     </Card>
 
@@ -194,13 +211,15 @@ import CalibrationCard from '@/components/CalibrationCard.vue';
 import PreviewLink from '@/components/PreviewLink.vue';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
+import SkeletonRows from '@/components/SkeletonRows.vue';
 import API from '@/lib/API';
 import { onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
 import { formatDate } from '@/lib/formatters';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
-const GET_TARGET_QUALITY_QUERY = `
-  query GetTargetQuality($id: ID!) {
+// The page loads in parts, so each card fills in as soon as its data comes.
+const GET_TARGET_QUERY = `
+  query GetTarget($id: ID!) {
     target(id: $id) {
       id
       name
@@ -208,45 +227,13 @@ const GET_TARGET_QUALITY_QUERY = `
         id
         name
       }
-      stats {
-        quality {
-          filter_name
-          exposure_time
-          subframes
-          nominal_hours
-          effective_hours
-          median_sky
-          median_hfr
-        }
-      }
-      subframes {
-        id
-        acquired_date
-        filter_name
-        exposure_time
-        grading_status
-        file_name
-        sky
-        hfr
-        stars
-        eccentricity
-        guiding_rms_arcsec
-        airmass
-        score
-        preview_url
-      }
-      masters {
-        filter
-        subs
-        exposure_hours
-        effective_hours
-        width
-        height
-        updated_at
-        master_url
-        preview_url
-        linear_url
-      }
+    }
+  }
+`;
+
+const GET_TARGET_CALIBRATION_QUERY = `
+  query GetTargetCalibration($id: ID!) {
+    target(id: $id) {
       calibration {
         night
         filter
@@ -264,7 +251,7 @@ const GET_TARGET_QUALITY_QUERY = `
   }
 `;
 
-// Refetched when the stacker says previews or masters changed.
+// Also refetched when the stacker says previews or masters changed.
 const GET_TARGET_SUBFRAMES_QUERY = `
   query GetTargetSubframes($id: ID!) {
     target(id: $id) {
@@ -326,6 +313,7 @@ export default {
     PreviewLink,
     MastersCard,
     PaletteMixer,
+    SkeletonRows,
     Card,
     CardContent,
     CardHeader,
@@ -345,6 +333,11 @@ export default {
       calibration: [] as CalibrationRow[],
       masters: [] as FilterMaster[],
       loaded: false,
+      // Which parts have loaded; each card shows placeholders until then.
+      done: { subframes: false, masters: false, calibration: false },
+      // Subframe rows shown; long lists render a page at a time.
+      pageSize: 100,
+      limit: 100,
       filter: '',
       threshold: 0.1,
       sort: 'date-desc',
@@ -353,6 +346,10 @@ export default {
       stopReconnect: () => {},
       refetchTimers: {} as Record<string, ReturnType<typeof setTimeout>>,
     };
+  },
+  watch: {
+    filter() { this.limit = this.pageSize; },
+    sort() { this.limit = this.pageSize; },
   },
   computed: {
     // Filters of this target the stacker is working on right now.
@@ -385,6 +382,9 @@ export default {
       else if (this.sort === 'date-desc') rows.sort((a, b) => (b.acquired_date ?? 0) - (a.acquired_date ?? 0));
       else rows.sort((a, b) => (a.acquired_date ?? 0) - (b.acquired_date ?? 0));
       return rows;
+    },
+    shown(): Subframe[] {
+      return this.sorted.slice(0, this.limit);
     },
     culled(): Subframe[] {
       return this.visible.filter((s) => this.isCulled(s));
@@ -462,23 +462,28 @@ export default {
         }
       }, 2000);
     },
-    async fetchData() {
-      try {
-        const response = await API.request(GET_TARGET_QUALITY_QUERY, {
-          id: this.$route.params.id as string,
-        });
-        if (response.target) {
-          this.target = response.target as Target;
-          this.quality = response.target.stats.quality as FilterQuality[];
-          this.subframes = response.target.subframes as Subframe[];
-          this.calibration = response.target.calibration as CalibrationRow[];
-          this.masters = response.target.masters as FilterMaster[];
+    fetchData() {
+      const id = this.$route.params.id as string;
+      const part = async (name: keyof typeof this.done | 'target', query: string, apply: (t: Target) => void) => {
+        try {
+          const r = await API.request(query, { id });
+          if (r.target) apply(r.target as Target);
+        } catch (error) {
+          console.error(`Error fetching ${name}:`, error);
+        } finally {
+          if (name === 'target') this.loaded = true;
+          else this.done[name] = true;
         }
-      } catch (error) {
-        console.error('Error fetching target quality:', error);
-      } finally {
-        this.loaded = true;
-      }
+      };
+      part('target', GET_TARGET_QUERY, (t) => { this.target = t; });
+      part('subframes', GET_TARGET_SUBFRAMES_QUERY, (t) => {
+        this.quality = t.stats.quality as FilterQuality[];
+        this.subframes = t.subframes as Subframe[];
+      });
+      part('masters', GET_TARGET_MASTERS_QUERY, (t) => { this.masters = t.masters as FilterMaster[]; });
+      part('calibration', GET_TARGET_CALIBRATION_QUERY, (t) => {
+        this.calibration = t.calibration as CalibrationRow[];
+      });
     },
   },
 };
