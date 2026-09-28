@@ -13,5 +13,10 @@ export default [
     path: '/target/:id',
     name: 'TargetDetails',
     component: () => import('../views/TargetDetailsPage.vue'),
+  },
+  {
+    path: '/calibration',
+    name: 'Calibration',
+    component: () => import('../views/CalibrationPage.vue'),
   }
 ]

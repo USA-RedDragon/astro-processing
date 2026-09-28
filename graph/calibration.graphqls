@@ -1,0 +1,51 @@
+extend type Query {
+  "Dark library setpoints that lights need but no darks cover. Empty when the worker is not configured."
+  darkLibraryGaps: [DarkLibraryGap!]!
+}
+
+enum CalibrationQuality {
+  EXACT
+  FALLBACK
+  MISSING
+}
+
+type CalibrationMatch {
+  quality: CalibrationQuality!
+  "Night the calibration frames were taken."
+  night: String
+  frames: Int
+  "Nights between the lights and the calibration."
+  age_days: Int!
+  "Dark setpoint difference in °C."
+  temp_off: Float
+  "Dark setpoint in °C."
+  set_temp: Float
+  "The flat was taken at another rotator angle."
+  rotation_mismatch: Boolean!
+  "The dark's thermal signal must be scaled to the lights."
+  scaled: Boolean!
+}
+
+"One night of lights sharing a filter and camera settings, with its calibration."
+type CalibrationRow {
+  night: String!
+  filter: String!
+  exposure: Float!
+  gain: Float
+  offset: Float
+  set_temp: Float
+  rotator: Float
+  lights: Int!
+  flat: CalibrationMatch!
+  dark: CalibrationMatch!
+  bias: CalibrationMatch!
+}
+
+type DarkLibraryGap {
+  gain: Float
+  offset: Float
+  set_temp: Float!
+  lights: Int!
+  nights: Int!
+  latest_night: String!
+}

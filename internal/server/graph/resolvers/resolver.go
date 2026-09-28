@@ -6,6 +6,7 @@ import (
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
 	"github.com/USA-RedDragon/astro-processing/internal/types"
+	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
@@ -20,6 +21,7 @@ type Resolver struct {
 	version string
 	commit  string
 	refs    *referenceCache
+	worker  *workerclient.Client
 }
 
 func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, error) {
@@ -50,5 +52,5 @@ func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, 
 	sqlDB.SetConnMaxIdleTime(15 * time.Minute)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
 
-	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}}, nil
+	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}, worker: workerclient.New(cfg.Worker.URL)}, nil
 }

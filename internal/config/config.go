@@ -23,6 +23,11 @@ type Config struct {
 	PProf    PProf    `name:"pprof" description:"PProf server configuration"`
 	Storage  Storage  `name:"storage" description:"Storage configuration"`
 	Quality  Quality  `name:"quality" description:"Subframe quality scoring configuration"`
+	Worker   Worker   `name:"worker" description:"pixinsight-worker connection"`
+}
+
+type Worker struct {
+	URL string `name:"url" description:"Base URL of pixinsight-worker, for calibration coverage. Empty disables it"`
 }
 
 type HTTP struct {

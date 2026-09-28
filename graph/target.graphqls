@@ -35,6 +35,8 @@ type Target {
   stats: TargetStats!
   "Every acquired sub for this target, scored from Target Scheduler metadata."
   subframes: [Subframe!]!
+  "Calibration coverage per night of lights, newest first. Empty when the worker is not configured."
+  calibration: [CalibrationRow!]!
 }
 
 type TargetStats {

@@ -56,6 +56,8 @@
       </CardContent>
     </Card>
 
+    <CalibrationCard v-if="calibration.length > 0" :rows="calibration" />
+
     <Card v-if="subframes.length > 0">
       <CardHeader>
         <CardTitle>Subframes</CardTitle>
@@ -181,9 +183,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import CalibrationCard from '@/components/CalibrationCard.vue';
 import API from '@/lib/API';
 import { formatDate } from '@/lib/formatters';
-import type { FilterQuality, Subframe, Target } from '../graphql/graphql';
+import type { CalibrationRow, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
 const GET_TARGET_QUALITY_QUERY = `
   query GetTargetQuality($id: ID!) {
@@ -220,6 +223,19 @@ const GET_TARGET_QUALITY_QUERY = `
         airmass
         score
       }
+      calibration {
+        night
+        filter
+        exposure
+        gain
+        offset
+        set_temp
+        rotator
+        lights
+        flat { quality night frames age_days rotation_mismatch scaled }
+        dark { quality night frames age_days temp_off set_temp rotation_mismatch scaled }
+        bias { quality night frames age_days rotation_mismatch scaled }
+      }
     }
   }
 `;
@@ -228,6 +244,7 @@ export default {
   name: 'TargetDetailsPage',
   components: {
     Badge,
+    CalibrationCard,
     Card,
     CardContent,
     CardHeader,
@@ -244,6 +261,7 @@ export default {
       target: undefined as Target | undefined,
       quality: [] as FilterQuality[],
       subframes: [] as Subframe[],
+      calibration: [] as CalibrationRow[],
       loaded: false,
       filter: '',
       threshold: 0.1,
@@ -325,6 +343,7 @@ export default {
           this.target = response.target as Target;
           this.quality = response.target.stats.quality as FilterQuality[];
           this.subframes = response.target.subframes as Subframe[];
+          this.calibration = response.target.calibration as CalibrationRow[];
         }
       } catch (error) {
         console.error('Error fetching target quality:', error);

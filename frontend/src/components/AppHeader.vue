@@ -5,6 +5,7 @@
     </h1>
     <nav>
       <RouterLink to="/">Home</RouterLink>
+      <RouterLink to="/calibration">Calibration</RouterLink>
     </nav>
     <ColorModeButton class="button" />
   </header>

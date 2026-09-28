@@ -7,8 +7,6 @@ package resolvers
 
 import (
 	"context"
-
-	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
 )
 
 // Version is the resolver for the version field.
@@ -20,8 +18,3 @@ func (r *queryResolver) Version(ctx context.Context) (string, error) {
 func (r *queryResolver) Commit(ctx context.Context) (string, error) {
 	return r.commit, nil
 }
-
-// Query returns graph.QueryResolver implementation.
-func (r *Resolver) Query() graph.QueryResolver { return &queryResolver{r} }
-
-type queryResolver struct{ *Resolver }

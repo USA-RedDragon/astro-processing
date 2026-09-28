@@ -273,6 +273,22 @@ func (r *targetStatsResolver) Quality(ctx context.Context, obj *model.TargetStat
 	return summarizeQuality(subs, refs), nil
 }
 
+// Calibration is the resolver for the calibration field.
+func (r *targetResolver) Calibration(ctx context.Context, obj *model.Target) ([]*model.CalibrationRow, error) {
+	if r.worker == nil {
+		return []*model.CalibrationRow{}, nil
+	}
+	rows, err := r.worker.Coverage(ctx, obj.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get calibration coverage: %w", err)
+	}
+	out := make([]*model.CalibrationRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, toCalibrationRow(row))
+	}
+	return out, nil
+}
+
 // Target returns graph.TargetResolver implementation.
 func (r *Resolver) Target() graph.TargetResolver { return &targetResolver{r} }
 

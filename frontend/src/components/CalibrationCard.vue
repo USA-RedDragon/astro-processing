@@ -1,0 +1,118 @@
+<template>
+  <Card>
+    <CardHeader>
+      <CardTitle>Calibration</CardTitle>
+    </CardHeader>
+    <CardContent class="space-y-3">
+      <p class="text-sm tabular-nums">
+        Lights with a flat from the same night: {{ sameNightFlats }} / {{ totalLights }}
+        &middot; with darks: {{ withDarks }} / {{ totalLights }}
+        &middot; with bias: {{ withBias }} / {{ totalLights }}
+      </p>
+      <div class="border rounded-md max-h-[60vh] overflow-auto">
+        <UiTable>
+          <TableHeader class="sticky top-0 bg-background">
+            <TableRow>
+              <TableHead>Night</TableHead>
+              <TableHead>Filter</TableHead>
+              <TableHead class="text-right">Gain</TableHead>
+              <TableHead class="text-right">Setpoint</TableHead>
+              <TableHead class="text-right">Lights</TableHead>
+              <TableHead>Flat</TableHead>
+              <TableHead>Dark</TableHead>
+              <TableHead>Bias</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="r in rows" :key="rowKey(r)">
+              <TableCell class="whitespace-nowrap">{{ r.night }}</TableCell>
+              <TableCell class="whitespace-nowrap">{{ r.filter }} {{ r.exposure }}s</TableCell>
+              <TableCell class="text-right tabular-nums">{{ r.gain ?? '' }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ r.set_temp != null ? `${r.set_temp} °C` : '' }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ r.lights }}</TableCell>
+              <TableCell><Badge :variant="variant(r.flat)">{{ flatText(r.flat) }}</Badge></TableCell>
+              <TableCell><Badge :variant="variant(r.dark)">{{ darkText(r.dark) }}</Badge></TableCell>
+              <TableCell><Badge :variant="variant(r.bias)">{{ ageText(r.bias) }}</Badge></TableCell>
+            </TableRow>
+          </TableBody>
+        </UiTable>
+      </div>
+    </CardContent>
+  </Card>
+</template>
+
+<script lang="ts">
+import type { PropType } from 'vue';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import type { CalibrationMatch, CalibrationRow } from '../graphql/graphql';
+
+export default {
+  name: 'CalibrationCard',
+  components: {
+    Badge,
+    Card,
+    CardContent,
+    CardHeader,
+    CardTitle,
+    UiTable: Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+  },
+  props: {
+    rows: {
+      type: Array as PropType<CalibrationRow[]>,
+      required: true,
+    },
+  },
+  computed: {
+    totalLights(): number {
+      return this.rows.reduce((t, r) => t + r.lights, 0);
+    },
+    sameNightFlats(): number {
+      return this.rows.filter((r) => r.flat.quality === 'EXACT').reduce((t, r) => t + r.lights, 0);
+    },
+    withDarks(): number {
+      return this.rows.filter((r) => r.dark.quality !== 'MISSING').reduce((t, r) => t + r.lights, 0);
+    },
+    withBias(): number {
+      return this.rows.filter((r) => r.bias.quality !== 'MISSING').reduce((t, r) => t + r.lights, 0);
+    },
+  },
+  methods: {
+    rowKey(r: CalibrationRow): string {
+      return `${r.night}-${r.filter}-${r.exposure}-${r.gain}-${r.set_temp}-${r.rotator}`;
+    },
+    variant(m: CalibrationMatch): 'default' | 'secondary' | 'destructive' | 'outline' {
+      if (m.quality === 'EXACT') return 'default';
+      if (m.quality === 'MISSING') return 'destructive';
+      return 'outline';
+    },
+    ageText(m: CalibrationMatch): string {
+      if (m.quality === 'MISSING') return 'none';
+      if (m.age_days === 0) return 'same night';
+      return `${m.age_days} d away`;
+    },
+    flatText(m: CalibrationMatch): string {
+      const text = this.ageText(m);
+      return m.rotation_mismatch ? `${text}, other angle` : text;
+    },
+    darkText(m: CalibrationMatch): string {
+      if (m.quality === 'MISSING') return 'none';
+      if (!m.scaled) return 'match';
+      return m.temp_off ? `scaled, ${m.temp_off} °C off` : 'scaled';
+    },
+  },
+};
+</script>

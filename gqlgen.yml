@@ -41,6 +41,8 @@ models:
         resolver: true
       subframes:
         resolver: true
+      calibration:
+        resolver: true
 
   Project:
     fields:
