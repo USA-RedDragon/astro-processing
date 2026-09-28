@@ -10,7 +10,7 @@
             :src="shownCover ?? project.cover.preview_url"
             :alt="`${project.name} preview`"
             loading="lazy"
-            class="w-full aspect-[3/2] object-cover"
+            class="w-full h-auto max-h-[36rem] object-cover"
           >
           <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
             {{ project.cover.palette || project.cover.filter }}{{ project.cover.mosaic ? ' mosaic' : '' }}

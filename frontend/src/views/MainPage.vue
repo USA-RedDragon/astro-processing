@@ -37,13 +37,17 @@
         </SelectRoot>
       </div>
 
+      <!-- Cards keep their own heights: dealt left to right into columns, so
+           the sort order reads across and nothing stretches to its row. -->
       <div v-if="projects.length > 0" class="info px-4">
-        <ProjectCard
-          v-for="project in projects"
-          :key="project.id"
-          :project="project"
-          :titleLink="`/project/${project.id}`"
-        />
+        <div v-for="(column, c) in columns" :key="c" class="flex flex-col gap-4 min-w-0">
+          <ProjectCard
+            v-for="project in column"
+            :key="project.id"
+            :project="project"
+            :titleLink="`/project/${project.id}`"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -141,6 +145,8 @@ export default {
   },
   created() {
     this.fetchData();
+    this.fitColumns();
+    window.addEventListener('resize', this.fitColumns);
     this.stopEvents = onEvent((e) => {
       if (e.type === 'master' || e.type === 'mosaic') this.refreshCovers();
     });
@@ -149,6 +155,7 @@ export default {
     this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData(true));
   },
   unmounted() {
+    window.removeEventListener('resize', this.fitColumns);
     this.stopEvents();
     this.stopChanges();
     this.stopReconnect();
@@ -163,6 +170,7 @@ export default {
       projectCircumference: 2 * Math.PI * 35, // 35 is the radius for project headers
       sortField: 'LAST_IMAGE_DATE' as string,
       sortDirection: 'DESC' as string,
+      columnCount: 3,
       stopEvents: () => {},
       stopReconnect: () => {},
       stopChanges: () => {},
@@ -178,6 +186,10 @@ export default {
     },
   },
   methods: {
+    fitColumns() {
+      const w = window.innerWidth;
+      this.columnCount = w > 2400 ? 4 : w > 1200 ? 3 : w > 800 ? 2 : 1;
+    },
     // refreshCovers reloads the cards' pictures, at most every 5 s.
     refreshCovers() {
       if (this.coverTimer) return;
@@ -256,6 +268,11 @@ export default {
     },
   },
   computed: {
+    columns(): Project[][] {
+      const cols: Project[][] = Array.from({ length: this.columnCount }, () => []);
+      this.projects.forEach((p, i) => cols[i % this.columnCount]!.push(p));
+      return cols;
+    },
   },
 };
 </script>
@@ -271,28 +288,9 @@ export default {
 
 .info {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 1rem;
-}
-
-@media (min-width: 2400px) {
-  .info {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-@media (max-width: 1600px) {
-  .info {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (max-width: 1200px) {
-  .info {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 800px) {
-  .info {
-    grid-template-columns: repeat(1, 1fr);
-  }
+  align-items: start;
 }
 </style>
