@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+
+	"github.com/USA-RedDragon/astro-processing/internal/metrics"
 )
 
 // Change is sent when Target Scheduler tables change, so pages reload the
@@ -72,6 +74,9 @@ func (r *Relay) WatchScheduler(ctx context.Context, db *gorm.DB, interval time.D
 			}
 			if len(changed) > 0 {
 				slices.Sort(changed)
+				for _, t := range changed {
+					metrics.TableChanges.WithLabelValues(t).Inc()
+				}
 				r.Publish(Change{Type: "data", Tables: changed, Time: time.Now().UTC().Format(time.RFC3339)})
 			}
 		}

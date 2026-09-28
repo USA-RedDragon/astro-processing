@@ -14,6 +14,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/USA-RedDragon/astro-processing/internal/metrics"
 )
 
 // keep is how many recent events a reconnecting browser can catch up on.
@@ -74,6 +76,8 @@ func (r *Relay) follow(ctx context.Context, url string) error {
 	if res.StatusCode != http.StatusOK {
 		return fmt.Errorf("worker returned %s", res.Status)
 	}
+	metrics.WorkerStreamConnected.Set(1)
+	defer metrics.WorkerStreamConnected.Set(0)
 	return r.read(res.Body)
 }
 
@@ -89,6 +93,7 @@ func (r *Relay) read(body io.Reader) error {
 		switch {
 		case line == "":
 			if len(data) > 0 {
+				metrics.WorkerEvents.Inc()
 				r.dispatch(id, strings.Join(data, "\n"))
 			}
 			id, data = 0, nil
@@ -151,6 +156,8 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	r.subs[ch] = struct{}{}
 	r.mu.Unlock()
+	metrics.EventClients.Inc()
+	defer metrics.EventClients.Dec()
 	defer func() {
 		r.mu.Lock()
 		delete(r.subs, ch)

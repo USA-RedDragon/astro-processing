@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/USA-RedDragon/astro-processing/internal/metrics"
 )
 
 type Match struct {
@@ -165,7 +167,13 @@ func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {
 	return gaps, err
 }
 
-func (c *Client) get(ctx context.Context, path string, out any) error {
+func (c *Client) get(ctx context.Context, path string, out any) (err error) {
+	start := time.Now()
+	defer func() {
+		endpoint, _, _ := strings.Cut(path, "?")
+		metrics.WorkerRequestSeconds.WithLabelValues(endpoint, map[bool]string{true: "ok", false: "error"}[err == nil]).
+			Observe(time.Since(start).Seconds())
+	}()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path, nil)
 	if err != nil {
 		return err
