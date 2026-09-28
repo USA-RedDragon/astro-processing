@@ -83,6 +83,8 @@ type Subframe {
   guiding_rms_arcsec: Float
   airmass: Float
   score: Float!
+  "Presigned link to an auto-stretched JPEG of the sub, valid for an hour. Null until the worker has rendered it."
+  preview_url: String
 }
 
 type FilterQuality {

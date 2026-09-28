@@ -47,6 +47,11 @@ type DarkGap struct {
 	LatestNight string   `json:"latest_night"`
 }
 
+type Preview struct {
+	File string `json:"file"`
+	URL  string `json:"url"`
+}
+
 type Client struct {
 	base string
 	http *http.Client
@@ -69,6 +74,20 @@ func (c *Client) Coverage(ctx context.Context, object string) ([]Row, error) {
 	var rows []Row
 	err := c.get(ctx, "/api/v1/coverage?object="+url.QueryEscape(object), &rows)
 	return rows, err
+}
+
+// Previews returns presigned preview URLs for a target's lights, keyed by
+// file name.
+func (c *Client) Previews(ctx context.Context, object string) (map[string]string, error) {
+	var list []Preview
+	if err := c.get(ctx, "/api/v1/previews?object="+url.QueryEscape(object), &list); err != nil {
+		return nil, err
+	}
+	out := make(map[string]string, len(list))
+	for _, p := range list {
+		out[p.File] = p.URL
+	}
+	return out, nil
 }
 
 func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {

@@ -3,8 +3,8 @@
     <div>
       <h1 class="text-2xl font-semibold">Calibration</h1>
       <p class="text-sm text-muted-foreground mt-1">
-        Dark sets to take: 600 s darks at each setpoint, per gain and offset. Lights between setpoints use the
-        nearest set, scaled.
+        Dark sets to take: about 25 × 600 s darks at each setpoint, per gain and offset.
+        Lights between setpoints use the nearest set, scaled.
       </p>
     </div>
 

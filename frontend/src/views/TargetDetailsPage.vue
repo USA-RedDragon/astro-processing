@@ -153,7 +153,9 @@
                     {{ s.grading_status.toLowerCase() }}
                   </Badge>
                 </TableCell>
-                <TableCell class="text-xs text-muted-foreground whitespace-nowrap">{{ s.file_name }}</TableCell>
+                <TableCell class="text-xs text-muted-foreground whitespace-nowrap">
+                  <PreviewLink v-if="s.file_name" :file-name="s.file_name" :url="s.preview_url ?? undefined" />
+                </TableCell>
               </TableRow>
             </TableBody>
           </UiTable>
@@ -184,6 +186,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import CalibrationCard from '@/components/CalibrationCard.vue';
+import PreviewLink from '@/components/PreviewLink.vue';
 import API from '@/lib/API';
 import { formatDate } from '@/lib/formatters';
 import type { CalibrationRow, FilterQuality, Subframe, Target } from '../graphql/graphql';
@@ -222,6 +225,7 @@ const GET_TARGET_QUALITY_QUERY = `
         guiding_rms_arcsec
         airmass
         score
+        preview_url
       }
       calibration {
         night
@@ -245,6 +249,7 @@ export default {
   components: {
     Badge,
     CalibrationCard,
+    PreviewLink,
     Card,
     CardContent,
     CardHeader,

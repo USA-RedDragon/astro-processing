@@ -7,6 +7,7 @@ package resolvers
 
 import (
 	"context"
+	"log/slog"
 	"database/sql"
 	"fmt"
 
@@ -98,9 +99,22 @@ func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*m
 	if err != nil {
 		return nil, err
 	}
+	// Previews are optional: a worker outage shouldn't hide the subframes.
+	var previews map[string]string
+	if r.worker != nil {
+		if previews, err = r.worker.Previews(ctx, obj.Name); err != nil {
+			slog.Warn("Could not load subframe previews", "target", obj.Name, "error", err)
+		}
+	}
 	out := make([]*model.Subframe, 0, len(subs))
 	for _, s := range subs {
-		out = append(out, toModelSubframe(s, refs))
+		m := toModelSubframe(s, refs)
+		if m.FileName != nil {
+			if u, ok := previews[*m.FileName]; ok {
+				m.PreviewURL = &u
+			}
+		}
+		out = append(out, m)
 	}
 	return out, nil
 }
