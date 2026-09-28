@@ -28,8 +28,8 @@ type Resolver struct {
 	covers  coverCache
 }
 
-// coverCache holds the worker's cover previews briefly, so a page of
-// project cards costs one worker call.
+// coverCache holds the worker's cover previews for a few seconds, so a page
+// of project cards costs one worker call and live updates see new covers.
 type coverCache struct {
 	mu     sync.Mutex
 	at     time.Time
@@ -39,7 +39,7 @@ type coverCache struct {
 func (r *Resolver) cachedCovers(ctx context.Context) (*workerclient.Covers, error) {
 	r.covers.mu.Lock()
 	defer r.covers.mu.Unlock()
-	if r.covers.covers != nil && time.Since(r.covers.at) < 30*time.Second {
+	if r.covers.covers != nil && time.Since(r.covers.at) < 5*time.Second {
 		return r.covers.covers, nil
 	}
 	c, err := r.worker.Covers(ctx)
@@ -80,6 +80,9 @@ func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, 
 
 	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}, worker: workerclient.New(cfg.Worker.URL)}, nil
 }
+
+// DB is the scheduler database.
+func (r *Resolver) DB() *gorm.DB { return r.db }
 
 func graphCrop(c *workerclient.Crop) *model.Crop {
 	if c == nil {

@@ -7,7 +7,7 @@
           class="block relative -mt-6 mb-2 bg-black"
         >
           <img
-            :src="project.cover.preview_url"
+            :src="shownCover ?? project.cover.preview_url"
             :alt="`${project.name} preview`"
             loading="lazy"
             class="w-full aspect-[3/2] object-cover"
@@ -114,11 +114,30 @@ export default {
   },
   data: function() {
     return {
+      // The cover shown; a changed one replaces it once it has loaded, so
+      // the picture never blanks while it updates.
+      shownCover: undefined as string | undefined,
+      shownAt: '',
     };
   },
-  mounted() {
-  },
-  unmounted() {
+  watch: {
+    'project.cover': {
+      immediate: true,
+      handler(cover: Project['cover']) {
+        if (!cover || cover.updated_at === this.shownAt) return;
+        if (!this.shownCover) {
+          this.shownCover = cover.preview_url;
+          this.shownAt = cover.updated_at;
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          this.shownCover = cover.preview_url;
+          this.shownAt = cover.updated_at;
+        };
+        img.src = cover.preview_url;
+      },
+    },
   },
   methods: {
     formatDate,

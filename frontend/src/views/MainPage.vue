@@ -59,7 +59,24 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import type { Project } from '../graphql/graphql';
+import { onChange, onEvent, onReconnect } from '@/lib/events';
+import type { Project, ProjectCover } from '../graphql/graphql';
+
+// Reloaded when the stacker updates a master or mosaic.
+const GET_PROJECT_COVERS_QUERY = `
+  query GetProjectCovers {
+    projects {
+      id
+      cover {
+        palette
+        filter
+        preview_url
+        mosaic
+        updated_at
+      }
+    }
+  }
+`;
 
 const GET_PROJECTS_QUERY = `
   query GetProjects($orderBy: ProjectOrderBy) {
@@ -87,6 +104,7 @@ const GET_PROJECTS_QUERY = `
         filter
         preview_url
         mosaic
+        updated_at
       }
       flats_handling
       maximum_altitude
@@ -123,10 +141,18 @@ export default {
   },
   created() {
     this.fetchData();
-  },
-  mounted() {
+    this.stopEvents = onEvent((e) => {
+      if (e.type === 'master' || e.type === 'mosaic') this.refreshCovers();
+    });
+    this.stopReconnect = onReconnect(() => this.refreshCovers());
+    // Every stat on the cards comes from these tables.
+    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData(true));
   },
   unmounted() {
+    this.stopEvents();
+    this.stopChanges();
+    this.stopReconnect();
+    if (this.coverTimer) clearTimeout(this.coverTimer);
   },
   data: function() {
     return {
@@ -137,6 +163,10 @@ export default {
       projectCircumference: 2 * Math.PI * 35, // 35 is the radius for project headers
       sortField: 'LAST_IMAGE_DATE' as string,
       sortDirection: 'DESC' as string,
+      stopEvents: () => {},
+      stopReconnect: () => {},
+      stopChanges: () => {},
+      coverTimer: undefined as ReturnType<typeof setTimeout> | undefined,
     };
   },
   watch: {
@@ -148,9 +178,29 @@ export default {
     },
   },
   methods: {
-    async fetchData() {
+    // refreshCovers reloads the cards' pictures, at most every 5 s.
+    refreshCovers() {
+      if (this.coverTimer) return;
+      this.coverTimer = setTimeout(async () => {
+        this.coverTimer = undefined;
+        try {
+          const r = await API.request(GET_PROJECT_COVERS_QUERY);
+          const covers = new Map<string, ProjectCover | null | undefined>(
+            (r.projects as Project[]).map((p) => [p.id, p.cover]),
+          );
+          for (const p of this.projects) {
+            if (covers.has(p.id)) p.cover = covers.get(p.id);
+          }
+        } catch (error) {
+          console.error('Error refreshing covers:', error);
+        }
+      }, 5000);
+    },
+    // fetchData loads the projects; quiet reloads keep the page as it is
+    // until the new data arrives.
+    async fetchData(quiet = false) {
       try {
-        this.loading = true;
+        if (!quiet) this.loading = true;
         this.error = null;
 
         // Fetch all projects with their stats via GraphQL with sorting

@@ -213,7 +213,7 @@ import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
 import SkeletonRows from '@/components/SkeletonRows.vue';
 import API from '@/lib/API';
-import { onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
+import { onChange, onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
 import { formatDate } from '@/lib/formatters';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
@@ -345,6 +345,7 @@ export default {
       copied: false,
       stopEvents: () => {},
       stopReconnect: () => {},
+      stopChanges: [] as (() => void)[],
       refetchTimers: {} as Record<string, ReturnType<typeof setTimeout>>,
     };
   },
@@ -403,6 +404,11 @@ export default {
   created() {
     this.fetchData();
     this.stopEvents = onEvent(this.onLiveEvent);
+    this.stopChanges = [
+      onChange(['acquiredimage', 'exposureplan'], () => this.refetch('subframes')),
+      onChange(['target', 'project'], () => this.refetchTarget()),
+      onChange(['frames', 'flathistory'], () => this.refetch('calibration')),
+    ];
     this.stopReconnect = onReconnect(() => {
       this.refetch('subframes');
       this.refetch('masters');
@@ -411,6 +417,7 @@ export default {
   unmounted() {
     this.stopEvents();
     this.stopReconnect();
+    this.stopChanges.forEach((stop) => stop());
     Object.values(this.refetchTimers).forEach(clearTimeout);
   },
   methods: {
@@ -442,7 +449,15 @@ export default {
     },
     // refetch reloads one part of the page, at most every 2 s however many
     // events arrive.
-    refetch(part: 'subframes' | 'masters') {
+    async refetchTarget() {
+      try {
+        const r = await API.request(GET_TARGET_QUERY, { id: this.$route.params.id as string });
+        if (r.target) this.target = r.target as Target;
+      } catch (error) {
+        console.error('Error refreshing target:', error);
+      }
+    },
+    refetch(part: 'subframes' | 'masters' | 'calibration') {
       if (this.refetchTimers[part]) return;
       this.refetchTimers[part] = setTimeout(async () => {
         delete this.refetchTimers[part];
@@ -451,6 +466,9 @@ export default {
           if (part === 'masters') {
             const r = await API.request(GET_TARGET_MASTERS_QUERY, { id });
             if (r.target) this.masters = r.target.masters as FilterMaster[];
+          } else if (part === 'calibration') {
+            const r = await API.request(GET_TARGET_CALIBRATION_QUERY, { id });
+            if (r.target) this.calibration = r.target.calibration as CalibrationRow[];
           } else {
             const r = await API.request(GET_TARGET_SUBFRAMES_QUERY, { id });
             if (r.target) {

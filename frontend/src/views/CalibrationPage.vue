@@ -52,6 +52,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import API from '@/lib/API';
+import { onChange } from '@/lib/events';
 import type { DarkLibraryGap } from '../graphql/graphql';
 
 const GET_DARK_GAPS_QUERY = `
@@ -85,10 +86,16 @@ export default {
     return {
       gaps: [] as DarkLibraryGap[],
       loaded: false,
+      stopChanges: () => {},
     };
   },
   created() {
     this.fetchData();
+    // Gaps change as the stacker indexes new lights and darks.
+    this.stopChanges = onChange(['frames'], () => this.fetchData());
+  },
+  unmounted() {
+    this.stopChanges();
   },
   methods: {
     async fetchData() {

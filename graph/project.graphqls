@@ -70,6 +70,8 @@ type ProjectCover {
   filter: String!
   preview_url: String!
   mosaic: Boolean!
+  "When the picture last changed; its link changes on every request."
+  updated_at: String!
 }
 
 type ProjectStats {

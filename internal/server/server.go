@@ -15,6 +15,7 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/events"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/resolvers"
 	"github.com/USA-RedDragon/astro-processing/internal/server/middleware"
@@ -36,11 +37,14 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
-func graphqlHandler(cfg *config.Config, version string, commit string) (gin.HandlerFunc, error) {
+func graphqlHandler(cfg *config.Config, version string, commit string, relay *events.Relay) (gin.HandlerFunc, error) {
 	resolver, err := resolvers.NewResolver(cfg, version, commit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create resolver: %w", err)
 	}
+	// Tell browsers when the scheduler's tables change, so every stat on
+	// the page stays current.
+	go relay.WatchScheduler(context.Background(), resolver.DB(), 5*time.Second)
 
 	h := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 

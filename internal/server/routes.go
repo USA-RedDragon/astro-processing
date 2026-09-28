@@ -15,16 +15,16 @@ func applyRoutes(r *gin.Engine, config *config.Config, version string, commit st
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"state": "OK"})
 	})
-	graphqlHandlerFunc, err := graphqlHandler(config, version, commit)
+	// Rendered previews, updated masters, what the worker is doing and
+	// changes to the scheduler's tables, as server-sent events.
+	relay := events.NewRelay()
+	graphqlHandlerFunc, err := graphqlHandler(config, version, commit, relay)
 	if err != nil {
 		return fmt.Errorf("failed to create graphql handler: %w", err)
 	}
 	r.POST("/query", graphqlHandlerFunc)
 	r.GET("/query", graphqlPlaygroundHandler())
 
-	// Rendered previews, updated masters and what the worker is doing, as
-	// server-sent events.
-	relay := events.NewRelay()
 	if config.Worker.URL != "" {
 		go relay.Run(context.Background(), strings.TrimRight(config.Worker.URL, "/")+"/api/v1/events")
 	}

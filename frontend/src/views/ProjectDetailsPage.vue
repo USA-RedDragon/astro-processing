@@ -30,7 +30,7 @@ import ProjectCard from '@/components/ProjectCard.vue';
 import MosaicCard from '@/components/MosaicCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
 import API from '@/lib/API';
-import { onEvent, onReconnect, type LiveEvent } from '@/lib/events';
+import { onChange, onEvent, onReconnect, type LiveEvent } from '@/lib/events';
 import type { Mosaic, Target, Project } from '../graphql/graphql';
 
 // Loaded on its own: it waits on the stacker, and most projects have none.
@@ -138,6 +138,7 @@ export default {
       loaded: false,
       stopEvents: () => {},
       stopReconnect: () => {},
+      stopChanges: () => {},
     };
   },
   created() {
@@ -147,9 +148,11 @@ export default {
       if (e.type === 'mosaic' && this.project && e.object === this.project.name) this.fetchMosaics();
     });
     this.stopReconnect = onReconnect(() => this.fetchMosaics());
+    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData());
   },
   unmounted() {
     this.stopEvents();
+    this.stopChanges();
     this.stopReconnect();
   },
   methods: {

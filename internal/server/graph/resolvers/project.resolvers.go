@@ -212,7 +212,8 @@ func (r *projectResolver) Cover(ctx context.Context, obj *model.Project) (*model
 		return nil, nil
 	}
 	if c, ok := covers.Mosaics[obj.Name]; ok {
-		return &model.ProjectCover{Palette: c.Palette, Filter: c.Filter, PreviewURL: c.PreviewURL, Mosaic: true}, nil
+		return &model.ProjectCover{Palette: c.Palette, Filter: c.Filter, PreviewURL: c.PreviewURL, Mosaic: true,
+			UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339)}, nil
 	}
 	var names []string
 	if err := r.db.WithContext(ctx).Model(&targetscheduler.Target{}).Where("projectid = ?", obj.ID).
@@ -236,7 +237,8 @@ func (r *projectResolver) Cover(ctx context.Context, obj *model.Project) (*model
 	if best == nil {
 		return nil, nil
 	}
-	return &model.ProjectCover{Palette: best.Palette, Filter: best.Filter, PreviewURL: best.PreviewURL}, nil
+	return &model.ProjectCover{Palette: best.Palette, Filter: best.Filter, PreviewURL: best.PreviewURL,
+		UpdatedAt: best.UpdatedAt.UTC().Format(time.RFC3339)}, nil
 }
 
 // Project returns graph.ProjectResolver implementation.
