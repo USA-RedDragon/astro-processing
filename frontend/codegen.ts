@@ -7,6 +7,9 @@ const config: CodegenConfig = {
   generates: {
     './src/graphql/': {
       preset: 'client',
+      // The client preset only emits operation types since v6; the app
+      // also uses the schema's object types.
+      plugins: ['typescript'],
       config: {
         documentMode: 'string',
         useTypeImports: true

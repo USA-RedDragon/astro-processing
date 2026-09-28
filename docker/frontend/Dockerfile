@@ -1,6 +1,6 @@
 # The build output is static files, so build natively instead of under
 # emulation for each target platform.
-FROM --platform=$BUILDPLATFORM node:24.13.0-alpine@sha256:cd6fb7efa6490f039f3471a189214d5f548c11df1ff9e5b181aa49e22c14383e AS builder
+FROM --platform=$BUILDPLATFORM node:24.21.0-alpine@sha256:ebfe2f90462722a7a4de65e91990e97fe0d401c70e0e762c5b53302f905ec1c1 AS builder
 
 WORKDIR /app/frontend
 

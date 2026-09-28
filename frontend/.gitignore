@@ -29,3 +29,4 @@ dist-ssr
 reports/
 eslint_report.json
 src/graphql/
+.vitest/
