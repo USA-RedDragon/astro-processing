@@ -321,6 +321,7 @@ func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*mod
 			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
 			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
 			Crop:      graphCrop(m.Crop),
+			XisfURL:   optional(m.XISFURL),
 			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
 		})
 	}

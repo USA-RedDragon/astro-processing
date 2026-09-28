@@ -36,10 +36,12 @@
             <div class="text-xs text-muted-foreground">Updated {{ formatDate(Date.parse(m.updated_at) / 1000) }}</div>
             <div class="flex flex-wrap gap-2 mt-1">
               <a
-                :href="m.master_url"
+                v-if="m.xisf_url"
+                :href="m.xisf_url"
+                title="For PixInsight: opens upright and plate solved"
                 class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
               >
-                Download FITS
+                XISF
               </a>
               <a
                 v-if="m.fitted_url"
@@ -47,7 +49,14 @@
                 :title="`Linear fitted to ${m.fit_reference}`"
                 class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
               >
-                LinearFit FITS
+                LinearFit XISF
+              </a>
+              <a
+                :href="m.master_url"
+                title="Standard FITS, for Siril and other tools"
+                class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
+              >
+                FITS
               </a>
             </div>
           </div>

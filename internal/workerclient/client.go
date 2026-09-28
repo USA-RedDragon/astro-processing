@@ -74,6 +74,7 @@ type Master struct {
 	PreviewURL       string    `json:"preview_url"`
 	LinearURL        string    `json:"linear_url"`
 	Crop             *Crop     `json:"crop"`
+	XISFURL          string    `json:"xisf_url"`
 	FittedURL        string    `json:"fitted_url"`
 	FitReference     string    `json:"fit_reference"`
 }
