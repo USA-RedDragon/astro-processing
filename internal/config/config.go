@@ -22,6 +22,7 @@ type Config struct {
 	Metrics  Metrics  `name:"metrics" description:"Metrics server configuration"`
 	PProf    PProf    `name:"pprof" description:"PProf server configuration"`
 	Storage  Storage  `name:"storage" description:"Storage configuration"`
+	Quality  Quality  `name:"quality" description:"Subframe quality scoring configuration"`
 }
 
 type HTTP struct {
@@ -54,6 +55,10 @@ type PProf struct {
 type Storage struct {
 	Type types.StorageType `name:"type" description:"Storage type. One of mysql, postgres, sqlite" default:"sqlite"`
 	DSN  string            `name:"dsn" description:"Data source name for the storage" default:":memory:?_pragma=foreign_keys(1)"`
+}
+
+type Quality struct {
+	Pedestal float64 `name:"pedestal" description:"Camera pedestal in ADU, subtracted from each sub's ADU median to get the sky background" default:"506"`
 }
 
 var (

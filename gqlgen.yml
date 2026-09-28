@@ -39,6 +39,8 @@ models:
         resolver: true
       stats:
         resolver: true
+      subframes:
+        resolver: true
 
   Project:
     fields:
@@ -54,6 +56,8 @@ models:
       total:
         resolver: true
       filters:
+        resolver: true
+      quality:
         resolver: true
 
   ProjectStats:

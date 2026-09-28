@@ -33,12 +33,16 @@ type Target {
   region_of_interest: Float!
   project: Project
   stats: TargetStats!
+  "Every acquired sub for this target, scored from Target Scheduler metadata."
+  subframes: [Subframe!]!
 }
 
 type TargetStats {
   last_image_date: Int
   total: ImagingStats!
   filters: [TargetFilterStats!]!
+  "Nominal versus effective integration per filter and exposure length."
+  quality: [FilterQuality!]!
 }
 
 type TargetFilterStats {
@@ -47,4 +51,46 @@ type TargetFilterStats {
   gain: Int
   offset: Int
   imaging: ImagingStats!
+}
+
+enum GradingStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+"""
+A sub scored by weight = 1 / (sky * HFR^4), relative to good conditions for
+its filter and exposure across all targets. Score 1 means as good as the
+best tenth of subs; 0.25 means worth a quarter of one.
+"""
+type Subframe {
+  id: ID!
+  acquired_date: Int
+  filter_name: String!
+  exposure_time: Float
+  grading_status: GradingStatus!
+  reject_reason: String
+  file_name: String
+  "ADU median above the camera pedestal."
+  sky: Float
+  hfr: Float
+  fwhm: Float
+  stars: Int
+  eccentricity: Float
+  guiding_rms_arcsec: Float
+  airmass: Float
+  score: Float!
+}
+
+type FilterQuality {
+  filter_name: String!
+  exposure_time: Float!
+  "Subs that were not rejected."
+  subframes: Int!
+  nominal_hours: Float!
+  "Sum of score * exposure: hours of good-conditions data this is worth."
+  effective_hours: Float!
+  median_sky: Float
+  median_hfr: Float
 }

@@ -8,5 +8,10 @@ export default [
     path: '/project/:id',
     name: 'ProjectDetails',
     component: () => import('../views/ProjectDetailsPage.vue'),
+  },
+  {
+    path: '/target/:id',
+    name: 'TargetDetails',
+    component: () => import('../views/TargetDetailsPage.vue'),
   }
 ]

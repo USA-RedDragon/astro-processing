@@ -8,7 +8,9 @@
         </div>
 
         <CardHeader>
-          <CardTitle class="pr-24">{{ target.name }}</CardTitle>
+          <CardTitle class="pr-24">
+            <router-link :to="`/target/${target.id}`" class="hover:underline">{{ target.name }}</router-link>
+          </CardTitle>
           <div class="flex flex-col gap-1 mt-2">
             <p v-if="target.ra !== null && target.dec !== null" class="text-xs text-muted-foreground">
               <span class="font-medium">RA:</span> {{ target.ra != null ? formatRA(target.ra) : '' }}

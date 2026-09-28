@@ -19,6 +19,7 @@ type Resolver struct {
 	db      *gorm.DB
 	version string
 	commit  string
+	refs    *referenceCache
 }
 
 func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, error) {
@@ -49,5 +50,5 @@ func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, 
 	sqlDB.SetConnMaxIdleTime(15 * time.Minute)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
 
-	return &Resolver{config: cfg, db: db, version: version, commit: commit}, nil
+	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}}, nil
 }

@@ -92,6 +92,19 @@ func (r *targetResolver) Stats(ctx context.Context, obj *model.Target) (*model.T
 	return &model.TargetStats{}, nil
 }
 
+// Subframes is the resolver for the subframes field.
+func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*model.Subframe, error) {
+	subs, refs, err := r.scoredTargetSubframes(ctx, obj.ID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.Subframe, 0, len(subs))
+	for _, s := range subs {
+		out = append(out, toModelSubframe(s, refs))
+	}
+	return out, nil
+}
+
 // LastImageDate is the resolver for the last_image_date field.
 func (r *targetStatsResolver) LastImageDate(ctx context.Context, obj *model.TargetStats) (*int32, error) {
 	db := r.db.WithContext(ctx)
@@ -245,6 +258,19 @@ func (r *targetStatsResolver) Filters(ctx context.Context, obj *model.TargetStat
 		})
 	}
 	return stats, nil
+}
+
+// Quality is the resolver for the quality field.
+func (r *targetStatsResolver) Quality(ctx context.Context, obj *model.TargetStats) ([]*model.FilterQuality, error) {
+	target, err := utils.FindParent[*model.Target](ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not find parent target for quality stats: %w", err)
+	}
+	subs, refs, err := r.scoredTargetSubframes(ctx, target.ID)
+	if err != nil {
+		return nil, err
+	}
+	return summarizeQuality(subs, refs), nil
 }
 
 // Target returns graph.TargetResolver implementation.
