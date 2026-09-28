@@ -75,6 +75,8 @@ interface Mixable {
   filter: string;
   linear_url: string;
   updated_at: string;
+  // The well-covered part of the frame, as fractions of its size.
+  crop?: { x: number; y: number; w: number; h: number } | null;
 }
 
 type Channel = 'r' | 'g' | 'b';
@@ -186,14 +188,25 @@ export default {
         }
         const any = [...imgs.values()][0];
         if (!any) return;
-        const { width, height } = any;
+        // Crop every channel to where the filters' well-covered parts
+        // overlap, leaving out the thinly covered edges.
+        const box = this.commonCrop([...needed], any.width, any.height);
+        const { w: width, h: height } = box;
+        const cut = (img: LinearImage): Float32Array => {
+          const out = new Float32Array(width * height);
+          for (let y = 0; y < height; y++) {
+            const from = (box.y + y) * img.width + box.x;
+            out.set(img.data.subarray(from, from + width), y * width);
+          }
+          return out;
+        };
         const planes: (Float32Array | undefined)[] = (['r', 'g', 'b'] as Channel[]).map((c) => {
           const img = imgs.get(this.mapping[c]);
-          if (!img || img.width !== width || img.height !== height) return undefined;
+          if (!img || img.width !== any.width || img.height !== any.height) return undefined;
           if (c === 'r' && this.canBlendHa && this.haBlend > 0) {
-            return this.blendHa(img.data, imgs.get('H-a')!.data);
+            return this.blendHa(cut(img), cut(imgs.get('H-a')!));
           }
-          return img.data;
+          return cut(img);
         });
 
         const params: (StretchParams | undefined)[] = planes.map(
@@ -235,6 +248,27 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    // commonCrop is the overlap of the filters' crops, in pixels of a
+    // w×h linear preview.
+    commonCrop(filters: string[], w: number, h: number): { x: number; y: number; w: number; h: number } {
+      let x0 = 0;
+      let y0 = 0;
+      let x1 = 1;
+      let y1 = 1;
+      for (const f of filters) {
+        const c = this.masters.find((m) => m.filter === f)?.crop;
+        if (!c) continue;
+        x0 = Math.max(x0, c.x);
+        y0 = Math.max(y0, c.y);
+        x1 = Math.min(x1, c.x + c.w);
+        y1 = Math.min(y1, c.y + c.h);
+      }
+      const x = Math.ceil(x0 * w);
+      const y = Math.ceil(y0 * h);
+      const cw = Math.floor(x1 * w) - x;
+      const ch = Math.floor(y1 * h) - y;
+      return cw > 0 && ch > 0 ? { x, y, w: cw, h: ch } : { x: 0, y: 0, w, h };
     },
     // blendHa adds Ha signal that is brighter than the red channel, after
     // putting both on the same scale (median 0, σ 1), then maps the result

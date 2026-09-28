@@ -52,6 +52,14 @@ type Preview struct {
 	URL  string `json:"url"`
 }
 
+// Crop is the well-covered part of an image as fractions of its size.
+type Crop struct {
+	X float64 `json:"x"`
+	Y float64 `json:"y"`
+	W float64 `json:"w"`
+	H float64 `json:"h"`
+}
+
 type Master struct {
 	Filter           string    `json:"filter"`
 	Subs             int       `json:"subs"`
@@ -63,6 +71,7 @@ type Master struct {
 	MasterURL        string    `json:"master_url"`
 	PreviewURL       string    `json:"preview_url"`
 	LinearURL        string    `json:"linear_url"`
+	Crop             *Crop     `json:"crop"`
 }
 
 type Client struct {
@@ -120,6 +129,7 @@ type Mosaic struct {
 	MasterURL   string    `json:"master_url"`
 	PreviewURL  string    `json:"preview_url"`
 	LinearURL   string    `json:"linear_url"`
+	Crop        *Crop     `json:"crop"`
 }
 
 func (c *Client) Mosaics(ctx context.Context, project string) ([]Mosaic, error) {

@@ -300,6 +300,7 @@ const GET_TARGET_MASTERS_QUERY = `
         master_url
         preview_url
         linear_url
+        crop { x y w h }
       }
     }
   }

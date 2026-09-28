@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
+	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 	"github.com/USA-RedDragon/astro-processing/internal/types"
 	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
 	"github.com/glebarez/sqlite"
@@ -78,4 +79,11 @@ func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, 
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
 
 	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}, worker: workerclient.New(cfg.Worker.URL)}, nil
+}
+
+func graphCrop(c *workerclient.Crop) *model.Crop {
+	if c == nil {
+		return nil
+	}
+	return &model.Crop{X: c.X, Y: c.Y, W: c.W, H: c.H}
 }
