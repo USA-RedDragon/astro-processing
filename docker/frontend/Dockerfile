@@ -15,7 +15,7 @@ ENV NODE_ENV=production
 RUN npm run generate:graphql
 RUN npm run build
 
-FROM nginx:1.29.5-alpine@sha256:1eff5a5f3fcf8431a0abb7eddf5471fec24e5e1905a2581aeacdb07a4479b92b
+FROM nginx:1.31.6-alpine@sha256:df221db836e1754089190208cee7eeda94f233197056426eda74a43ab1abeac2
 
 COPY --chown=root:root docker/frontend/rootfs /
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
