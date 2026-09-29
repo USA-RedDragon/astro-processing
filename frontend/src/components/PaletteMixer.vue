@@ -208,13 +208,21 @@ export default {
           }
           return cut(img);
         });
+        // Only where every channel has data: a mosaic panel missing a filter,
+        // or one master's edge another doesn't reach, would otherwise show in
+        // the other channels' colours.
+        const defined = planes.filter((p): p is Float32Array => !!p);
+        for (let i = 0; i < width * height; i++) {
+          if (defined.some((p) => p[i] === 0)) {
+            for (const p of defined) p[i] = 0;
+          }
+        }
 
         const params: (StretchParams | undefined)[] = planes.map(
           (p) => (p ? autoStretch(stats(p), this.maxOf(p)) : undefined),
         );
         if (this.linked) {
           // One stretch for all channels, from their average statistics.
-          const defined = planes.filter((p): p is Float32Array => !!p);
           const s = defined.map((p) => stats(p));
           const avg = {
             median: s.reduce((a, x) => a + x.median, 0) / s.length,
