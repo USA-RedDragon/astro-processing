@@ -5,7 +5,8 @@
     </CardHeader>
     <CardContent>
       <p class="text-sm text-muted-foreground mb-4">
-        Only subs scoring 0.3 or better, added as they arrive. Linear FITS, ready for PixInsight.
+        Subs scoring at least 0.3 of the target's best, added as they arrive. The XISF opens in PixInsight
+        upright and plate solved.
       </p>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div v-for="m in masters" :key="m.filter" class="rounded-md border overflow-hidden">
@@ -16,6 +17,23 @@
               loading="lazy"
               class="w-full aspect-[3/2] object-contain"
             >
+          </a>
+          <a
+            v-if="m.comet_preview_url"
+            :href="m.comet_preview_url"
+            target="_blank"
+            rel="noopener"
+            class="block relative bg-black border-t"
+          >
+            <img
+              :src="m.comet_preview_url"
+              :alt="`${m.filter} comet master`"
+              loading="lazy"
+              class="w-full aspect-[3/2] object-contain"
+            >
+            <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+              Aligned on the comet
+            </span>
           </a>
           <div class="p-3 space-y-1 text-sm">
             <div class="flex items-baseline justify-between">
@@ -50,6 +68,22 @@
                 class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
               >
                 LinearFit XISF
+              </a>
+              <a
+                v-if="m.comet_xisf_url"
+                :href="m.comet_xisf_url"
+                title="Aligned on the comet"
+                class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
+              >
+                Comet XISF
+              </a>
+              <a
+                v-if="m.comet_url"
+                :href="m.comet_url"
+                title="Aligned on the comet"
+                class="inline-block border rounded-md px-3 py-1 hover:bg-accent"
+              >
+                Comet FITS
               </a>
               <a
                 :href="m.master_url"

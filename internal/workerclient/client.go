@@ -77,6 +77,9 @@ type Master struct {
 	XISFURL          string    `json:"xisf_url"`
 	FittedURL        string    `json:"fitted_url"`
 	FitReference     string    `json:"fit_reference"`
+	CometPreviewURL  string    `json:"comet_preview_url"`
+	CometURL         string    `json:"comet_url"`
+	CometXISFURL     string    `json:"comet_xisf_url"`
 }
 
 type Client struct {

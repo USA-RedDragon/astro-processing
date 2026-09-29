@@ -101,4 +101,8 @@ type FilterMaster {
   fitted_url: String
   "The filter the linear fitted master is matched to."
   fit_reference: String
+  "A comet's master aligned on the comet: preview, FITS and XISF links."
+  comet_preview_url: String
+  comet_url: String
+  comet_xisf_url: String
 }

@@ -15,6 +15,13 @@
           <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
             {{ project.cover.palette || project.cover.filter }}{{ project.cover.mosaic ? ' mosaic' : '' }}
           </span>
+          <span
+            v-if="processing"
+            class="absolute top-2 left-2 rounded-full bg-black/60 p-1"
+            title="Processing"
+          >
+            <LoaderCircle class="size-4 animate-spin text-white" aria-label="Processing" />
+          </span>
         </component>
         <!-- Status Badge at top right -->
         <div class="absolute top-5 right-2 z-10 flex gap-2">
@@ -37,6 +44,11 @@
             <span v-else>
               {{ project.name }}
             </span>
+            <LoaderCircle
+              v-if="processing && !(showCover && project.cover)"
+              class="inline size-4 ml-1.5 animate-spin text-muted-foreground align-middle"
+              aria-label="Processing"
+            />
           </CardTitle>
           <div class="flex flex-col gap-1 mt-2">
             <p v-if="project.description" class="text-xs text-muted-foreground">
@@ -79,6 +91,8 @@ import { Badge } from '@/components/ui/badge';
 import ProgressCircle from '@/components/ProgressCircle.vue';
 
 import type { PropType } from 'vue';
+import { LoaderCircle } from 'lucide-vue-next';
+import { status } from '@/lib/events';
 import StatsDisplay from './StatsDisplay.vue';
 import { formatDate } from '@/lib/formatters';
 import type {
@@ -93,6 +107,7 @@ export default {
     CardContent,
     CardHeader,
     CardTitle,
+    LoaderCircle,
     ProgressCircle,
     StatsDisplay,
   },
@@ -119,6 +134,14 @@ export default {
       shownCover: undefined as string | undefined,
       shownAt: '',
     };
+  },
+  computed: {
+    // The stacker is working on one of the project's targets or its mosaic.
+    processing(): boolean {
+      const names = new Set((this.project.targets ?? []).map((t) => t.name));
+      const mosaic = `Mosaic: ${this.project.name}`;
+      return status.workers.some((w) => names.has(w.object) || w.object === mosaic);
+    },
   },
   watch: {
     'project.cover': {

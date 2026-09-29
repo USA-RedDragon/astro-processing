@@ -103,6 +103,9 @@ const GET_PROJECTS_QUERY = `
       dither_every
       enable_grader
       is_mosaic
+      targets {
+        name
+      }
       cover {
         palette
         filter

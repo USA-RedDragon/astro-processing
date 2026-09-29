@@ -4,7 +4,7 @@
       <ProjectCard :project="project" :show-cover="false" />
     </template>
 
-    <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" />
+    <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" :project="project?.name ?? ''" />
     <PaletteMixer v-if="mosaics.length > 0" :masters="mosaics" />
 
     <!-- Targets Section -->

@@ -304,6 +304,9 @@ const GET_TARGET_MASTERS_QUERY = `
         xisf_url
         fitted_url
         fit_reference
+        comet_preview_url
+        comet_url
+        comet_xisf_url
       }
     }
   }

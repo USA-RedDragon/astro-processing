@@ -20,7 +20,14 @@
           </a>
           <div class="p-3 space-y-1 text-sm">
             <div class="flex items-baseline justify-between">
-              <span class="font-semibold">{{ m.filter }}</span>
+              <span class="font-semibold inline-flex items-center gap-1.5">
+                {{ m.filter }}
+                <LoaderCircle
+                  v-if="updating.includes(m.filter)"
+                  class="size-3.5 animate-spin text-muted-foreground"
+                  aria-label="Updating"
+                />
+              </span>
               <span class="text-muted-foreground tabular-nums">{{ m.panels }} of {{ m.panels_total }} panels</span>
             </div>
             <div class="text-muted-foreground tabular-nums">{{ m.width }} × {{ m.height }}</div>
@@ -37,17 +44,29 @@
 
 <script lang="ts">
 import type { PropType } from 'vue';
+import { LoaderCircle } from 'lucide-vue-next';
+import { status } from '@/lib/events';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/formatters';
 import type { Mosaic } from '../graphql/graphql';
 
 export default {
   name: 'MosaicCard',
-  components: { Card, CardContent, CardHeader, CardTitle },
+  components: { Card, CardContent, CardHeader, CardTitle, LoaderCircle },
   props: {
     mosaics: {
       type: Array as PropType<Mosaic[]>,
       required: true,
+    },
+    project: {
+      type: String,
+      required: true,
+    },
+  },
+  computed: {
+    // Filters whose mosaic the stacker is assembling now.
+    updating(): string[] {
+      return status.workers.filter((w) => w.object === `Mosaic: ${this.project}`).map((w) => w.filter);
     },
   },
   data() {

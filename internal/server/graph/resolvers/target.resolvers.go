@@ -323,6 +323,7 @@ func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*mod
 			Crop:      graphCrop(m.Crop),
 			XisfURL:   optional(m.XISFURL),
 			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
+			CometPreviewURL: optional(m.CometPreviewURL), CometURL: optional(m.CometURL), CometXisfURL: optional(m.CometXISFURL),
 		})
 	}
 	return out, nil
