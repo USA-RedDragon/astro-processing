@@ -167,6 +167,23 @@ func (c *Client) Covers(ctx context.Context) (*Covers, error) {
 	return &covers, err
 }
 
+// Object is a target with lights, as the worker's files know it.
+type Object struct {
+	Name       string  `json:"name"`
+	Lights     int     `json:"lights"`
+	Stacked    int     `json:"stacked"`
+	Nights     int     `json:"nights"`
+	FirstNight *string `json:"first_night"`
+	LastNight  *string `json:"last_night"`
+	Scheduled  bool    `json:"scheduled"`
+}
+
+func (c *Client) Objects(ctx context.Context) ([]Object, error) {
+	var objects []Object
+	err := c.get(ctx, "/api/v1/objects", &objects)
+	return objects, err
+}
+
 func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {
 	var gaps []DarkGap
 	err := c.get(ctx, "/api/v1/coverage/dark-gaps", &gaps)

@@ -98,3 +98,33 @@ func optional(s string) *string {
 	}
 	return &s
 }
+
+// masters is a target's masters from the worker, by name.
+func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterMaster, error) {
+	if r.worker == nil {
+		return []*model.FilterMaster{}, nil
+	}
+	masters, err := r.worker.Masters(ctx, object)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get masters: %w", err)
+	}
+	out := make([]*model.FilterMaster, 0, len(masters))
+	for _, m := range masters {
+		out = append(out, &model.FilterMaster{
+			Filter: m.Filter, Subs: int32(m.Subs),
+			ExposureHours: m.ExposureSeconds / 3600, EffectiveHours: m.EffectiveSeconds / 3600,
+			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
+			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
+			Crop:      graphCrop(m.Crop),
+			XisfURL:   optional(m.XISFURL),
+			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
+			CometPreviewURL: optional(m.CometPreviewURL), CometURL: optional(m.CometURL), CometXisfURL: optional(m.CometXISFURL),
+		})
+	}
+	return out, nil
+}
+
+func graphObject(o workerclient.Object) *model.OtherTarget {
+	return &model.OtherTarget{Name: o.Name, Lights: int32(o.Lights), Stacked: int32(o.Stacked), Nights: int32(o.Nights),
+		FirstNight: o.FirstNight, LastNight: o.LastNight}
+}

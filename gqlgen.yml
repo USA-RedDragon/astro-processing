@@ -46,6 +46,13 @@ models:
       masters:
         resolver: true
 
+  OtherTarget:
+    fields:
+      cover:
+        resolver: true
+      masters:
+        resolver: true
+
   Project:
     fields:
       targets:

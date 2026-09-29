@@ -10,7 +10,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
@@ -309,24 +308,7 @@ func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*mod
 	if r.worker == nil {
 		return []*model.FilterMaster{}, nil
 	}
-	masters, err := r.worker.Masters(ctx, obj.Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get masters: %w", err)
-	}
-	out := make([]*model.FilterMaster, 0, len(masters))
-	for _, m := range masters {
-		out = append(out, &model.FilterMaster{
-			Filter: m.Filter, Subs: int32(m.Subs),
-			ExposureHours: m.ExposureSeconds / 3600, EffectiveHours: m.EffectiveSeconds / 3600,
-			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
-			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
-			Crop:      graphCrop(m.Crop),
-			XisfURL:   optional(m.XISFURL),
-			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
-			CometPreviewURL: optional(m.CometPreviewURL), CometURL: optional(m.CometURL), CometXisfURL: optional(m.CometXISFURL),
-		})
-	}
-	return out, nil
+	return r.masters(ctx, obj.Name)
 }
 
 // Target returns graph.TargetResolver implementation.

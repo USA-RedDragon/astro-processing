@@ -1,0 +1,18 @@
+extend type Query {
+  "Targets with lights that Target Scheduler has no record of, such as comets and targets imaged before it. Empty when the worker is not configured."
+  otherTargets: [OtherTarget!]!
+  otherTarget(name: String!): OtherTarget
+}
+
+"A target imaged outside Target Scheduler, known only from its files."
+type OtherTarget {
+  name: String!
+  lights: Int!
+  "Lights in its masters."
+  stacked: Int!
+  nights: Int!
+  first_night: String
+  last_night: String
+  cover: ProjectCover
+  masters: [FilterMaster!]!
+}

@@ -49,6 +49,18 @@
           />
         </div>
       </div>
+
+      <div v-if="otherTargets.length > 0" class="px-4 space-y-4">
+        <div>
+          <h2 class="text-xl font-semibold">Other targets</h2>
+          <p class="text-sm text-muted-foreground">Imaged outside Target Scheduler.</p>
+        </div>
+        <div class="info">
+          <div v-for="(column, c) in otherColumns" :key="c" class="flex flex-col gap-4 min-w-0">
+            <OtherTargetCard v-for="t in column" :key="t.name" :target="t" />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -56,6 +68,7 @@
 <script lang="ts">
 import API from '@/lib/API';
 import ProjectCard from '@/components/ProjectCard.vue';
+import OtherTargetCard from '@/components/OtherTargetCard.vue';
 import {
   Select as SelectRoot,
   SelectContent,
@@ -64,9 +77,28 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { onChange, onEvent, onReconnect } from '@/lib/events';
-import type { Project, ProjectCover } from '../graphql/graphql';
+import type { OtherTarget, Project, ProjectCover } from '../graphql/graphql';
 
 // Reloaded when the stacker updates a master or mosaic.
+const GET_OTHER_TARGETS_QUERY = `
+  query GetOtherTargets {
+    otherTargets {
+      name
+      lights
+      stacked
+      nights
+      first_night
+      last_night
+      cover {
+        palette
+        filter
+        preview_url
+        updated_at
+      }
+    }
+  }
+`;
+
 const GET_PROJECT_COVERS_QUERY = `
   query GetProjectCovers {
     projects {
@@ -139,6 +171,7 @@ type ProjectGroup = {
 
 export default {
   components: {
+    OtherTargetCard,
     ProjectCard,
     SelectRoot,
     SelectContent,
@@ -150,10 +183,15 @@ export default {
     this.fetchData();
     this.fitColumns();
     window.addEventListener('resize', this.fitColumns);
+    this.fetchOthers();
     this.stopEvents = onEvent((e) => {
       if (e.type === 'master' || e.type === 'mosaic') this.refreshCovers();
+      if (e.type === 'master' || e.type === 'frames') this.refreshOthers();
     });
-    this.stopReconnect = onReconnect(() => this.refreshCovers());
+    this.stopReconnect = onReconnect(() => {
+      this.refreshCovers();
+      this.refreshOthers();
+    });
     // Every stat on the cards comes from these tables.
     this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData(true));
   },
@@ -163,10 +201,13 @@ export default {
     this.stopChanges();
     this.stopReconnect();
     if (this.coverTimer) clearTimeout(this.coverTimer);
+    if (this.othersTimer) clearTimeout(this.othersTimer);
   },
   data: function() {
     return {
       projects: [] as Project[],
+      otherTargets: [] as OtherTarget[],
+      othersTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       loading: true,
       error: null as string | null,
       circumference: 2 * Math.PI * 28, // 28 is the radius for target cards
@@ -192,6 +233,22 @@ export default {
     fitColumns() {
       const w = window.innerWidth;
       this.columnCount = w > 2400 ? 4 : w > 1200 ? 3 : w > 800 ? 2 : 1;
+    },
+    async fetchOthers() {
+      try {
+        const r = await API.request(GET_OTHER_TARGETS_QUERY);
+        this.otherTargets = (r.otherTargets ?? []) as OtherTarget[];
+      } catch (error) {
+        console.error('Error fetching other targets:', error);
+      }
+    },
+    // refreshOthers reloads the other targets, at most every 5 s.
+    refreshOthers() {
+      if (this.othersTimer) return;
+      this.othersTimer = setTimeout(() => {
+        this.othersTimer = undefined;
+        this.fetchOthers();
+      }, 5000);
     },
     // refreshCovers reloads the cards' pictures, at most every 5 s.
     refreshCovers() {
@@ -274,6 +331,11 @@ export default {
     columns(): Project[][] {
       const cols: Project[][] = Array.from({ length: this.columnCount }, () => []);
       this.projects.forEach((p, i) => cols[i % this.columnCount]!.push(p));
+      return cols;
+    },
+    otherColumns(): OtherTarget[][] {
+      const cols: OtherTarget[][] = Array.from({ length: this.columnCount }, () => []);
+      this.otherTargets.forEach((t, i) => cols[i % this.columnCount]!.push(t));
       return cols;
     },
   },
