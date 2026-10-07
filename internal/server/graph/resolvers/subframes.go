@@ -3,20 +3,17 @@ package resolvers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
+	"path"
 	"sort"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/USA-RedDragon/astro-processing/internal/quality"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
+	"github.com/USA-RedDragon/astro-processing/internal/submeta"
+	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
 	"gorm.io/gorm"
 )
-
-// referenceTTL bounds how stale the good-conditions references can get.
-// They move slowly, so recomputing them on every request is wasted work.
-const referenceTTL = 5 * time.Minute
 
 const (
 	gradingPending  = 0
@@ -24,15 +21,37 @@ const (
 	gradingRejected = 2
 )
 
+// stackerReasonPrefix starts the reject reason of subs the stacker rejected
+// in Target Scheduler itself (its verdicts).
+const stackerReasonPrefix = "stacker:"
+
+// The stacker's statuses this package treats specially; the rest are shown
+// as they come. statusPending is ours: the stacker hasn't processed the sub.
+const (
+	statusPending    = "pending"
+	statusAdded      = "added"
+	statusRejected   = "rejected"
+	statusNoMetadata = "no_metadata"
+	statusDuplicate  = "duplicate"
+)
+
+// statusReasons explains a stacker status that came without an error.
+var statusReasons = map[string]string{
+	"low_score":      "Scored below the stacker's cut against this target's best subs",
+	"moon":           "Breaks its filter's moon avoidance",
+	"off_target":     "The mount pointed elsewhere and the sub didn't register",
+	statusNoMetadata: "No Target Scheduler record to score it",
+	"calibration":    "Waiting for matching calibration frames",
+	"registration":   "Didn't register to the target's reference",
+	"failed":         "Processing failed; the stacker will try again",
+	"dead":           "Failed too often; left out until reset",
+	"recalibrate":    "Being calibrated again with a better dark",
+	statusDuplicate:  "The same file as an earlier light",
+}
+
 type qualityGroup struct {
 	filter   string
 	exposure float64
-}
-
-type referenceCache struct {
-	mu       sync.Mutex
-	loadedAt time.Time
-	refs     map[qualityGroup]float64
 }
 
 type subframeRow struct {
@@ -44,14 +63,16 @@ type subframeRow struct {
 	Metadata      string
 }
 
-type scoredSubframe struct {
-	row  subframeRow
-	meta quality.Metadata
-	sky  float64
-	raw  float64
+// subframe is an acquired image with what the stacker made of it; stack is
+// nil when the stacker has no light of that name.
+type subframe struct {
+	row   subframeRow
+	meta  submeta.Metadata
+	sky   float64
+	stack *workerclient.Sub
 }
 
-func (s scoredSubframe) group() qualityGroup {
+func (s subframe) group() qualityGroup {
 	filter := s.meta.FilterName
 	if filter == "" {
 		filter = s.row.FilterName
@@ -59,72 +80,136 @@ func (s scoredSubframe) group() qualityGroup {
 	return qualityGroup{filter: filter, exposure: math.Round(float64(s.meta.ExposureDuration))}
 }
 
-func (r *Resolver) loadSubframes(db *gorm.DB, where string, args ...any) ([]scoredSubframe, error) {
+// fileName is the base name of the sub's file. NINA records Windows paths;
+// the base name is what matches files in the object store.
+func (s subframe) fileName() string {
+	return s.meta.FileName[strings.LastIndexAny(s.meta.FileName, `\/`)+1:]
+}
+
+// status is the stacker's status for the sub, or statusPending.
+func (s subframe) status() string {
+	if s.stack == nil || s.stack.Status == "" {
+		return statusPending
+	}
+	return s.stack.Status
+}
+
+// scored reports whether the stacker's score means anything: it scores
+// neither subs Target Scheduler rejected, nor ones it has no record of, nor
+// duplicate files.
+func (s subframe) scored() bool {
+	switch s.status() {
+	case statusPending, statusRejected, statusNoMetadata, statusDuplicate:
+		return false
+	}
+	return true
+}
+
+// rejectedInScheduler reports a sub rejected in Target Scheduler other than
+// by the stacker's verdicts, which the stacker leaves out without judging.
+func (s subframe) rejectedInScheduler() bool {
+	return s.row.GradingStatus == gradingRejected &&
+		(s.row.RejectReason == nil || !strings.HasPrefix(*s.row.RejectReason, stackerReasonPrefix))
+}
+
+func (s subframe) reason() *string {
+	var why string
+	switch st := s.status(); st {
+	case statusAdded:
+		return nil
+	case statusPending:
+		why = "Not processed by the stacker yet"
+		if s.stack == nil {
+			why = "Not in the stacker's index yet"
+		}
+	case statusRejected:
+		why = "Rejected in Target Scheduler"
+		if s.row.RejectReason != nil && *s.row.RejectReason != "" {
+			why += ": " + *s.row.RejectReason
+		}
+	default:
+		why = s.stack.Error
+		if why == "" {
+			why = statusReasons[st]
+		}
+	}
+	return optional(why)
+}
+
+func (r *Resolver) loadSubframes(db *gorm.DB, targetID int) ([]subframe, error) {
 	var rows []subframeRow
 	if err := db.Table("acquiredimage").
 		Select(`"Id" as id, acquireddate as acquired_date, filtername as filter_name,
 			"gradingStatus" as grading_status, rejectreason as reject_reason, metadata`).
-		Where(where, args...).
+		Where(`"targetId" = ?`, targetID).
 		Order("acquireddate").
 		Scan(&rows).Error; err != nil {
 		return nil, fmt.Errorf("failed to load subframes: %w", err)
 	}
 
-	subs := make([]scoredSubframe, 0, len(rows))
+	subs := make([]subframe, 0, len(rows))
 	for _, row := range rows {
-		meta, err := quality.ParseMetadata(row.Metadata)
+		meta, err := submeta.ParseMetadata(row.Metadata)
 		if err != nil {
-			// Keep the sub so counts stay honest; it just scores zero.
-			meta = quality.Metadata{ExposureDuration: quality.Float(math.NaN()), HFR: quality.Float(math.NaN()), ADUMedian: quality.Float(math.NaN())}
+			// Keep the sub so counts stay honest.
+			nan := submeta.Float(math.NaN())
+			meta = submeta.Metadata{ExposureDuration: nan, HFR: nan, ADUMedian: nan}
 		}
-		sky := quality.Sky(float64(meta.ADUMedian), r.config.Quality.Pedestal)
-		subs = append(subs, scoredSubframe{
+		subs = append(subs, subframe{
 			row:  row,
 			meta: meta,
-			sky:  sky,
-			raw:  quality.RawWeight(sky, float64(meta.HFR)),
+			sky:  submeta.Sky(float64(meta.ADUMedian), submeta.PedestalAt(r.config.Quality.Pedestal, float64(meta.Offset))),
 		})
 	}
 	return subs, nil
 }
 
-// references returns the good-conditions weight for every filter and exposure
-// group, computed across all targets so a target shot only under the moon
-// does not grade itself on a curve.
-func (r *Resolver) references(ctx context.Context) (map[qualityGroup]float64, error) {
-	r.refs.mu.Lock()
-	defer r.refs.mu.Unlock()
-	if r.refs.refs != nil && time.Since(r.refs.loadedAt) < referenceTTL {
-		return r.refs.refs, nil
+// stackerSubs is the stacker's lights of a target by file name. It is nil
+// when the stacker is not configured or can't be reached, so every sub
+// shows as pending.
+func (r *Resolver) stackerSubs(ctx context.Context, object string) map[string]*workerclient.Sub {
+	if r.worker == nil {
+		return nil
 	}
+	subs, err := r.worker.Subs(ctx, object)
+	if err != nil {
+		slog.Warn("Could not load the stacker's subs", "target", object, "error", err)
+		return nil
+	}
+	return indexStackerSubs(subs)
+}
 
-	subs, err := r.loadSubframes(r.db.WithContext(ctx), `"gradingStatus" <> ?`, gradingRejected)
+// indexStackerSubs keys the stacker's lights by file name. Of a file
+// indexed twice, the original wins over the duplicate.
+func indexStackerSubs(subs []workerclient.Sub) map[string]*workerclient.Sub {
+	out := make(map[string]*workerclient.Sub, len(subs))
+	for i := range subs {
+		s := &subs[i]
+		name := path.Base(s.File)
+		if prev, ok := out[name]; ok && prev.Status != statusDuplicate {
+			continue
+		}
+		out[name] = s
+	}
+	return out
+}
+
+// targetSubframes loads a target's subs with the stacker's verdict on each.
+func (r *Resolver) targetSubframes(ctx context.Context, targetID int, name string) ([]subframe, error) {
+	subs, err := r.loadSubframes(r.db.WithContext(ctx), targetID)
 	if err != nil {
 		return nil, err
 	}
-	byGroup := map[qualityGroup][]float64{}
-	for _, s := range subs {
-		byGroup[s.group()] = append(byGroup[s.group()], s.raw)
-	}
-	refs := make(map[qualityGroup]float64, len(byGroup))
-	for g, ws := range byGroup {
-		refs[g] = quality.Reference(ws)
-	}
-	r.refs.refs = refs
-	r.refs.loadedAt = time.Now()
-	return refs, nil
+	matchStacker(subs, r.stackerSubs(ctx, name))
+	return subs, nil
 }
 
-func (r *Resolver) scoredTargetSubframes(ctx context.Context, targetID int) ([]scoredSubframe, map[qualityGroup]float64, error) {
-	refs, err := r.references(ctx)
-	if err != nil {
-		return nil, nil, err
+func matchStacker(subs []subframe, stacker map[string]*workerclient.Sub) {
+	for i := range subs {
+		if f := subs[i].fileName(); f != "" {
+			subs[i].stack = stacker[f]
+		}
 	}
-	subs, err := r.loadSubframes(r.db.WithContext(ctx), `"targetId" = ?`, targetID)
-	if err != nil {
-		return nil, nil, err
-	}
-	return subs, refs, nil
 }
 
 func finite(v float64) *float64 {
@@ -145,35 +230,25 @@ func gradingStatus(v int) model.GradingStatus {
 	}
 }
 
-func toModelSubframe(s scoredSubframe, refs map[qualityGroup]float64) *model.Subframe {
+func toModelSubframe(s subframe) *model.Subframe {
 	var acquired *int32
 	if s.row.AcquiredDate != nil {
 		v := int32(*s.row.AcquiredDate)
 		acquired = &v
-	}
-	var fileName *string
-	if s.meta.FileName != "" {
-		// NINA records Windows paths; the base name is what matches files on disk.
-		name := s.meta.FileName[strings.LastIndexAny(s.meta.FileName, `\/`)+1:]
-		fileName = &name
 	}
 	var stars *int32
 	if v := float64(s.meta.DetectedStars); !math.IsNaN(v) {
 		n := int32(v)
 		stars = &n
 	}
-	score := 0.0
-	if s.row.GradingStatus != gradingRejected {
-		score = quality.Score(s.raw, refs[s.group()])
-	}
-	return &model.Subframe{
+	out := &model.Subframe{
 		ID:               s.row.ID,
 		AcquiredDate:     acquired,
 		FilterName:       s.group().filter,
 		ExposureTime:     finite(float64(s.meta.ExposureDuration)),
 		GradingStatus:    gradingStatus(s.row.GradingStatus),
 		RejectReason:     s.row.RejectReason,
-		FileName:         fileName,
+		FileName:         optional(s.fileName()),
 		Sky:              finite(s.sky),
 		Hfr:              finite(float64(s.meta.HFR)),
 		Fwhm:             finite(float64(s.meta.FWHM)),
@@ -181,8 +256,17 @@ func toModelSubframe(s scoredSubframe, refs map[qualityGroup]float64) *model.Sub
 		Eccentricity:     finite(float64(s.meta.Eccentricity)),
 		GuidingRmsArcsec: finite(float64(s.meta.GuidingRMSArcSec)),
 		Airmass:          finite(float64(s.meta.Airmass)),
-		Score:            score,
+		StackStatus:      s.status(),
+		StackReason:      s.reason(),
 	}
+	if s.stack != nil {
+		out.Photometry = optional(s.stack.Photometry)
+	}
+	if s.scored() {
+		out.Score = finite(s.stack.Score)
+		out.Weight = finite(s.stack.Weight)
+	}
+	return out
 }
 
 func median(vals []float64) *float64 {
@@ -203,17 +287,20 @@ func median(vals []float64) *float64 {
 	return &m
 }
 
-func summarizeQuality(subs []scoredSubframe, refs map[qualityGroup]float64) []*model.FilterQuality {
+// summarizeQuality totals a target's subs per filter and exposure. Effective
+// hours are the stacker's weights of the subs it stacked, as its masters
+// count them.
+func summarizeQuality(subs []subframe) []*model.FilterQuality {
 	type acc struct {
-		out  *model.FilterQuality
-		sky  []float64
-		hfr  []float64
-		seen int
+		out *model.FilterQuality
+		sky []float64
+		hfr []float64
 	}
 	groups := map[qualityGroup]*acc{}
 	var order []qualityGroup
 	for _, s := range subs {
-		if s.row.GradingStatus == gradingRejected {
+		st := s.status()
+		if s.rejectedInScheduler() || st == statusRejected || st == statusDuplicate {
 			continue
 		}
 		g := s.group()
@@ -226,7 +313,15 @@ func summarizeQuality(subs []scoredSubframe, refs map[qualityGroup]float64) []*m
 		a.out.Subframes++
 		if !math.IsNaN(g.exposure) {
 			a.out.NominalHours += g.exposure / 3600
-			a.out.EffectiveHours += quality.Score(s.raw, refs[g]) * g.exposure / 3600
+		}
+		switch st {
+		case statusPending:
+			a.out.Pending++
+		case statusAdded:
+			a.out.Stacked++
+			if w := s.stack.Weight; w > 0 {
+				a.out.EffectiveHours += w / 3600
+			}
 		}
 		a.sky = append(a.sky, s.sky)
 		a.hfr = append(a.hfr, float64(s.meta.HFR))

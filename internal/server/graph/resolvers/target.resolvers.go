@@ -95,7 +95,7 @@ func (r *targetResolver) Stats(ctx context.Context, obj *model.Target) (*model.T
 
 // Subframes is the resolver for the subframes field.
 func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*model.Subframe, error) {
-	subs, refs, err := r.scoredTargetSubframes(ctx, obj.ID)
+	subs, err := r.targetSubframes(ctx, obj.ID, obj.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*m
 	}
 	out := make([]*model.Subframe, 0, len(subs))
 	for _, s := range subs {
-		m := toModelSubframe(s, refs)
+		m := toModelSubframe(s)
 		if m.FileName != nil {
 			if u, ok := previews[*m.FileName]; ok {
 				m.PreviewURL = &u
@@ -280,11 +280,11 @@ func (r *targetStatsResolver) Quality(ctx context.Context, obj *model.TargetStat
 	if err != nil {
 		return nil, fmt.Errorf("could not find parent target for quality stats: %w", err)
 	}
-	subs, refs, err := r.scoredTargetSubframes(ctx, target.ID)
+	subs, err := r.targetSubframes(ctx, target.ID, target.Name)
 	if err != nil {
 		return nil, err
 	}
-	return summarizeQuality(subs, refs), nil
+	return summarizeQuality(subs), nil
 }
 
 // Calibration is the resolver for the calibration field.

@@ -127,6 +127,31 @@ func (c *Client) Masters(ctx context.Context, object string) ([]Master, error) {
 	return masters, err
 }
 
+// Sub is what the stacker made of one light, matched to Target Scheduler's
+// acquired images by file name. Status is empty for a light the stacker
+// hasn't processed yet.
+type Sub struct {
+	File        string     `json:"file"`
+	Filter      string     `json:"filter"`
+	Exposure    *float64   `json:"exposure"`
+	Status      string     `json:"status"`
+	Score       float64    `json:"score"`
+	Weight      float64    `json:"weight"`
+	Error       string     `json:"error"`
+	ProcessedAt *time.Time `json:"processed_at"`
+	// Photometry is pending, measured or failed: whether the stacker's own
+	// star photometry is in the sub's transparency yet.
+	Photometry string `json:"photometry"`
+}
+
+// Subs returns one target's lights with the stacker's status, score and
+// weight for each.
+func (c *Client) Subs(ctx context.Context, object string) ([]Sub, error) {
+	var subs []Sub
+	err := c.get(ctx, "/api/v1/subs?object="+url.QueryEscape(object), &subs)
+	return subs, err
+}
+
 type Mosaic struct {
 	Filter      string    `json:"filter"`
 	Panels      int       `json:"panels"`

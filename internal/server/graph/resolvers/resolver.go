@@ -23,7 +23,6 @@ type Resolver struct {
 	db      *gorm.DB
 	version string
 	commit  string
-	refs    *referenceCache
 	worker  *workerclient.Client
 	covers  coverCache
 }
@@ -78,7 +77,7 @@ func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, 
 	sqlDB.SetConnMaxIdleTime(15 * time.Minute)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
 
-	return &Resolver{config: cfg, db: db, version: version, commit: commit, refs: &referenceCache{}, worker: workerclient.New(cfg.Worker.URL)}, nil
+	return &Resolver{config: cfg, db: db, version: version, commit: commit, worker: workerclient.New(cfg.Worker.URL)}, nil
 }
 
 // DB is the scheduler database.

@@ -62,3 +62,25 @@ func TestErrorStatus(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestSubs(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/subs" || r.URL.Query().Get("object") != "Orion Nebula" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`[{"file":"a.fits","filter":"L","exposure":300,"status":"low_score","score":0.04,"weight":0,
+			"processed_at":"2026-10-07T21:00:00Z","photometry":"measured"},{"file":"b.fits","filter":"L","score":0,"weight":0,"photometry":"pending"}]`))
+	}))
+	defer srv.Close()
+
+	subs, err := workerclient.New(srv.URL).Subs(context.Background(), "Orion Nebula")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(subs) != 2 || subs[0].Status != "low_score" || subs[0].Score != 0.04 || subs[0].Photometry != "measured" ||
+		subs[0].ProcessedAt == nil || subs[1].Status != "" || subs[1].ProcessedAt != nil {
+		t.Errorf("got %+v", subs)
+	}
+}

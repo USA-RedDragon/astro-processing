@@ -63,7 +63,7 @@ type Storage struct {
 }
 
 type Quality struct {
-	Pedestal float64 `name:"pedestal" description:"Camera pedestal in ADU, subtracted from each sub's ADU median to get the sky background" default:"506"`
+	Pedestal float64 `name:"pedestal" description:"Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background" default:"506"`
 }
 
 var (

@@ -15,8 +15,8 @@
       </router-link>
       <h1 class="text-2xl font-semibold mt-1">{{ target.name }}</h1>
       <p class="text-sm text-muted-foreground mt-1">
-        Score is how much a sub is worth compared to your best subs for that filter, from 0 to 1.
-        Darker sky and tighter stars score higher.
+        Scores and statuses are the stacker's: how much a sub is worth compared to the best subs for
+        that filter, from 0 to 1. Darker sky, tighter stars and clearer air score higher.
       </p>
     </div>
 
@@ -34,6 +34,7 @@
             <TableRow>
               <TableHead>Filter</TableHead>
               <TableHead class="text-right">Subs</TableHead>
+              <TableHead class="text-right">Stacked</TableHead>
               <TableHead class="text-right">Nominal</TableHead>
               <TableHead class="text-right">Effective</TableHead>
               <TableHead class="text-right">Efficiency</TableHead>
@@ -42,10 +43,14 @@
             </TableRow>
           </TableHeader>
           <TableBody>
-            <SkeletonRows v-if="!done.subframes" :rows="3" :cols="6" />
+            <SkeletonRows v-if="!done.subframes" :rows="3" :cols="8" />
             <TableRow v-for="q in quality" :key="`${q.filter_name}-${q.exposure_time}`">
               <TableCell class="font-medium">{{ q.filter_name }} {{ q.exposure_time }}s</TableCell>
               <TableCell class="text-right">{{ q.subframes }}</TableCell>
+              <TableCell class="text-right">
+                {{ q.stacked }}<span v-if="q.pending > 0" class="text-muted-foreground">
+                  ({{ q.pending }} pending)</span>
+              </TableCell>
               <TableCell class="text-right">{{ formatHours(q.nominal_hours) }}</TableCell>
               <TableCell class="text-right font-medium">{{ formatHours(q.effective_hours) }}</TableCell>
               <TableCell class="text-right">{{ formatPercent(q.effective_hours, q.nominal_hours) }}</TableCell>
@@ -55,6 +60,10 @@
             <TableRow v-if="done.subframes" class="font-semibold">
               <TableCell>Total</TableCell>
               <TableCell class="text-right">{{ totals.subframes }}</TableCell>
+              <TableCell class="text-right">
+                {{ totals.stacked }}<span v-if="totals.pending > 0" class="text-muted-foreground">
+                  ({{ totals.pending }} pending)</span>
+              </TableCell>
               <TableCell class="text-right">{{ formatHours(totals.nominal) }}</TableCell>
               <TableCell class="text-right">{{ formatHours(totals.effective) }}</TableCell>
               <TableCell class="text-right">{{ formatPercent(totals.effective, totals.nominal) }}</TableCell>
@@ -151,11 +160,18 @@
                 </TableCell>
                 <TableCell class="whitespace-nowrap">{{ groupOf(s) }}</TableCell>
                 <TableCell>
-                  <div class="flex items-center gap-2">
+                  <div v-if="s.score != null" class="flex items-center gap-2">
                     <div class="h-2 w-24 rounded bg-muted overflow-hidden">
                       <div class="h-full bg-primary" :style="{ width: `${Math.round(s.score * 100)}%` }" />
                     </div>
                     <span class="tabular-nums">{{ s.score.toFixed(2) }}</span>
+                  </div>
+                  <span v-else class="text-muted-foreground">&mdash;</span>
+                  <div
+                    v-if="s.photometry === 'pending' && s.stack_status !== 'pending'"
+                    class="text-xs text-muted-foreground"
+                  >
+                    awaiting photometry
                   </div>
                 </TableCell>
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.sky, 0) }}</TableCell>
@@ -164,10 +180,11 @@
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.eccentricity, 2) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.guiding_rms_arcsec, 2) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.airmass, 2) }}</TableCell>
-                <TableCell>
-                  <Badge :variant="s.grading_status === 'REJECTED' ? 'destructive' : 'outline'">
-                    {{ s.grading_status.toLowerCase() }}
+                <TableCell :title="`Target Scheduler: ${s.grading_status.toLowerCase()}`">
+                  <Badge :variant="statusVariant(s.stack_status)">
+                    {{ s.stack_status.replace(/_/g, ' ') }}
                   </Badge>
+                  <div v-if="s.stack_reason" class="text-xs text-muted-foreground max-w-56">{{ s.stack_reason }}</div>
                 </TableCell>
                 <TableCell class="text-xs text-muted-foreground whitespace-nowrap">
                   <PreviewLink v-if="s.file_name" :file-name="s.file_name" :url="s.preview_url ?? undefined" />
@@ -260,6 +277,8 @@ const GET_TARGET_SUBFRAMES_QUERY = `
           filter_name
           exposure_time
           subframes
+          stacked
+          pending
           nominal_hours
           effective_hours
           median_sky
@@ -280,6 +299,10 @@ const GET_TARGET_SUBFRAMES_QUERY = `
         guiding_rms_arcsec
         airmass
         score
+        weight
+        stack_status
+        stack_reason
+        photometry
         preview_url
       }
     }
@@ -368,25 +391,29 @@ export default {
     groups(): string[] {
       return [...new Set(this.subframes.map((s) => this.groupOf(s)))].sort();
     },
-    totals(): { subframes: number; nominal: number; effective: number } {
+    totals(): { subframes: number; stacked: number; pending: number; nominal: number; effective: number } {
       return this.quality.reduce(
         (t, q) => ({
           subframes: t.subframes + q.subframes,
+          stacked: t.stacked + q.stacked,
+          pending: t.pending + q.pending,
           nominal: t.nominal + q.nominal_hours,
           effective: t.effective + q.effective_hours,
         }),
-        { subframes: 0, nominal: 0, effective: 0 },
+        { subframes: 0, stacked: 0, pending: 0, nominal: 0, effective: 0 },
       );
     },
     visible(): Subframe[] {
       return this.subframes.filter(
-        (s) => s.grading_status !== 'REJECTED' && (!this.filter || this.groupOf(s) === this.filter),
+        (s) => s.stack_status !== 'rejected' && s.stack_status !== 'duplicate'
+          && (!this.filter || this.groupOf(s) === this.filter),
       );
     },
     sorted(): Subframe[] {
       const rows = [...this.visible];
-      if (this.sort === 'score-asc') rows.sort((a, b) => a.score - b.score);
-      else if (this.sort === 'score-desc') rows.sort((a, b) => b.score - a.score);
+      // Unscored subs sort last either way.
+      if (this.sort === 'score-asc') rows.sort((a, b) => (a.score ?? Infinity) - (b.score ?? Infinity));
+      else if (this.sort === 'score-desc') rows.sort((a, b) => (b.score ?? -Infinity) - (a.score ?? -Infinity));
       else if (this.sort === 'date-desc') rows.sort((a, b) => (b.acquired_date ?? 0) - (a.acquired_date ?? 0));
       else rows.sort((a, b) => (a.acquired_date ?? 0) - (b.acquired_date ?? 0));
       return rows;
@@ -400,11 +427,12 @@ export default {
     culledNominal(): number {
       return this.culled.reduce((t, s) => t + (s.exposure_time ?? 0), 0) / 3600;
     },
+    // Effective exposure is what the stacker stacked: its weights.
     culledEffective(): number {
-      return this.culled.reduce((t, s) => t + s.score * (s.exposure_time ?? 0), 0) / 3600;
+      return this.culled.reduce((t, s) => t + this.effectiveOf(s), 0) / 3600;
     },
     visibleEffective(): number {
-      return this.visible.reduce((t, s) => t + s.score * (s.exposure_time ?? 0), 0) / 3600;
+      return this.visible.reduce((t, s) => t + this.effectiveOf(s), 0) / 3600;
     },
   },
   created() {
@@ -432,7 +460,16 @@ export default {
       return `${s.filter_name} ${s.exposure_time ?? '?'}s`;
     },
     isCulled(s: Subframe): boolean {
-      return s.grading_status !== 'REJECTED' && s.score < this.threshold;
+      return s.score != null && s.score < this.threshold;
+    },
+    effectiveOf(s: Subframe): number {
+      return s.stack_status === 'added' ? (s.weight ?? 0) : 0;
+    },
+    statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+      if (status === 'added') return 'default';
+      if (status === 'pending') return 'outline';
+      if (['low_score', 'moon', 'off_target', 'rejected', 'dead', 'duplicate'].includes(status)) return 'destructive';
+      return 'secondary';
     },
     formatHours(h: number): string {
       return `${h.toFixed(1)} h`;

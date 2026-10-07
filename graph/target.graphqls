@@ -33,7 +33,7 @@ type Target {
   region_of_interest: Float!
   project: Project
   stats: TargetStats!
-  "Every acquired sub for this target, scored from Target Scheduler metadata."
+  "Every acquired sub for this target, with the stacker's score and status."
   subframes: [Subframe!]!
   "Calibration coverage per night of lights, newest first. Empty when the worker is not configured."
   calibration: [CalibrationRow!]!
@@ -64,9 +64,8 @@ enum GradingStatus {
 }
 
 """
-A sub scored by weight = 1 / (sky * HFR^4), relative to good conditions for
-its filter and exposure across all targets. Score 1 means as good as the
-best tenth of subs; 0.25 means worth a quarter of one.
+A sub as astro-stacker judged it. Its score, weight and status are the
+stacker's own, so this page always agrees with what is in the masters.
 """
 type Subframe {
   id: ID!
@@ -76,7 +75,7 @@ type Subframe {
   grading_status: GradingStatus!
   reject_reason: String
   file_name: String
-  "ADU median above the camera pedestal."
+  "ADU median above the camera pedestal, adjusted for the sub's offset."
   sky: Float
   hfr: Float
   fwhm: Float
@@ -84,7 +83,28 @@ type Subframe {
   eccentricity: Float
   guiding_rms_arcsec: Float
   airmass: Float
-  score: Float!
+  """
+  The stacker's score: the sub's worth against the best tenth of subs for its
+  filter and exposure, times its transparency squared. Null until the stacker
+  has processed the sub.
+  """
+  score: Float
+  "What the sub adds to its master, score × exposure in seconds. Null until processed."
+  weight: Float
+  """
+  What the stacker made of the sub: pending (not processed yet), added,
+  low_score, moon, off_target, rejected (in Target Scheduler, not by the
+  stacker), no_metadata, calibration, registration, failed, dead,
+  recalibrate or duplicate.
+  """
+  stack_status: String!
+  "Why the sub is not in its master, or what it waits for. Null for a stacked sub."
+  stack_reason: String
+  """
+  Whether the stacker's star photometry is in the sub's transparency yet:
+  pending, measured or failed. Null when the stacker has no such file.
+  """
+  photometry: String
   "Presigned link to an auto-stretched JPEG of the sub, valid for an hour. Null until the worker has rendered it."
   preview_url: String
 }
@@ -92,10 +112,14 @@ type Subframe {
 type FilterQuality {
   filter_name: String!
   exposure_time: Float!
-  "Subs that were not rejected."
+  "Subs the stacker judges: all but those Target Scheduler rejected itself, and duplicate files."
   subframes: Int!
+  "Subs the stacker put in the master."
+  stacked: Int!
+  "Subs the stacker hasn't processed yet."
+  pending: Int!
   nominal_hours: Float!
-  "Sum of score * exposure: hours of good-conditions data this is worth."
+  "The stacker's weights (score × exposure) of the subs it stacked: hours of good-conditions data in the master."
   effective_hours: Float!
   median_sky: Float
   median_hfr: Float
