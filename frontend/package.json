@@ -61,7 +61,7 @@
     "cypress": "16.1.0",
     "cypress-mochawesome-reporter": "5.0.0",
     "cypress-multi-reporters": "2.0.5",
-    "eslint": "10.11.0",
+    "eslint": "10.12.0",
     "eslint-config-google": "0.14.0",
     "eslint-plugin-cypress": "7.0.2",
     "eslint-plugin-vue": "10.11.1",
