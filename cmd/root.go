@@ -8,7 +8,7 @@ import (
 
 	"github.com/USA-RedDragon/astro-processing/internal/config"
 	"github.com/USA-RedDragon/astro-processing/internal/server"
-	"github.com/USA-RedDragon/configulator"
+	"github.com/USA-RedDragon/configulator/v2"
 	"github.com/lmittmann/tint"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
