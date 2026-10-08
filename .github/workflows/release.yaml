@@ -17,7 +17,7 @@ jobs:
       contents: read
       packages: write
       security-events: write
-    uses: USA-RedDragon/reusable-actions/.github/workflows/docker-ci.yaml@529a6c6e160b4039d6251284544c13a806f65156 # v2.0.29
+    uses: USA-RedDragon/reusable-actions/.github/workflows/docker-ci.yaml@86546533e7fe42b748a54ea123c6aa4e3e812241 # v2.0.31
     with:
       push: true
       image-name: usa-reddragon/astro-processing-frontend
@@ -29,7 +29,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@529a6c6e160b4039d6251284544c13a806f65156 # v2.0.29
+    uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@86546533e7fe42b748a54ea123c6aa4e3e812241 # v2.0.31
     with:
       beta: ${{ github.ref_name == 'main' }}
     secrets:
