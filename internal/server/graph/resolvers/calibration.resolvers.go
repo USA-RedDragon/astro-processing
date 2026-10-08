@@ -26,7 +26,7 @@ func (r *queryResolver) DarkLibraryGaps(ctx context.Context) ([]*model.DarkLibra
 	for _, g := range gaps {
 		out = append(out, &model.DarkLibraryGap{
 			Gain: g.Gain, Offset: g.Offset, SetTemp: g.SetTemp,
-			Lights: int32(g.Lights), Nights: int32(g.Nights), LatestNight: g.LatestNight,
+			Lights: g.Lights, Nights: g.Nights, LatestNight: g.LatestNight,
 		})
 	}
 	return out, nil

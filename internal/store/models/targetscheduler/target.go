@@ -6,6 +6,8 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 )
 
+const unknown = "Unknown"
+
 type Epoch int
 
 // Must match NINA's enum
@@ -28,7 +30,7 @@ func (e Epoch) String() string {
 	case EpochJ2050:
 		return "J2050"
 	}
-	return "Unknown"
+	return unknown
 }
 
 func (e Epoch) MarshalJSON() ([]byte, error) {
@@ -56,6 +58,8 @@ func (Target) TableName() string {
 
 func getEpoch(code Epoch) model.Epoch {
 	switch code {
+	case EpochJNOW:
+		return model.EpochJnow
 	case EpochB1950:
 		return model.EpochB1950
 	case EpochJ2000:

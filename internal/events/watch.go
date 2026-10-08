@@ -8,9 +8,8 @@ import (
 	"slices"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/USA-RedDragon/astro-processing/internal/metrics"
+	"gorm.io/gorm"
 )
 
 // Change is sent when Target Scheduler tables change, so pages reload the
@@ -26,29 +25,34 @@ type Change struct {
 // and highest ID, and grading changes move the sum of grading statuses.
 // The small tables are hashed whole (PostgreSQL); elsewhere they fall back
 // to their row counts.
-var fingerprints = []struct {
+func fingerprints() []fingerprint {
+	return []fingerprint{
+		{"acquiredimage",
+			`SELECT count(*) || ':' || coalesce(max("Id"), 0) || ':' || coalesce(sum("gradingStatus"), 0) FROM acquiredimage`,
+			`SELECT count(*) FROM acquiredimage`},
+		{"exposureplan", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM exposureplan t`, `SELECT count(*) FROM exposureplan`},
+		{"project", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM project t`, `SELECT count(*) FROM project`},
+		{"target", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM target t`, `SELECT count(*) FROM target`},
+		{"exposuretemplate", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM exposuretemplate t`, `SELECT count(*) FROM exposuretemplate`},
+		{"flathistory", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM flathistory t`, `SELECT count(*) FROM flathistory`},
+	}
+}
+
+type fingerprint struct {
 	table    string
 	postgres string
 	portable string
-}{
-	{"acquiredimage",
-		`SELECT count(*) || ':' || coalesce(max("Id"), 0) || ':' || coalesce(sum("gradingStatus"), 0) FROM acquiredimage`,
-		`SELECT count(*) FROM acquiredimage`},
-	{"exposureplan", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM exposureplan t`, `SELECT count(*) FROM exposureplan`},
-	{"project", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM project t`, `SELECT count(*) FROM project`},
-	{"target", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM target t`, `SELECT count(*) FROM target`},
-	{"exposuretemplate", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM exposuretemplate t`, `SELECT count(*) FROM exposuretemplate`},
-	{"flathistory", `SELECT md5(string_agg(t::text, ',' ORDER BY t."Id")) FROM flathistory t`, `SELECT count(*) FROM flathistory`},
 }
 
 // WatchScheduler polls the Target Scheduler tables every interval and
 // publishes a Change naming the tables that changed since the last poll.
 func (r *Relay) WatchScheduler(ctx context.Context, db *gorm.DB, interval time.Duration) {
 	postgres := db.Name() == "postgres"
+	queries := fingerprints()
 	var prev map[string]string
 	for {
 		cur := map[string]string{}
-		for _, f := range fingerprints {
+		for _, f := range queries {
 			q := f.portable
 			if postgres {
 				q = f.postgres

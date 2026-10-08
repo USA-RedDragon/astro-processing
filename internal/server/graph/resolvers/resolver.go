@@ -110,9 +110,9 @@ func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterM
 	out := make([]*model.FilterMaster, 0, len(masters))
 	for _, m := range masters {
 		out = append(out, &model.FilterMaster{
-			Filter: m.Filter, Subs: int32(m.Subs),
+			Filter: m.Filter, Subs: m.Subs,
 			ExposureHours: m.ExposureSeconds / 3600, EffectiveHours: m.EffectiveSeconds / 3600,
-			Width: int32(m.Width), Height: int32(m.Height), UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
+			Width: m.Width, Height: m.Height, UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
 			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
 			Crop:      graphCrop(m.Crop),
 			XisfURL:   optional(m.XISFURL),
@@ -124,6 +124,6 @@ func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterM
 }
 
 func graphObject(o workerclient.Object) *model.OtherTarget {
-	return &model.OtherTarget{Name: o.Name, Lights: int32(o.Lights), Stacked: int32(o.Stacked), Nights: int32(o.Nights),
+	return &model.OtherTarget{Name: o.Name, Lights: o.Lights, Stacked: o.Stacked, Nights: o.Nights,
 		FirstNight: o.FirstNight, LastNight: o.LastNight}
 }

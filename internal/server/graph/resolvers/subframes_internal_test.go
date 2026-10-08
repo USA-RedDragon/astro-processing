@@ -8,6 +8,11 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
 )
 
+const (
+	photometryMeasured = "measured"
+	photometryPending  = "pending"
+)
+
 func sub(id int, file string, grading int, reason string) subframe {
 	s := subframe{
 		row: subframeRow{ID: id, FilterName: "L", GradingStatus: grading},
@@ -25,15 +30,15 @@ func sub(id int, file string, grading int, reason string) subframe {
 
 func stackerFixture() map[string]*workerclient.Sub {
 	return indexStackerSubs([]workerclient.Sub{
-		{File: "added.fits", Status: "added", Score: 0.8, Weight: 240, Photometry: "measured"},
-		{File: "hazy.fits", Status: "low_score", Score: 0.05, Photometry: "measured"},
-		{File: "verdict.fits", Status: "moon", Score: 0.6, Photometry: "pending"},
+		{File: "added.fits", Status: statusAdded, Score: 0.8, Weight: 240, Photometry: photometryMeasured},
+		{File: "hazy.fits", Status: "low_score", Score: 0.05, Photometry: photometryMeasured},
+		{File: "verdict.fits", Status: "moon", Score: 0.6, Photometry: photometryPending},
 		{File: "off.fits", Status: "off_target", Score: 0.5, Error: "pointed 2.1° off"},
-		{File: "unseen.fits", Photometry: "pending"},
+		{File: "unseen.fits", Photometry: photometryPending},
 		{File: "byhand.fits", Status: "rejected"},
 		// The duplicate of a file names the original's result.
 		{File: "twin.fits", Status: "duplicate"},
-		{File: "twin.fits", Status: "added", Score: 0.5, Weight: 150},
+		{File: "twin.fits", Status: statusAdded, Score: 0.5, Weight: 150},
 	})
 }
 
@@ -60,16 +65,16 @@ func TestToModelSubframeShowsStackerVerdict(t *testing.T) {
 	}
 	f := func(v float64) *float64 { return &v }
 	wants := map[int]want{
-		1: {status: "added", score: f(0.8), weight: f(240), photometry: "measured"},
-		2: {status: "low_score", score: f(0.05), weight: f(0), reason: statusReasons["low_score"], photometry: "measured"},
+		1: {status: statusAdded, score: f(0.8), weight: f(240), photometry: photometryMeasured},
+		2: {status: "low_score", score: f(0.05), weight: f(0), reason: statusReason("low_score"), photometry: photometryMeasured},
 		// Rejected in TS by the stacker's verdict: the stacker's status, not 0.
-		3: {status: "moon", score: f(0.6), weight: f(0), reason: statusReasons["moon"], photometry: "pending"},
+		3: {status: "moon", score: f(0.6), weight: f(0), reason: statusReason("moon"), photometry: photometryPending},
 		4: {status: "off_target", score: f(0.5), weight: f(0), reason: "pointed 2.1° off"},
 		// Not processed yet: pending, not a score of 0.
-		5: {status: "pending", reason: "Not processed by the stacker yet", photometry: "pending"},
-		6: {status: "pending", reason: "Not in the stacker's index yet"},
+		5: {status: statusPending, reason: "Not processed by the stacker yet", photometry: photometryPending},
+		6: {status: statusPending, reason: "Not in the stacker's index yet"},
 		7: {status: "rejected", reason: "Rejected in Target Scheduler: Bad guiding"},
-		8: {status: "added", score: f(0.5), weight: f(150)},
+		8: {status: statusAdded, score: f(0.5), weight: f(150)},
 	}
 	for _, s := range subs {
 		m := toModelSubframe(s)

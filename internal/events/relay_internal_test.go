@@ -12,6 +12,8 @@ import (
 )
 
 func TestRelayPassesWorkerEventsThrough(t *testing.T) {
+	t.Parallel()
+
 	// A fake worker: one master event, a status, then it holds the stream.
 	worker := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
@@ -19,7 +21,12 @@ func TestRelayPassesWorkerEventsThrough(t *testing.T) {
 		fmt.Fprint(w, "id: 41\ndata: {\"type\":\"master\",\"object\":\"M31\"}\n\n")
 		fmt.Fprint(w, ": keepalive\n\n")
 		fmt.Fprint(w, "data: {\"type\":\"status\",\"workers\":[]}\n\n")
-		w.(http.Flusher).Flush()
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			t.Error("response writer can't flush")
+			return
+		}
+		flusher.Flush()
 		<-r.Context().Done()
 	}))
 	defer worker.Close()

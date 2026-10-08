@@ -8,6 +8,8 @@ import (
 
 func getProjectState(state ProjectState) model.ProjectState {
 	switch state {
+	case ProjectStateDraft:
+		return model.ProjectStateDraft
 	case ProjectStateActive:
 		return model.ProjectStateActive
 	case ProjectStateInactive:
@@ -22,6 +24,8 @@ func getProjectPriority(priority ProjectPriority) model.ProjectPriority {
 	switch priority {
 	case ProjectPriorityLow:
 		return model.ProjectPriorityLow
+	case ProjectPriorityNormal:
+		return model.ProjectPriorityNormal
 	case ProjectPriorityHigh:
 		return model.ProjectPriorityHigh
 	}
@@ -48,11 +52,11 @@ func (ps ProjectState) String() string {
 	case ProjectStateClosed:
 		return "Closed"
 	}
-	return "Unknown"
+	return unknown
 }
 
-func (e ProjectState) MarshalJSON() ([]byte, error) {
-	return json.Marshal(e.String())
+func (ps ProjectState) MarshalJSON() ([]byte, error) {
+	return json.Marshal(ps.String())
 }
 
 type ProjectPriority int
@@ -72,11 +76,11 @@ func (pp ProjectPriority) String() string {
 	case ProjectPriorityHigh:
 		return "High"
 	}
-	return "Unknown"
+	return unknown
 }
 
-func (e ProjectPriority) MarshalJSON() ([]byte, error) {
-	return json.Marshal(e.String())
+func (pp ProjectPriority) MarshalJSON() ([]byte, error) {
+	return json.Marshal(pp.String())
 }
 
 type Project struct {
@@ -86,21 +90,21 @@ type Project struct {
 	Description           *string          `json:"description" gorm:"column:description;size:255"`
 	State                 *ProjectState    `json:"state" gorm:"column:state"`
 	Priority              *ProjectPriority `json:"priority" gorm:"column:priority"`
-	CreateDate            *int             `json:"create_date" gorm:"column:createdate"`
-	ActiveDate            *int             `json:"active_date" gorm:"column:activedate"`
-	InactiveDate          *int             `json:"inactive_date" gorm:"column:inactivedate"`
-	MinimumTime           *int             `json:"minimum_time" gorm:"column:minimumtime"`
+	CreateDate            *int32           `json:"create_date" gorm:"column:createdate"`
+	ActiveDate            *int32           `json:"active_date" gorm:"column:activedate"`
+	InactiveDate          *int32           `json:"inactive_date" gorm:"column:inactivedate"`
+	MinimumTime           *int32           `json:"minimum_time" gorm:"column:minimumtime"`
 	MinimumAltitude       *float64         `json:"minimum_altitude" gorm:"column:minimumaltitude"`
 	UseCustomHorizon      *int             `json:"use_custom_horizon" gorm:"column:usecustomhorizon"`
 	HorizonOffset         *float64         `json:"horizon_offset" gorm:"column:horizonoffset"`
-	MeridianWindow        *int             `json:"meridian_window" gorm:"column:meridianwindow"`
-	FilterSwitchFrequency *int             `json:"filter_switch_frequency" gorm:"column:filterswitchfrequency"`
-	DitherEvery           *int             `json:"dither_every" gorm:"column:ditherevery"`
+	MeridianWindow        *int32           `json:"meridian_window" gorm:"column:meridianwindow"`
+	FilterSwitchFrequency *int32           `json:"filter_switch_frequency" gorm:"column:filterswitchfrequency"`
+	DitherEvery           *int32           `json:"dither_every" gorm:"column:ditherevery"`
 	EnableGrader          *int             `json:"enable_grader" gorm:"column:enablegrader"`
 	IsMosaic              bool             `json:"is_mosaic" gorm:"column:isMosaic;not null"`
-	FlatsHandling         int              `json:"flats_handling" gorm:"column:flatsHandling;not null"`
+	FlatsHandling         int32            `json:"flats_handling" gorm:"column:flatsHandling;not null"`
 	MaximumAltitude       *float64         `json:"maximum_altitude" gorm:"column:maximumAltitude"`
-	SmartExposureOrder    *int             `json:"smart_exposure_order" gorm:"column:smartexposureorder"`
+	SmartExposureOrder    *int32           `json:"smart_exposure_order" gorm:"column:smartexposureorder"`
 	GUID                  *string          `json:"-" gorm:"column:guid;size:255"`
 }
 
@@ -127,19 +131,19 @@ func (p *Project) GraphQL() *model.Project {
 	}
 
 	if p.CreateDate != nil {
-		val := int32(*p.CreateDate)
+		val := *p.CreateDate
 		gql.CreateDate = &val
 	}
 	if p.ActiveDate != nil {
-		val := int32(*p.ActiveDate)
+		val := *p.ActiveDate
 		gql.ActiveDate = &val
 	}
 	if p.InactiveDate != nil {
-		val := int32(*p.InactiveDate)
+		val := *p.InactiveDate
 		gql.InactiveDate = &val
 	}
 	if p.MinimumTime != nil {
-		val := int32(*p.MinimumTime)
+		val := *p.MinimumTime
 		gql.MinimumTime = &val
 	}
 
@@ -153,15 +157,15 @@ func (p *Project) GraphQL() *model.Project {
 	gql.HorizonOffset = p.HorizonOffset
 
 	if p.MeridianWindow != nil {
-		val := int32(*p.MeridianWindow)
+		val := *p.MeridianWindow
 		gql.MeridianWindow = &val
 	}
 	if p.FilterSwitchFrequency != nil {
-		val := int32(*p.FilterSwitchFrequency)
+		val := *p.FilterSwitchFrequency
 		gql.FilterSwitchFrequency = &val
 	}
 	if p.DitherEvery != nil {
-		val := int32(*p.DitherEvery)
+		val := *p.DitherEvery
 		gql.DitherEvery = &val
 	}
 
@@ -172,13 +176,13 @@ func (p *Project) GraphQL() *model.Project {
 
 	gql.IsMosaic = &p.IsMosaic
 
-	val := int32(p.FlatsHandling)
+	val := p.FlatsHandling
 	gql.FlatsHandling = &val
 
 	gql.MaximumAltitude = p.MaximumAltitude
 
 	if p.SmartExposureOrder != nil {
-		val := int32(*p.SmartExposureOrder)
+		val := *p.SmartExposureOrder
 		gql.SmartExposureOrder = &val
 	}
 

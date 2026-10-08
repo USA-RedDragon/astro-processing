@@ -10,7 +10,7 @@ import (
 func toCalibrationMatch(m workerclient.Match) *model.CalibrationMatch {
 	out := &model.CalibrationMatch{
 		Quality:          model.CalibrationQuality(strings.ToUpper(m.Quality)),
-		AgeDays:          int32(m.AgeDays),
+		AgeDays:          m.AgeDays,
 		TempOff:          m.TempOff,
 		SetTemp:          m.SetTemp,
 		RotationMismatch: m.RotationMismatch,
@@ -22,7 +22,7 @@ func toCalibrationMatch(m workerclient.Match) *model.CalibrationMatch {
 	if m.Night != "" {
 		night := m.Night
 		out.Night = &night
-		frames := int32(m.Frames)
+		frames := m.Frames
 		out.Frames = &frames
 	}
 	return out
@@ -37,7 +37,7 @@ func toCalibrationRow(r workerclient.Row) *model.CalibrationRow {
 		Offset:   r.Offset,
 		SetTemp:  r.SetTemp,
 		Rotator:  r.Rotator,
-		Lights:   int32(r.Lights),
+		Lights:   r.Lights,
 		Flat:     toCalibrationMatch(r.Flat),
 		Dark:     toCalibrationMatch(r.Dark),
 		Bias:     toCalibrationMatch(r.Bias),

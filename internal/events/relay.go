@@ -96,7 +96,7 @@ func (r *Relay) read(body io.Reader) error {
 				metrics.WorkerEvents.Inc()
 				r.dispatch(id, strings.Join(data, "\n"))
 			}
-			id, data = 0, nil
+			id, data = 0, data[:0]
 		case strings.HasPrefix(line, "id: "):
 			id, _ = strconv.ParseUint(strings.TrimPrefix(line, "id: "), 10, 64)
 		case strings.HasPrefix(line, "data: "):

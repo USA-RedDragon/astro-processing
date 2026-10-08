@@ -17,8 +17,8 @@ import (
 type Match struct {
 	Quality          string   `json:"quality"`
 	Night            string   `json:"night"`
-	Frames           int      `json:"frames"`
-	AgeDays          int      `json:"age_days"`
+	Frames           int32    `json:"frames"`
+	AgeDays          int32    `json:"age_days"`
 	TempOff          *float64 `json:"temp_off"`
 	SetTemp          *float64 `json:"set_temp"`
 	RotationMismatch bool     `json:"rotation_mismatch"`
@@ -34,7 +34,7 @@ type Row struct {
 	Offset   *float64 `json:"offset"`
 	SetTemp  *float64 `json:"set_temp"`
 	Rotator  *float64 `json:"rotator"`
-	Lights   int      `json:"lights"`
+	Lights   int32    `json:"lights"`
 	Flat     Match    `json:"flat"`
 	Dark     Match    `json:"dark"`
 	Bias     Match    `json:"bias"`
@@ -44,8 +44,8 @@ type DarkGap struct {
 	Gain        *float64 `json:"gain"`
 	Offset      *float64 `json:"offset"`
 	SetTemp     float64  `json:"set_temp"`
-	Lights      int      `json:"lights"`
-	Nights      int      `json:"nights"`
+	Lights      int32    `json:"lights"`
+	Nights      int32    `json:"nights"`
 	LatestNight string   `json:"latest_night"`
 }
 
@@ -64,11 +64,11 @@ type Crop struct {
 
 type Master struct {
 	Filter           string    `json:"filter"`
-	Subs             int       `json:"subs"`
+	Subs             int32     `json:"subs"`
 	ExposureSeconds  float64   `json:"exposure_seconds"`
 	EffectiveSeconds float64   `json:"effective_seconds"`
-	Width            int       `json:"width"`
-	Height           int       `json:"height"`
+	Width            int32     `json:"width"`
+	Height           int32     `json:"height"`
 	UpdatedAt        time.Time `json:"updated_at"`
 	MasterURL        string    `json:"master_url"`
 	PreviewURL       string    `json:"preview_url"`
@@ -154,10 +154,10 @@ func (c *Client) Subs(ctx context.Context, object string) ([]Sub, error) {
 
 type Mosaic struct {
 	Filter      string    `json:"filter"`
-	Panels      int       `json:"panels"`
-	PanelsTotal int       `json:"panels_total"`
-	Width       int       `json:"width"`
-	Height      int       `json:"height"`
+	Panels      int32     `json:"panels"`
+	PanelsTotal int32     `json:"panels_total"`
+	Width       int32     `json:"width"`
+	Height      int32     `json:"height"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	MasterURL   string    `json:"master_url"`
 	PreviewURL  string    `json:"preview_url"`
@@ -195,9 +195,9 @@ func (c *Client) Covers(ctx context.Context) (*Covers, error) {
 // Object is a target with lights, as the worker's files know it.
 type Object struct {
 	Name       string  `json:"name"`
-	Lights     int     `json:"lights"`
-	Stacked    int     `json:"stacked"`
-	Nights     int     `json:"nights"`
+	Lights     int32   `json:"lights"`
+	Stacked    int32   `json:"stacked"`
+	Nights     int32   `json:"nights"`
 	FirstNight *string `json:"first_night"`
 	LastNight  *string `json:"last_night"`
 	Scheduled  bool    `json:"scheduled"`

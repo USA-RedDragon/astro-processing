@@ -35,18 +35,31 @@ const (
 	statusDuplicate  = "duplicate"
 )
 
-// statusReasons explains a stacker status that came without an error.
-var statusReasons = map[string]string{
-	"low_score":      "Scored below the stacker's cut against this target's best subs",
-	"moon":           "Breaks its filter's moon avoidance",
-	"off_target":     "The mount pointed elsewhere and the sub didn't register",
-	statusNoMetadata: "No Target Scheduler record to score it",
-	"calibration":    "Waiting for matching calibration frames",
-	"registration":   "Didn't register to the target's reference",
-	"failed":         "Processing failed; the stacker will try again",
-	"dead":           "Failed too often; left out until reset",
-	"recalibrate":    "Being calibrated again with a better dark",
-	statusDuplicate:  "The same file as an earlier light",
+// statusReason explains a stacker status that came without an error.
+func statusReason(status string) string {
+	switch status {
+	case "low_score":
+		return "Scored below the stacker's cut against this target's best subs"
+	case "moon":
+		return "Breaks its filter's moon avoidance"
+	case "off_target":
+		return "The mount pointed elsewhere and the sub didn't register"
+	case statusNoMetadata:
+		return "No Target Scheduler record to score it"
+	case "calibration":
+		return "Waiting for matching calibration frames"
+	case "registration":
+		return "Didn't register to the target's reference"
+	case "failed":
+		return "Processing failed; the stacker will try again"
+	case "dead":
+		return "Failed too often; left out until reset"
+	case "recalibrate":
+		return "Being calibrated again with a better dark"
+	case statusDuplicate:
+		return "The same file as an earlier light"
+	}
+	return ""
 }
 
 type qualityGroup struct {
@@ -56,7 +69,7 @@ type qualityGroup struct {
 
 type subframeRow struct {
 	ID            int
-	AcquiredDate  *int
+	AcquiredDate  *int32
 	FilterName    string
 	GradingStatus int
 	RejectReason  *string
@@ -130,7 +143,7 @@ func (s subframe) reason() *string {
 	default:
 		why = s.stack.Error
 		if why == "" {
-			why = statusReasons[st]
+			why = statusReason(st)
 		}
 	}
 	return optional(why)
@@ -231,11 +244,7 @@ func gradingStatus(v int) model.GradingStatus {
 }
 
 func toModelSubframe(s subframe) *model.Subframe {
-	var acquired *int32
-	if s.row.AcquiredDate != nil {
-		v := int32(*s.row.AcquiredDate)
-		acquired = &v
-	}
+	acquired := s.row.AcquiredDate
 	var stars *int32
 	if v := float64(s.meta.DetectedStars); !math.IsNaN(v) {
 		n := int32(v)

@@ -8,6 +8,7 @@ import (
 
 const ns = "astro_processing"
 
+//nolint:gochecknoglobals // promauto registers each collector once, at package init
 var (
 	EventClients = promauto.NewGauge(prometheus.GaugeOpts{Namespace: ns, Name: "event_clients",
 		Help: "Browsers following the event stream."})
