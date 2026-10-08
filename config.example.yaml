@@ -14,11 +14,11 @@ http:
     # Enable CORS
     enabled: false
     # List of allowed origins for CORS
-    allowed-origins: [*]
+    allowed-origins: ["*"]
     # List of allowed HTTP methods for CORS
-    allowed-methods: [GET,POST,PUT,DELETE,OPTIONS]
+    allowed-methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     # List of allowed HTTP headers for CORS
-    allowed-headers: [Origin,Content-Type,Accept,Authorization]
+    allowed-headers: ["Origin", "Content-Type", "Accept", "Authorization"]
     # Allow credentials for CORS
     allow-credentials: false
 # Prometheus metrics server configuration
