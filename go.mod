@@ -14,7 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.25.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	github.com/vektah/gqlparser/v2 v2.5.58
+	github.com/vektah/gqlparser/v2 v2.5.62
 	github.com/ztrue/shutdown v0.1.1
 	golang.org/x/sync v0.23.0
 	gorm.io/driver/mysql v1.6.0
