@@ -5,59 +5,69 @@
 package config
 
 import (
-	jsontext "encoding/json/jsontext"
-	v2 "encoding/json/v2"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"fmt"
-	types "github.com/USA-RedDragon/astro-processing/internal/types"
-	configulator "github.com/USA-RedDragon/configulator/v2"
-	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
-	"github.com/spf13/pflag"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
+
+	types "github.com/USA-RedDragon/astro-processing/internal/types"
+	"github.com/USA-RedDragon/configulator/v2"
+	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
+	"github.com/USA-RedDragon/configulator/v2/impl"
+	"github.com/spf13/pflag"
 )
 
 type cORSShadow struct {
-	Enabled          *bool     `json:"enabled" toml:"enabled" yaml:"enabled"`
-	AllowedOrigins   *[]string `json:"allowed-origins" toml:"allowed-origins" yaml:"allowed-origins"`
-	AllowedMethods   *[]string `json:"allowed-methods" toml:"allowed-methods" yaml:"allowed-methods"`
-	AllowedHeaders   *[]string `json:"allowed-headers" toml:"allowed-headers" yaml:"allowed-headers"`
+	Enabled          *bool     `json:"enabled"           toml:"enabled"           yaml:"enabled"`
+	AllowedOrigins   *[]string `json:"allowed-origins"   toml:"allowed-origins"   yaml:"allowed-origins"`
+	AllowedMethods   *[]string `json:"allowed-methods"   toml:"allowed-methods"   yaml:"allowed-methods"`
+	AllowedHeaders   *[]string `json:"allowed-headers"   toml:"allowed-headers"   yaml:"allowed-headers"`
 	AllowCredentials *bool     `json:"allow-credentials" toml:"allow-credentials" yaml:"allow-credentials"`
 }
+
 type hTTPShadow struct {
-	Bind           *string     `json:"bind" toml:"bind" yaml:"bind"`
-	Port           *int        `json:"port" toml:"port" yaml:"port"`
+	Bind           *string     `json:"bind"            toml:"bind"            yaml:"bind"`
+	Port           *int        `json:"port"            toml:"port"            yaml:"port"`
 	TrustedProxies *[]string   `json:"trusted-proxies" toml:"trusted-proxies" yaml:"trusted-proxies"`
-	CORS           *cORSShadow `json:"cors" toml:"cors" yaml:"cors"`
+	CORS           *cORSShadow `json:"cors"            toml:"cors"            yaml:"cors"`
 }
+
 type metricsShadow struct {
 	Enabled *bool   `json:"enabled" toml:"enabled" yaml:"enabled"`
-	Bind    *string `json:"bind" toml:"bind" yaml:"bind"`
-	Port    *int    `json:"port" toml:"port" yaml:"port"`
+	Bind    *string `json:"bind"    toml:"bind"    yaml:"bind"`
+	Port    *int    `json:"port"    toml:"port"    yaml:"port"`
 }
+
 type pProfShadow struct {
 	Enabled *bool   `json:"enabled" toml:"enabled" yaml:"enabled"`
-	Bind    *string `json:"bind" toml:"bind" yaml:"bind"`
-	Port    *int    `json:"port" toml:"port" yaml:"port"`
+	Bind    *string `json:"bind"    toml:"bind"    yaml:"bind"`
+	Port    *int    `json:"port"    toml:"port"    yaml:"port"`
 }
+
 type storageShadow struct {
 	Type *string `json:"type" toml:"type" yaml:"type"`
-	DSN  *string `json:"dsn" toml:"dsn" yaml:"dsn"`
+	DSN  *string `json:"dsn"  toml:"dsn"  yaml:"dsn"`
 }
+
 type qualityShadow struct {
 	Pedestal *float64 `json:"pedestal" toml:"pedestal" yaml:"pedestal"`
 }
+
 type workerShadow struct {
 	URL *string `json:"url" toml:"url" yaml:"url"`
 }
+
 type configShadow struct {
 	LogLevel *string        `json:"log-level" toml:"log-level" yaml:"log-level"`
-	HTTP     *hTTPShadow    `json:"http" toml:"http" yaml:"http"`
-	Metrics  *metricsShadow `json:"metrics" toml:"metrics" yaml:"metrics"`
-	PProf    *pProfShadow   `json:"pprof" toml:"pprof" yaml:"pprof"`
-	Storage  *storageShadow `json:"storage" toml:"storage" yaml:"storage"`
-	Quality  *qualityShadow `json:"quality" toml:"quality" yaml:"quality"`
-	Worker   *workerShadow  `json:"worker" toml:"worker" yaml:"worker"`
+	HTTP     *hTTPShadow    `json:"http"      toml:"http"      yaml:"http"`
+	Metrics  *metricsShadow `json:"metrics"   toml:"metrics"   yaml:"metrics"`
+	PProf    *pProfShadow   `json:"pprof"     toml:"pprof"     yaml:"pprof"`
+	Storage  *storageShadow `json:"storage"   toml:"storage"   yaml:"storage"`
+	Quality  *qualityShadow `json:"quality"   toml:"quality"   yaml:"quality"`
+	Worker   *workerShadow  `json:"worker"    toml:"worker"    yaml:"worker"`
 }
 
 // ConfigSchema returns the generated schema for Config.
@@ -68,6 +78,7 @@ func ConfigSchema() *configulator.Schema[Config] {
 		DecodeFile:    configDecodeFile,
 	}
 }
+
 func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) error {
 	cfg.LogLevel = LogLevel("info")
 	set("log-level", configulator.LayerDefault, "default tag")
@@ -76,17 +87,17 @@ func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) er
 	cfg.HTTP.Port = 8080
 	set("http.port", configulator.LayerDefault, "default tag")
 	{
-		lst := configulator.SplitList("*", sep)
+		lst := impl.SplitList("*", sep)
 		cfg.HTTP.CORS.AllowedOrigins = lst
 		set("http.cors.allowed-origins", configulator.LayerDefault, "default tag")
 	}
 	{
-		lst := configulator.SplitList("GET,POST,PUT,DELETE,OPTIONS", sep)
+		lst := impl.SplitList("GET,POST,PUT,DELETE,OPTIONS", sep)
 		cfg.HTTP.CORS.AllowedMethods = lst
 		set("http.cors.allowed-methods", configulator.LayerDefault, "default tag")
 	}
 	{
-		lst := configulator.SplitList("Origin,Content-Type,Accept,Authorization", sep)
+		lst := impl.SplitList("Origin,Content-Type,Accept,Authorization", sep)
 		cfg.HTTP.CORS.AllowedHeaders = lst
 		set("http.cors.allowed-headers", configulator.LayerDefault, "default tag")
 	}
@@ -106,6 +117,7 @@ func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) er
 	set("quality.pedestal", configulator.LayerDefault, "default tag")
 	return nil
 }
+
 func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	var sh configShadow
 	if err := u(data, &sh); err != nil {
@@ -116,7 +128,8 @@ func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep st
 	}
 	return sh.applyTo(cfg, sep, set, file)
 }
-func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrigin, file string) error {
+
+func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin, file string) error {
 	if s.LogLevel != nil {
 		cfg.LogLevel = LogLevel(*s.LogLevel)
 		set("log-level", configulator.LayerFile, file)
@@ -209,196 +222,159 @@ func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrig
 	}
 	return nil
 }
+
 func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.SetOrigin) error {
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "log-level"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.LogLevel = LogLevel(v)
-			set("log-level", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "log-level"); ok {
+		cfg.LogLevel = LogLevel(v)
+		set("log-level", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "bind"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.HTTP.Bind = v
-			set("http.bind", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "bind"); ok {
+		cfg.HTTP.Bind = v
+		set("http.bind", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "port"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "http.port",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "port"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "http.port",
+				Source: n,
+				Value:  v,
 			}
-			cfg.HTTP.Port = int(p)
-			set("http.port", configulator.LayerEnv, n)
 		}
+		cfg.HTTP.Port = int(p)
+		set("http.port", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "trusted-proxies"); true {
-		if v, ok := ec.Getenv(n); ok {
-			lst := configulator.SplitList(v, ec.ArraySeparator)
-			cfg.HTTP.TrustedProxies = lst
-			set("http.trusted-proxies", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "trusted-proxies"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.HTTP.TrustedProxies = lst
+		set("http.trusted-proxies", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "enabled"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseBool(v)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "http.cors.enabled",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "enabled"); ok {
+		p, err := strconv.ParseBool(v)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "http.cors.enabled",
+				Source: n,
+				Value:  v,
 			}
-			cfg.HTTP.CORS.Enabled = p
-			set("http.cors.enabled", configulator.LayerEnv, n)
 		}
+		cfg.HTTP.CORS.Enabled = p
+		set("http.cors.enabled", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-origins"); true {
-		if v, ok := ec.Getenv(n); ok {
-			lst := configulator.SplitList(v, ec.ArraySeparator)
-			cfg.HTTP.CORS.AllowedOrigins = lst
-			set("http.cors.allowed-origins", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-origins"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.HTTP.CORS.AllowedOrigins = lst
+		set("http.cors.allowed-origins", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-methods"); true {
-		if v, ok := ec.Getenv(n); ok {
-			lst := configulator.SplitList(v, ec.ArraySeparator)
-			cfg.HTTP.CORS.AllowedMethods = lst
-			set("http.cors.allowed-methods", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-methods"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.HTTP.CORS.AllowedMethods = lst
+		set("http.cors.allowed-methods", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-headers"); true {
-		if v, ok := ec.Getenv(n); ok {
-			lst := configulator.SplitList(v, ec.ArraySeparator)
-			cfg.HTTP.CORS.AllowedHeaders = lst
-			set("http.cors.allowed-headers", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-headers"); ok {
+		lst := impl.SplitList(v, ec.ArraySeparator)
+		cfg.HTTP.CORS.AllowedHeaders = lst
+		set("http.cors.allowed-headers", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allow-credentials"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseBool(v)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "http.cors.allow-credentials",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allow-credentials"); ok {
+		p, err := strconv.ParseBool(v)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "http.cors.allow-credentials",
+				Source: n,
+				Value:  v,
 			}
-			cfg.HTTP.CORS.AllowCredentials = p
-			set("http.cors.allow-credentials", configulator.LayerEnv, n)
 		}
+		cfg.HTTP.CORS.AllowCredentials = p
+		set("http.cors.allow-credentials", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "metrics", "enabled"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseBool(v)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "metrics.enabled",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "metrics", "enabled"); ok {
+		p, err := strconv.ParseBool(v)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "metrics.enabled",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Metrics.Enabled = p
-			set("metrics.enabled", configulator.LayerEnv, n)
 		}
+		cfg.Metrics.Enabled = p
+		set("metrics.enabled", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "metrics", "bind"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Metrics.Bind = v
-			set("metrics.bind", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "metrics", "bind"); ok {
+		cfg.Metrics.Bind = v
+		set("metrics.bind", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "metrics", "port"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "metrics.port",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "metrics", "port"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "metrics.port",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Metrics.Port = int(p)
-			set("metrics.port", configulator.LayerEnv, n)
 		}
+		cfg.Metrics.Port = int(p)
+		set("metrics.port", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "pprof", "enabled"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseBool(v)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "pprof.enabled",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "pprof", "enabled"); ok {
+		p, err := strconv.ParseBool(v)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "pprof.enabled",
+				Source: n,
+				Value:  v,
 			}
-			cfg.PProf.Enabled = p
-			set("pprof.enabled", configulator.LayerEnv, n)
 		}
+		cfg.PProf.Enabled = p
+		set("pprof.enabled", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "pprof", "bind"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.PProf.Bind = v
-			set("pprof.bind", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "pprof", "bind"); ok {
+		cfg.PProf.Bind = v
+		set("pprof.bind", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "pprof", "port"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "pprof.port",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "pprof", "port"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "pprof.port",
+				Source: n,
+				Value:  v,
 			}
-			cfg.PProf.Port = int(p)
-			set("pprof.port", configulator.LayerEnv, n)
 		}
+		cfg.PProf.Port = int(p)
+		set("pprof.port", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "storage", "type"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Storage.Type = types.StorageType(v)
-			set("storage.type", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "storage", "type"); ok {
+		cfg.Storage.Type = types.StorageType(v)
+		set("storage.type", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "storage", "dsn"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Storage.DSN = v
-			set("storage.dsn", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "storage", "dsn"); ok {
+		cfg.Storage.DSN = v
+		set("storage.dsn", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "quality", "pedestal"); true {
-		if v, ok := ec.Getenv(n); ok {
-			p, err := strconv.ParseFloat(v, 64)
-			if err != nil {
-				return &configulator.ParseError{
-					Err:    err,
-					Path:   "quality.pedestal",
-					Source: n,
-					Value:  v,
-				}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "quality", "pedestal"); ok {
+		p, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "quality.pedestal",
+				Source: n,
+				Value:  v,
 			}
-			cfg.Quality.Pedestal = p
-			set("quality.pedestal", configulator.LayerEnv, n)
 		}
+		cfg.Quality.Pedestal = p
+		set("quality.pedestal", configulator.LayerEnv, n)
 	}
-	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "worker", "url"); true {
-		if v, ok := ec.Getenv(n); ok {
-			cfg.Worker.URL = v
-			set("worker.url", configulator.LayerEnv, n)
-		}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "worker", "url"); ok {
+		cfg.Worker.URL = v
+		set("worker.url", configulator.LayerEnv, n)
 	}
 	return nil
 }
@@ -410,10 +386,37 @@ func ConfigPFlagHooks() cpflag.Hooks[Config] {
 		Register: configRegisterPFlags,
 	}
 }
+
 func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
-	names := []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"http", "bind"}, o.Separator), strings.Join([]string{"http", "port"}, o.Separator), strings.Join([]string{"http", "trusted-proxies"}, o.Separator), strings.Join([]string{"http", "cors", "enabled"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-origins"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-methods"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-headers"}, o.Separator), strings.Join([]string{"http", "cors", "allow-credentials"}, o.Separator), strings.Join([]string{"metrics", "enabled"}, o.Separator), strings.Join([]string{"metrics", "bind"}, o.Separator), strings.Join([]string{"metrics", "port"}, o.Separator), strings.Join([]string{"pprof", "enabled"}, o.Separator), strings.Join([]string{"pprof", "bind"}, o.Separator), strings.Join([]string{"pprof", "port"}, o.Separator), strings.Join([]string{"storage", "type"}, o.Separator), strings.Join([]string{"storage", "dsn"}, o.Separator), strings.Join([]string{"quality", "pedestal"}, o.Separator), strings.Join([]string{"worker", "url"}, o.Separator)}
+	names := []string{
+		"log-level",
+		"http" + o.Separator + "bind",
+		"http" + o.Separator + "port",
+		"http" + o.Separator + "trusted-proxies",
+		"http" + o.Separator + "cors" + o.Separator + "enabled",
+		"http" + o.Separator + "cors" + o.Separator + "allowed-origins",
+		"http" + o.Separator + "cors" + o.Separator + "allowed-methods",
+		"http" + o.Separator + "cors" + o.Separator + "allowed-headers",
+		"http" + o.Separator + "cors" + o.Separator + "allow-credentials",
+		"metrics" + o.Separator + "enabled",
+		"metrics" + o.Separator + "bind",
+		"metrics" + o.Separator + "port",
+		"pprof" + o.Separator + "enabled",
+		"pprof" + o.Separator + "bind",
+		"pprof" + o.Separator + "port",
+		"storage" + o.Separator + "type",
+		"storage" + o.Separator + "dsn",
+		"quality" + o.Separator + "pedestal",
+		"worker" + o.Separator + "url",
+	}
 	for i, name := range names {
-		if fs.Lookup(name) != nil || slices.Contains(names[:i], name) {
+		if f := fs.Lookup(name); f != nil {
+			return &configulator.FlagConflictError{
+				Existing: f.Name,
+				Flag:     name,
+			}
+		}
+		if slices.Contains(names[:i], name) {
 			return &configulator.FlagConflictError{
 				Existing: name,
 				Flag:     name,
@@ -422,7 +425,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	}
 	fs.String(names[0], "info", "Logging level for the application. One of debug, info, warn, or error")
 	fs.String(names[1], "[::]", "Address to listen on")
-	fs.Int(names[2], 8080, "Port to listen on")
+	fs.Var(impl.NewInt(8080), names[2], "Port to listen on")
 	fs.StringSlice(names[3], nil, "Trusted proxy IPs whose X-Forwarded-* headers are honored")
 	fs.Bool(names[4], false, "Enable CORS")
 	fs.StringSlice(names[5], nil, "List of allowed origins for CORS")
@@ -434,18 +437,19 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.Bool(names[8], false, "Allow credentials for CORS")
 	fs.Bool(names[9], false, "Enable metrics server")
 	fs.String(names[10], "127.0.0.1", "Address to listen on")
-	fs.Int(names[11], 9000, "Port to listen on")
+	fs.Var(impl.NewInt(9000), names[11], "Port to listen on")
 	fs.Bool(names[12], false, "Enable pprof server")
 	fs.String(names[13], "127.0.0.1", "Address to listen on")
-	fs.Int(names[14], 9999, "Port to listen on")
+	fs.Var(impl.NewInt(9999), names[14], "Port to listen on")
 	fs.String(names[15], "sqlite", "Storage type. One of mysql, postgres, sqlite")
 	fs.String(names[16], ":memory:?_pragma=foreign_keys(1)", "Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)")
 	fs.Float64(names[17], 506.0, "Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background")
 	fs.String(names[18], "", "Base URL of pixinsight-worker, for calibration coverage. Empty disables it")
 	return nil
 }
-func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep string, set configulator.SetOrigin) error {
-	if n := strings.Join([]string{"log-level"}, o.Separator); fs.Changed(n) {
+
+func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ string, set configulator.SetOrigin) error {
+	if n := "log-level"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -457,7 +461,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.LogLevel = LogLevel(v)
 		set("log-level", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "bind"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "bind"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -469,7 +473,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.Bind = v
 		set("http.bind", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "port"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "port"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -481,7 +485,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.Port = v
 		set("http.port", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "trusted-proxies"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "trusted-proxies"; fs.Changed(n) {
 		v, err := fs.GetStringSlice(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -493,7 +497,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.TrustedProxies = v
 		set("http.trusted-proxies", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "cors", "enabled"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "cors" + o.Separator + "enabled"; fs.Changed(n) {
 		v, err := fs.GetBool(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -505,7 +509,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.CORS.Enabled = v
 		set("http.cors.enabled", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "cors", "allowed-origins"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "cors" + o.Separator + "allowed-origins"; fs.Changed(n) {
 		v, err := fs.GetStringSlice(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -517,7 +521,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.CORS.AllowedOrigins = v
 		set("http.cors.allowed-origins", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "cors", "allowed-methods"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "cors" + o.Separator + "allowed-methods"; fs.Changed(n) {
 		v, err := fs.GetStringSlice(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -529,7 +533,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.CORS.AllowedMethods = v
 		set("http.cors.allowed-methods", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "cors", "allowed-headers"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "cors" + o.Separator + "allowed-headers"; fs.Changed(n) {
 		v, err := fs.GetStringSlice(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -541,7 +545,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.CORS.AllowedHeaders = v
 		set("http.cors.allowed-headers", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"http", "cors", "allow-credentials"}, o.Separator); fs.Changed(n) {
+	if n := "http" + o.Separator + "cors" + o.Separator + "allow-credentials"; fs.Changed(n) {
 		v, err := fs.GetBool(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -553,7 +557,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.HTTP.CORS.AllowCredentials = v
 		set("http.cors.allow-credentials", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"metrics", "enabled"}, o.Separator); fs.Changed(n) {
+	if n := "metrics" + o.Separator + "enabled"; fs.Changed(n) {
 		v, err := fs.GetBool(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -565,7 +569,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Metrics.Enabled = v
 		set("metrics.enabled", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"metrics", "bind"}, o.Separator); fs.Changed(n) {
+	if n := "metrics" + o.Separator + "bind"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -577,7 +581,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Metrics.Bind = v
 		set("metrics.bind", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"metrics", "port"}, o.Separator); fs.Changed(n) {
+	if n := "metrics" + o.Separator + "port"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -589,7 +593,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Metrics.Port = v
 		set("metrics.port", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"pprof", "enabled"}, o.Separator); fs.Changed(n) {
+	if n := "pprof" + o.Separator + "enabled"; fs.Changed(n) {
 		v, err := fs.GetBool(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -601,7 +605,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PProf.Enabled = v
 		set("pprof.enabled", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"pprof", "bind"}, o.Separator); fs.Changed(n) {
+	if n := "pprof" + o.Separator + "bind"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -613,7 +617,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PProf.Bind = v
 		set("pprof.bind", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"pprof", "port"}, o.Separator); fs.Changed(n) {
+	if n := "pprof" + o.Separator + "port"; fs.Changed(n) {
 		v, err := fs.GetInt(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -625,7 +629,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.PProf.Port = v
 		set("pprof.port", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"storage", "type"}, o.Separator); fs.Changed(n) {
+	if n := "storage" + o.Separator + "type"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -637,7 +641,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Storage.Type = types.StorageType(v)
 		set("storage.type", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"storage", "dsn"}, o.Separator); fs.Changed(n) {
+	if n := "storage" + o.Separator + "dsn"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -649,7 +653,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Storage.DSN = v
 		set("storage.dsn", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"quality", "pedestal"}, o.Separator); fs.Changed(n) {
+	if n := "quality" + o.Separator + "pedestal"; fs.Changed(n) {
 		v, err := fs.GetFloat64(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -661,7 +665,7 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 		cfg.Quality.Pedestal = v
 		set("quality.pedestal", configulator.LayerCLI, "--"+n)
 	}
-	if n := strings.Join([]string{"worker", "url"}, o.Separator); fs.Changed(n) {
+	if n := "worker" + o.Separator + "url"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
 			return &configulator.ParseError{
@@ -675,145 +679,188 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep st
 	}
 	return nil
 }
+
 func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	tok, err := dec.ReadToken()
 	if err != nil {
 		return err
 	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
+	if tok.Kind() != jsontext.KindBeginObject {
+		return fmt.Errorf("expected an object, got %v", tok.Kind())
 	}
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "log-level":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.LogLevel = &str
 			default:
-				return fmt.Errorf("log-level: expected a string, got %v", v.Kind())
+				return configJSONError("log-level", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "http":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("http", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub hTTPShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "http"); err != nil {
 					return err
 				}
 				s.HTTP = &sub
 			}
 		case "metrics":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("metrics", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub metricsShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "metrics"); err != nil {
 					return err
 				}
 				s.Metrics = &sub
 			}
 		case "pprof":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("pprof", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub pProfShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "pprof"); err != nil {
 					return err
 				}
 				s.PProf = &sub
 			}
 		case "storage":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("storage", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub storageShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "storage"); err != nil {
 					return err
 				}
 				s.Storage = &sub
 			}
 		case "quality":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("quality", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub qualityShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "quality"); err != nil {
 					return err
 				}
 				s.Quality = &sub
 			}
 		case "worker":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("worker", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub workerShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, "worker"); err != nil {
 					return err
 				}
 				s.Worker = &sub
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*configShadow)(nil)
+var _ json.UnmarshalerFrom = (*configShadow)(nil)
 
-func (s *hTTPShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *hTTPShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "bind":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Bind = &str
 			default:
-				return fmt.Errorf("bind: expected a string, got %v", v.Kind())
+				return configJSONError(path+".bind", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "port":
 			v, err := dec.ReadToken()
@@ -821,38 +868,41 @@ func (s *hTTPShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".port", v, err)
 				}
-				val := int(num)
-				s.Port = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".port", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Port = &num
 			default:
-				return fmt.Errorf("port: expected a number, got %v", v.Kind())
+				return configJSONError(path+".port", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		case "trusted-proxies":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
-				tok, err := dec.ReadToken()
+				open, err := dec.ReadToken()
 				if err != nil {
 					return err
 				}
-				if tok.Kind() != '[' {
-					return fmt.Errorf("trusted-proxies: expected an array, got %v", tok.Kind())
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError(path+".trusted-proxies", open, fmt.Errorf("expected an array, got %v", open.Kind()))
 				}
 				out := []string{}
-				for dec.PeekKind() != ']' {
+				for dec.PeekKind() != jsontext.KindEndArray {
 					v, err := dec.ReadToken()
 					if err != nil {
 						return err
 					}
-					if v.Kind() != '"' {
-						return fmt.Errorf("trusted-proxies: expected a string element, got %v", v.Kind())
+					if v.Kind() != jsontext.KindString {
+						return configJSONError(path+".trusted-proxies"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 					}
 					el := v.String()
 					out = append(out, el)
@@ -863,76 +913,81 @@ func (s *hTTPShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				s.TrustedProxies = &out
 			}
 		case "cors":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError(path+".cors", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
 				var sub cORSShadow
-				if err := sub.UnmarshalJSONFrom(dec); err != nil {
+				if err := sub.decodeJSON(dec, path+".cors"); err != nil {
 					return err
 				}
 				s.CORS = &sub
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*hTTPShadow)(nil)
-
-func (s *cORSShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *cORSShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "enabled":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case 't', 'f':
+			case jsontext.KindNull:
+			case jsontext.KindTrue, jsontext.KindFalse:
 				b := v.Bool()
 				s.Enabled = &b
 			default:
-				return fmt.Errorf("enabled: expected a bool, got %v", v.Kind())
+				return configJSONError(path+".enabled", v, fmt.Errorf("expected a bool, got %v", v.Kind()))
 			}
 		case "allowed-origins":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
-				tok, err := dec.ReadToken()
+				open, err := dec.ReadToken()
 				if err != nil {
 					return err
 				}
-				if tok.Kind() != '[' {
-					return fmt.Errorf("allowed-origins: expected an array, got %v", tok.Kind())
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError(path+".allowed-origins", open, fmt.Errorf("expected an array, got %v", open.Kind()))
 				}
 				out := []string{}
-				for dec.PeekKind() != ']' {
+				for dec.PeekKind() != jsontext.KindEndArray {
 					v, err := dec.ReadToken()
 					if err != nil {
 						return err
 					}
-					if v.Kind() != '"' {
-						return fmt.Errorf("allowed-origins: expected a string element, got %v", v.Kind())
+					if v.Kind() != jsontext.KindString {
+						return configJSONError(path+".allowed-origins"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 					}
 					el := v.String()
 					out = append(out, el)
@@ -943,26 +998,26 @@ func (s *cORSShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				s.AllowedOrigins = &out
 			}
 		case "allowed-methods":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
-				tok, err := dec.ReadToken()
+				open, err := dec.ReadToken()
 				if err != nil {
 					return err
 				}
-				if tok.Kind() != '[' {
-					return fmt.Errorf("allowed-methods: expected an array, got %v", tok.Kind())
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError(path+".allowed-methods", open, fmt.Errorf("expected an array, got %v", open.Kind()))
 				}
 				out := []string{}
-				for dec.PeekKind() != ']' {
+				for dec.PeekKind() != jsontext.KindEndArray {
 					v, err := dec.ReadToken()
 					if err != nil {
 						return err
 					}
-					if v.Kind() != '"' {
-						return fmt.Errorf("allowed-methods: expected a string element, got %v", v.Kind())
+					if v.Kind() != jsontext.KindString {
+						return configJSONError(path+".allowed-methods"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 					}
 					el := v.String()
 					out = append(out, el)
@@ -973,26 +1028,26 @@ func (s *cORSShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				s.AllowedMethods = &out
 			}
 		case "allowed-headers":
-			if dec.PeekKind() == 'n' {
+			if dec.PeekKind() == jsontext.KindNull {
 				if _, err := dec.ReadToken(); err != nil {
 					return err
 				}
 			} else {
-				tok, err := dec.ReadToken()
+				open, err := dec.ReadToken()
 				if err != nil {
 					return err
 				}
-				if tok.Kind() != '[' {
-					return fmt.Errorf("allowed-headers: expected an array, got %v", tok.Kind())
+				if open.Kind() != jsontext.KindBeginArray {
+					return configJSONError(path+".allowed-headers", open, fmt.Errorf("expected an array, got %v", open.Kind()))
 				}
 				out := []string{}
-				for dec.PeekKind() != ']' {
+				for dec.PeekKind() != jsontext.KindEndArray {
 					v, err := dec.ReadToken()
 					if err != nil {
 						return err
 					}
-					if v.Kind() != '"' {
-						return fmt.Errorf("allowed-headers: expected a string element, got %v", v.Kind())
+					if v.Kind() != jsontext.KindString {
+						return configJSONError(path+".allowed-headers"+"["+strconv.Itoa(len(out))+"]", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 					}
 					el := v.String()
 					out = append(out, el)
@@ -1008,50 +1063,48 @@ func (s *cORSShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case 't', 'f':
+			case jsontext.KindNull:
+			case jsontext.KindTrue, jsontext.KindFalse:
 				b := v.Bool()
 				s.AllowCredentials = &b
 			default:
-				return fmt.Errorf("allow-credentials: expected a bool, got %v", v.Kind())
+				return configJSONError(path+".allow-credentials", v, fmt.Errorf("expected a bool, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*cORSShadow)(nil)
-
-func (s *metricsShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *metricsShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "enabled":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case 't', 'f':
+			case jsontext.KindNull:
+			case jsontext.KindTrue, jsontext.KindFalse:
 				b := v.Bool()
 				s.Enabled = &b
 			default:
-				return fmt.Errorf("enabled: expected a bool, got %v", v.Kind())
+				return configJSONError(path+".enabled", v, fmt.Errorf("expected a bool, got %v", v.Kind()))
 			}
 		case "bind":
 			v, err := dec.ReadToken()
@@ -1059,12 +1112,12 @@ func (s *metricsShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Bind = &str
 			default:
-				return fmt.Errorf("bind: expected a string, got %v", v.Kind())
+				return configJSONError(path+".bind", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "port":
 			v, err := dec.ReadToken()
@@ -1072,54 +1125,55 @@ func (s *metricsShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".port", v, err)
 				}
-				val := int(num)
-				s.Port = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".port", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Port = &num
 			default:
-				return fmt.Errorf("port: expected a number, got %v", v.Kind())
+				return configJSONError(path+".port", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*metricsShadow)(nil)
-
-func (s *pProfShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *pProfShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "enabled":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case 't', 'f':
+			case jsontext.KindNull:
+			case jsontext.KindTrue, jsontext.KindFalse:
 				b := v.Bool()
 				s.Enabled = &b
 			default:
-				return fmt.Errorf("enabled: expected a bool, got %v", v.Kind())
+				return configJSONError(path+".enabled", v, fmt.Errorf("expected a bool, got %v", v.Kind()))
 			}
 		case "bind":
 			v, err := dec.ReadToken()
@@ -1127,12 +1181,12 @@ func (s *pProfShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Bind = &str
 			default:
-				return fmt.Errorf("bind: expected a string, got %v", v.Kind())
+				return configJSONError(path+".bind", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "port":
 			v, err := dec.ReadToken()
@@ -1140,54 +1194,55 @@ func (s *pProfShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
-				num, err := v.Int()
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
 				if err != nil {
-					return err
+					return configJSONError(path+".port", v, err)
 				}
-				val := int(num)
-				s.Port = &val
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".port", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Port = &num
 			default:
-				return fmt.Errorf("port: expected a number, got %v", v.Kind())
+				return configJSONError(path+".port", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*pProfShadow)(nil)
-
-func (s *storageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *storageShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "type":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.Type = &str
 			default:
-				return fmt.Errorf("type: expected a string, got %v", v.Kind())
+				return configJSONError(path+".type", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		case "dsn":
 			v, err := dec.ReadToken()
@@ -1195,124 +1250,138 @@ func (s *storageShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.DSN = &str
 			default:
-				return fmt.Errorf("dsn: expected a string, got %v", v.Kind())
+				return configJSONError(path+".dsn", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*storageShadow)(nil)
-
-func (s *qualityShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *qualityShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "pedestal":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '0':
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
 				num, err := v.Float()
 				if err != nil {
-					return err
+					return configJSONError(path+".pedestal", v, err)
 				}
-				val := num
-				s.Pedestal = &val
+				s.Pedestal = &num
 			default:
-				return fmt.Errorf("pedestal: expected a number, got %v", v.Kind())
+				return configJSONError(path+".pedestal", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*qualityShadow)(nil)
-
-func (s *workerShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	tok, err := dec.ReadToken()
-	if err != nil {
-		return err
-	}
-	if tok.Kind() != '{' {
-		return fmt.Errorf("expected object, got %v", tok.Kind())
-	}
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *workerShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
 			return err
 		}
-		if tok.Kind() == '}' {
+		if tok.Kind() == jsontext.KindEndObject {
 			return nil
 		}
-		switch tok.String() {
+		switch key := tok.String(); key {
 		case "url":
 			v, err := dec.ReadToken()
 			if err != nil {
 				return err
 			}
 			switch v.Kind() {
-			case 'n':
-			case '"':
+			case jsontext.KindNull:
+			case jsontext.KindString:
 				str := v.String()
 				s.URL = &str
 			default:
-				return fmt.Errorf("url: expected a string, got %v", v.Kind())
+				return configJSONError(path+".url", v, fmt.Errorf("expected a string, got %v", v.Kind()))
 			}
 		default:
-			return fmt.Errorf("unknown key %q", tok.String())
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
 		}
 	}
 }
 
-var _ v2.UnmarshalerFrom = (*workerShadow)(nil)
+// configJSONError returns a ParseError for the JSON token v at path.
+func configJSONError(path string, v jsontext.Token, err error) error {
+	return &configulator.ParseError{
+		Err:   err,
+		Path:  path,
+		Value: v.String(),
+	}
+}
 
 // PrintConfig renders every field as "path = value" lines, redacting
 // fields tagged secret:"true". The origin Report holds no values,
 // so this is the only place redaction happens.
-func (c *Config) PrintConfig() string {
+func (c Config) PrintConfig() string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("log-level = %v\n", c.LogLevel))
-	b.WriteString(fmt.Sprintf("http.bind = %v\n", c.HTTP.Bind))
-	b.WriteString(fmt.Sprintf("http.port = %v\n", c.HTTP.Port))
-	b.WriteString(fmt.Sprintf("http.trusted-proxies = %v\n", c.HTTP.TrustedProxies))
-	b.WriteString(fmt.Sprintf("http.cors.enabled = %v\n", c.HTTP.CORS.Enabled))
-	b.WriteString(fmt.Sprintf("http.cors.allowed-origins = %v\n", c.HTTP.CORS.AllowedOrigins))
-	b.WriteString(fmt.Sprintf("http.cors.allowed-methods = %v\n", c.HTTP.CORS.AllowedMethods))
-	b.WriteString(fmt.Sprintf("http.cors.allowed-headers = %v\n", c.HTTP.CORS.AllowedHeaders))
-	b.WriteString(fmt.Sprintf("http.cors.allow-credentials = %v\n", c.HTTP.CORS.AllowCredentials))
-	b.WriteString(fmt.Sprintf("metrics.enabled = %v\n", c.Metrics.Enabled))
-	b.WriteString(fmt.Sprintf("metrics.bind = %v\n", c.Metrics.Bind))
-	b.WriteString(fmt.Sprintf("metrics.port = %v\n", c.Metrics.Port))
-	b.WriteString(fmt.Sprintf("pprof.enabled = %v\n", c.PProf.Enabled))
-	b.WriteString(fmt.Sprintf("pprof.bind = %v\n", c.PProf.Bind))
-	b.WriteString(fmt.Sprintf("pprof.port = %v\n", c.PProf.Port))
-	b.WriteString(fmt.Sprintf("storage.type = %v\n", c.Storage.Type))
-	b.WriteString(fmt.Sprintf("storage.dsn = %v\n", c.Storage.DSN))
-	b.WriteString(fmt.Sprintf("quality.pedestal = %v\n", c.Quality.Pedestal))
-	b.WriteString(fmt.Sprintf("worker.url = %v\n", c.Worker.URL))
+	fmt.Fprintf(&b, "log-level = %v\n", c.LogLevel)
+	fmt.Fprintf(&b, "http.bind = %v\n", c.HTTP.Bind)
+	fmt.Fprintf(&b, "http.port = %v\n", c.HTTP.Port)
+	fmt.Fprintf(&b, "http.trusted-proxies = %v\n", c.HTTP.TrustedProxies)
+	fmt.Fprintf(&b, "http.cors.enabled = %v\n", c.HTTP.CORS.Enabled)
+	fmt.Fprintf(&b, "http.cors.allowed-origins = %v\n", c.HTTP.CORS.AllowedOrigins)
+	fmt.Fprintf(&b, "http.cors.allowed-methods = %v\n", c.HTTP.CORS.AllowedMethods)
+	fmt.Fprintf(&b, "http.cors.allowed-headers = %v\n", c.HTTP.CORS.AllowedHeaders)
+	fmt.Fprintf(&b, "http.cors.allow-credentials = %v\n", c.HTTP.CORS.AllowCredentials)
+	fmt.Fprintf(&b, "metrics.enabled = %v\n", c.Metrics.Enabled)
+	fmt.Fprintf(&b, "metrics.bind = %v\n", c.Metrics.Bind)
+	fmt.Fprintf(&b, "metrics.port = %v\n", c.Metrics.Port)
+	fmt.Fprintf(&b, "pprof.enabled = %v\n", c.PProf.Enabled)
+	fmt.Fprintf(&b, "pprof.bind = %v\n", c.PProf.Bind)
+	fmt.Fprintf(&b, "pprof.port = %v\n", c.PProf.Port)
+	fmt.Fprintf(&b, "storage.type = %v\n", c.Storage.Type)
+	fmt.Fprintf(&b, "storage.dsn = %v\n", c.Storage.DSN)
+	fmt.Fprintf(&b, "quality.pedestal = %v\n", c.Quality.Pedestal)
+	fmt.Fprintf(&b, "worker.url = %v\n", c.Worker.URL)
 	return b.String()
+}
+
+func configQuoteKey(k string) string {
+	if strings.ContainsAny(k, ".[") {
+		return "\"" + strings.NewReplacer("\\", "\\\\", "\"", "\\\"").Replace(k) + "\""
+	}
+	return k
 }

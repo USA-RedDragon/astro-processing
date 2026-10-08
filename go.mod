@@ -4,7 +4,7 @@ go 1.27.2
 
 require (
 	github.com/99designs/gqlgen v0.17.95
-	github.com/USA-RedDragon/configulator/v2 v2.3.2
+	github.com/USA-RedDragon/configulator/v2 v2.4.0
 	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-contrib/pprof v1.5.6
 	github.com/gin-gonic/gin v1.12.0
