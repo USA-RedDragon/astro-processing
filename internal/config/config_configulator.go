@@ -12,6 +12,7 @@ import (
 	configulator "github.com/USA-RedDragon/configulator/v2"
 	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
 	"github.com/spf13/pflag"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -67,19 +68,28 @@ func ConfigSchema() *configulator.Schema[Config] {
 		DecodeFile:    configDecodeFile,
 	}
 }
-func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
+func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) error {
 	cfg.LogLevel = LogLevel("info")
 	set("log-level", configulator.LayerDefault, "default tag")
 	cfg.HTTP.Bind = "[::]"
 	set("http.bind", configulator.LayerDefault, "default tag")
 	cfg.HTTP.Port = 8080
 	set("http.port", configulator.LayerDefault, "default tag")
-	cfg.HTTP.CORS.AllowedOrigins = []string{"*"}
-	set("http.cors.allowed-origins", configulator.LayerDefault, "default tag")
-	cfg.HTTP.CORS.AllowedMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	set("http.cors.allowed-methods", configulator.LayerDefault, "default tag")
-	cfg.HTTP.CORS.AllowedHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
-	set("http.cors.allowed-headers", configulator.LayerDefault, "default tag")
+	{
+		lst := configulator.SplitList("*", sep)
+		cfg.HTTP.CORS.AllowedOrigins = lst
+		set("http.cors.allowed-origins", configulator.LayerDefault, "default tag")
+	}
+	{
+		lst := configulator.SplitList("GET,POST,PUT,DELETE,OPTIONS", sep)
+		cfg.HTTP.CORS.AllowedMethods = lst
+		set("http.cors.allowed-methods", configulator.LayerDefault, "default tag")
+	}
+	{
+		lst := configulator.SplitList("Origin,Content-Type,Accept,Authorization", sep)
+		cfg.HTTP.CORS.AllowedHeaders = lst
+		set("http.cors.allowed-headers", configulator.LayerDefault, "default tag")
+	}
 	cfg.Metrics.Bind = "127.0.0.1"
 	set("metrics.bind", configulator.LayerDefault, "default tag")
 	cfg.Metrics.Port = 9000
@@ -96,7 +106,7 @@ func configApplyDefaults(cfg *Config, set configulator.SetOrigin) error {
 	set("quality.pedestal", configulator.LayerDefault, "default tag")
 	return nil
 }
-func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, set configulator.SetOrigin, file string) error {
+func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	var sh configShadow
 	if err := u(data, &sh); err != nil {
 		return &configulator.DecodeError{
@@ -104,9 +114,9 @@ func configDecodeFile(data []byte, u configulator.Unmarshal, cfg *Config, set co
 			Path: file,
 		}
 	}
-	return sh.applyTo(cfg, set, file)
+	return sh.applyTo(cfg, sep, set, file)
 }
-func (s *configShadow) applyTo(cfg *Config, set configulator.SetOrigin, file string) error {
+func (s *configShadow) applyTo(cfg *Config, sep string, set configulator.SetOrigin, file string) error {
 	if s.LogLevel != nil {
 		cfg.LogLevel = LogLevel(*s.LogLevel)
 		set("log-level", configulator.LayerFile, file)
@@ -229,7 +239,8 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 	}
 	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "trusted-proxies"); true {
 		if v, ok := ec.Getenv(n); ok {
-			cfg.HTTP.TrustedProxies = configulator.SplitList(v, ec.ArraySeparator)
+			lst := configulator.SplitList(v, ec.ArraySeparator)
+			cfg.HTTP.TrustedProxies = lst
 			set("http.trusted-proxies", configulator.LayerEnv, n)
 		}
 	}
@@ -250,19 +261,22 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 	}
 	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-origins"); true {
 		if v, ok := ec.Getenv(n); ok {
-			cfg.HTTP.CORS.AllowedOrigins = configulator.SplitList(v, ec.ArraySeparator)
+			lst := configulator.SplitList(v, ec.ArraySeparator)
+			cfg.HTTP.CORS.AllowedOrigins = lst
 			set("http.cors.allowed-origins", configulator.LayerEnv, n)
 		}
 	}
 	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-methods"); true {
 		if v, ok := ec.Getenv(n); ok {
-			cfg.HTTP.CORS.AllowedMethods = configulator.SplitList(v, ec.ArraySeparator)
+			lst := configulator.SplitList(v, ec.ArraySeparator)
+			cfg.HTTP.CORS.AllowedMethods = lst
 			set("http.cors.allowed-methods", configulator.LayerEnv, n)
 		}
 	}
 	if n := configulator.EnvName(ec.Opts.Prefix, ec.Opts.Separator, "http", "cors", "allowed-headers"); true {
 		if v, ok := ec.Getenv(n); ok {
-			cfg.HTTP.CORS.AllowedHeaders = configulator.SplitList(v, ec.ArraySeparator)
+			lst := configulator.SplitList(v, ec.ArraySeparator)
+			cfg.HTTP.CORS.AllowedHeaders = lst
 			set("http.cors.allowed-headers", configulator.LayerEnv, n)
 		}
 	}
@@ -397,33 +411,40 @@ func ConfigPFlagHooks() cpflag.Hooks[Config] {
 	}
 }
 func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
-	for _, name := range []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"http", "bind"}, o.Separator), strings.Join([]string{"http", "port"}, o.Separator), strings.Join([]string{"http", "trusted-proxies"}, o.Separator), strings.Join([]string{"http", "cors", "enabled"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-origins"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-methods"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-headers"}, o.Separator), strings.Join([]string{"http", "cors", "allow-credentials"}, o.Separator), strings.Join([]string{"metrics", "enabled"}, o.Separator), strings.Join([]string{"metrics", "bind"}, o.Separator), strings.Join([]string{"metrics", "port"}, o.Separator), strings.Join([]string{"pprof", "enabled"}, o.Separator), strings.Join([]string{"pprof", "bind"}, o.Separator), strings.Join([]string{"pprof", "port"}, o.Separator), strings.Join([]string{"storage", "type"}, o.Separator), strings.Join([]string{"storage", "dsn"}, o.Separator), strings.Join([]string{"quality", "pedestal"}, o.Separator), strings.Join([]string{"worker", "url"}, o.Separator)} {
-		if fs.Lookup(name) != nil {
-			return fmt.Errorf("flag --%s already registered on this FlagSet", name)
+	names := []string{strings.Join([]string{"log-level"}, o.Separator), strings.Join([]string{"http", "bind"}, o.Separator), strings.Join([]string{"http", "port"}, o.Separator), strings.Join([]string{"http", "trusted-proxies"}, o.Separator), strings.Join([]string{"http", "cors", "enabled"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-origins"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-methods"}, o.Separator), strings.Join([]string{"http", "cors", "allowed-headers"}, o.Separator), strings.Join([]string{"http", "cors", "allow-credentials"}, o.Separator), strings.Join([]string{"metrics", "enabled"}, o.Separator), strings.Join([]string{"metrics", "bind"}, o.Separator), strings.Join([]string{"metrics", "port"}, o.Separator), strings.Join([]string{"pprof", "enabled"}, o.Separator), strings.Join([]string{"pprof", "bind"}, o.Separator), strings.Join([]string{"pprof", "port"}, o.Separator), strings.Join([]string{"storage", "type"}, o.Separator), strings.Join([]string{"storage", "dsn"}, o.Separator), strings.Join([]string{"quality", "pedestal"}, o.Separator), strings.Join([]string{"worker", "url"}, o.Separator)}
+	for i, name := range names {
+		if fs.Lookup(name) != nil || slices.Contains(names[:i], name) {
+			return &configulator.FlagConflictError{
+				Existing: name,
+				Flag:     name,
+			}
 		}
 	}
-	fs.String(strings.Join([]string{"log-level"}, o.Separator), "info", "Logging level for the application. One of debug, info, warn, or error")
-	fs.String(strings.Join([]string{"http", "bind"}, o.Separator), "[::]", "Address to listen on")
-	fs.Int(strings.Join([]string{"http", "port"}, o.Separator), 8080, "Port to listen on")
-	fs.StringSlice(strings.Join([]string{"http", "trusted-proxies"}, o.Separator), nil, "Trusted proxies for the HTTP server")
-	fs.Bool(strings.Join([]string{"http", "cors", "enabled"}, o.Separator), false, "Enable CORS")
-	fs.StringSlice(strings.Join([]string{"http", "cors", "allowed-origins"}, o.Separator), []string{"*"}, "List of allowed origins for CORS")
-	fs.StringSlice(strings.Join([]string{"http", "cors", "allowed-methods"}, o.Separator), []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}, "List of allowed HTTP methods for CORS")
-	fs.StringSlice(strings.Join([]string{"http", "cors", "allowed-headers"}, o.Separator), []string{"Origin", "Content-Type", "Accept", "Authorization"}, "List of allowed HTTP headers for CORS")
-	fs.Bool(strings.Join([]string{"http", "cors", "allow-credentials"}, o.Separator), false, "Allow credentials for CORS")
-	fs.Bool(strings.Join([]string{"metrics", "enabled"}, o.Separator), false, "Enable metrics server")
-	fs.String(strings.Join([]string{"metrics", "bind"}, o.Separator), "127.0.0.1", "Address to listen on")
-	fs.Int(strings.Join([]string{"metrics", "port"}, o.Separator), 9000, "Port to listen on")
-	fs.Bool(strings.Join([]string{"pprof", "enabled"}, o.Separator), false, "Enable pprof server")
-	fs.String(strings.Join([]string{"pprof", "bind"}, o.Separator), "127.0.0.1", "Address to listen on")
-	fs.Int(strings.Join([]string{"pprof", "port"}, o.Separator), 9999, "Port to listen on")
-	fs.String(strings.Join([]string{"storage", "type"}, o.Separator), "sqlite", "Storage type. One of mysql, postgres, sqlite")
-	fs.String(strings.Join([]string{"storage", "dsn"}, o.Separator), ":memory:?_pragma=foreign_keys(1)", "Data source name for the storage")
-	fs.Float64(strings.Join([]string{"quality", "pedestal"}, o.Separator), 506.0, "Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background")
-	fs.String(strings.Join([]string{"worker", "url"}, o.Separator), "", "Base URL of pixinsight-worker, for calibration coverage. Empty disables it")
+	fs.String(names[0], "info", "Logging level for the application. One of debug, info, warn, or error")
+	fs.String(names[1], "[::]", "Address to listen on")
+	fs.Int(names[2], 8080, "Port to listen on")
+	fs.StringSlice(names[3], nil, "Trusted proxy IPs whose X-Forwarded-* headers are honored")
+	fs.Bool(names[4], false, "Enable CORS")
+	fs.StringSlice(names[5], nil, "List of allowed origins for CORS")
+	fs.Lookup(names[5]).DefValue = "[*]"
+	fs.StringSlice(names[6], nil, "List of allowed HTTP methods for CORS")
+	fs.Lookup(names[6]).DefValue = "[GET,POST,PUT,DELETE,OPTIONS]"
+	fs.StringSlice(names[7], nil, "List of allowed HTTP headers for CORS")
+	fs.Lookup(names[7]).DefValue = "[Origin,Content-Type,Accept,Authorization]"
+	fs.Bool(names[8], false, "Allow credentials for CORS")
+	fs.Bool(names[9], false, "Enable metrics server")
+	fs.String(names[10], "127.0.0.1", "Address to listen on")
+	fs.Int(names[11], 9000, "Port to listen on")
+	fs.Bool(names[12], false, "Enable pprof server")
+	fs.String(names[13], "127.0.0.1", "Address to listen on")
+	fs.Int(names[14], 9999, "Port to listen on")
+	fs.String(names[15], "sqlite", "Storage type. One of mysql, postgres, sqlite")
+	fs.String(names[16], ":memory:?_pragma=foreign_keys(1)", "Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)")
+	fs.Float64(names[17], 506.0, "Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background")
+	fs.String(names[18], "", "Base URL of pixinsight-worker, for calibration coverage. Empty disables it")
 	return nil
 }
-func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, set configulator.SetOrigin) error {
+func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, sep string, set configulator.SetOrigin) error {
 	if n := strings.Join([]string{"log-level"}, o.Separator); fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {

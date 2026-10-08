@@ -21,8 +21,8 @@ const (
 type Config struct {
 	LogLevel LogLevel `name:"log-level" description:"Logging level for the application. One of debug, info, warn, or error" default:"info"`
 	HTTP     HTTP     `name:"http" description:"HTTP server configuration"`
-	Metrics  Metrics  `name:"metrics" description:"Metrics server configuration"`
-	PProf    PProf    `name:"pprof" description:"PProf server configuration"`
+	Metrics  Metrics  `name:"metrics" description:"Prometheus metrics server configuration"`
+	PProf    PProf    `name:"pprof" description:"Go pprof profiling server configuration, for debugging and performance analysis"`
 	Storage  Storage  `name:"storage" description:"Storage configuration"`
 	Quality  Quality  `name:"quality" description:"Subframe quality scoring configuration"`
 	Worker   Worker   `name:"worker" description:"pixinsight-worker connection"`
@@ -35,7 +35,7 @@ type Worker struct {
 type HTTP struct {
 	Bind           string   `name:"bind" description:"Address to listen on" default:"[::]"`
 	Port           int      `name:"port" description:"Port to listen on" default:"8080"`
-	TrustedProxies []string `name:"trusted-proxies" description:"Trusted proxies for the HTTP server"`
+	TrustedProxies []string `name:"trusted-proxies" description:"Trusted proxy IPs whose X-Forwarded-* headers are honored"`
 	CORS           CORS     `name:"cors" description:"CORS configuration"`
 }
 
@@ -61,7 +61,7 @@ type PProf struct {
 
 type Storage struct {
 	Type types.StorageType `name:"type" description:"Storage type. One of mysql, postgres, sqlite" default:"sqlite"`
-	DSN  string            `name:"dsn" description:"Data source name for the storage" default:":memory:?_pragma=foreign_keys(1)"`
+	DSN  string            `name:"dsn" description:"Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)" default:":memory:?_pragma=foreign_keys(1)"`
 }
 
 type Quality struct {
