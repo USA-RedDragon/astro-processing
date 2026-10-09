@@ -41,10 +41,10 @@
   "devDependencies": {
     "@0no-co/graphqlsp": "1.17.5",
     "@eslint/js": "10.0.1",
-    "@graphql-codegen/cli": "7.4.5",
-    "@graphql-codegen/client-preset": "6.2.2",
+    "@graphql-codegen/cli": "7.4.6",
+    "@graphql-codegen/client-preset": "6.2.3",
     "@graphql-codegen/schema-ast": "6.1.1",
-    "@graphql-codegen/typescript": "6.1.1",
+    "@graphql-codegen/typescript": "6.1.2",
     "@graphql-codegen/typescript-operations": "6.1.10",
     "@iconify-json/radix-icons": "1.2.6",
     "@iconify/vue": "5.0.3",
