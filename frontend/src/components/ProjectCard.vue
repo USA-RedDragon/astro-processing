@@ -12,8 +12,19 @@
             loading="lazy"
             class="w-full h-auto max-h-[36rem] object-cover"
           >
-          <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
-            {{ project.cover.palette || project.cover.filter }}{{ project.cover.mosaic ? ' mosaic' : '' }}
+          <span
+            class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
+            title="What the stacker rendered for this picture"
+          >
+            Cover: {{ project.cover.palette || project.cover.filter }}{{ project.cover.mosaic ? ' mosaic' : '' }}
+          </span>
+          <span
+            v-if="missingPanels"
+            class="absolute bottom-2 right-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
+            :title="project.cover.palette ? 'Fewest panels in any filter of this colour mosaic'
+              : 'Panels in this mosaic'"
+          >
+            {{ project.cover.panels }} of {{ project.cover.panels_total }} panels
           </span>
           <span
             v-if="processing"
@@ -31,7 +42,7 @@
           <Badge v-if="project.priority" :variant="getPriorityVariant(project.priority)" class="text-sm">
             {{ project.priority }}
           </Badge>
-          <Badge :variant="getStatusVariant(project)">
+          <Badge :variant="getStatusVariant(project)" :title="getStatusTitle(project)">
             {{ getStatusText(project) }}
           </Badge>
         </div>
@@ -74,8 +85,12 @@
         </CardContent>
 
         <!-- Circular Progress at bottom right -->
-        <div v-if="project.stats" class="absolute bottom-0 right-0">
-          <ProgressCircle :percentage="getProgressPercentage(project)" />
+        <div v-if="project.stats && project.stats.imaging.desired_images > 0" class="absolute bottom-0 right-0">
+          <ProgressCircle
+            :percentage="getProgressPercentage(project)"
+            caption="accepted of desired"
+            :title="circleTitle"
+          />
         </div>
         </Card>
 </template>
@@ -137,6 +152,14 @@ export default {
   },
   computed: {
     // The stacker is working on one of the project's targets or its mosaic.
+    circleTitle(): string {
+      const i = this.project.stats.imaging;
+      return `${i.accepted_images} accepted of ${i.desired_images} desired, all plans together`;
+    },
+    missingPanels(): boolean {
+      const c = this.project.cover;
+      return !!c && c.panels != null && c.panels_total != null && c.panels < c.panels_total;
+    },
     processing(): boolean {
       const names = new Set((this.project.targets ?? []).map((t) => t.name));
       const mosaic = `Mosaic: ${this.project.name}`;
@@ -168,7 +191,14 @@ export default {
       if (!project.stats) return 0;
       const { accepted_images, desired_images } = project.stats.imaging;
       if (desired_images === 0) return 0;
-      return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
+      return Math.round((accepted_images / desired_images) * 100);
+    },
+    allPlansMet(project: Project): boolean {
+      return !!project.stats && project.stats.plans > 0 && project.stats.plans_met === project.stats.plans;
+    },
+    getStatusTitle(project: Project): string {
+      if (!project.stats) return '';
+      return `${project.stats.plans_met} of ${project.stats.plans} enabled exposure plans have their desired accepted subs`;
     },
     getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (priority === 'HIGH') return 'destructive';
@@ -178,22 +208,12 @@ export default {
     getStatusVariant(
       project: Project,
     ): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (project.stats) {
-        const { accepted_images, desired_images } = project.stats.imaging;
-        if (accepted_images >= desired_images) {
-          return 'default'; // completed
-        }
-      }
+      if (this.allPlansMet(project)) return 'default';
       return project.state === 'ACTIVE' ? 'secondary' : 'outline';
     },
     getStatusText(project: Project): string {
-      if (project.stats) {
-        const { accepted_images, desired_images } = project.stats.imaging;
-        if (accepted_images >= desired_images) {
-          return 'Completed';
-        }
-      }
-      return project.state ?? 'Unknown';
+      if (this.allPlansMet(project)) return 'All plans met';
+      return project.state ?? 'State not set';
     },
   },
 };

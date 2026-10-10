@@ -168,6 +168,8 @@ const GET_PROJECT_COVERS_QUERY = `
         preview_url
         mosaic
         updated_at
+        panels
+        panels_total
       }
     }
   }
@@ -203,6 +205,8 @@ const GET_PROJECTS_QUERY = `
         preview_url
         mosaic
         updated_at
+        panels
+        panels_total
       }
       flats_handling
       maximum_altitude
@@ -215,18 +219,12 @@ const GET_PROJECTS_QUERY = `
           acquired_images
         }
         last_image_date
+        plans
+        plans_met
       }
     }
   }
 `;
-
-type ProjectGroup = {
-  key: string;
-  projectId: number | null;
-  projectName: string | null;
-  projectDescription?: string;
-  projects: Project[];
-};
 
 export default {
   components: {
@@ -270,8 +268,6 @@ export default {
       othersTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       loading: true,
       error: null as string | null,
-      circumference: 2 * Math.PI * 28, // 28 is the radius for target cards
-      projectCircumference: 2 * Math.PI * 35, // 35 is the radius for project headers
       sortField: 'LAST_IMAGE_DATE' as string,
       sortDirection: 'DESC' as string,
       filter: emptyFilter() as ProjectFilter,
@@ -367,38 +363,6 @@ export default {
         this.loading = false;
       }
     },
-    getProjectStats(group: ProjectGroup): { accepted: number; desired: number; total: number } {
-      let totalAccepted = 0;
-      let totalDesired = 0;
-
-      for (const project of group.projects) {
-        if (project.stats) {
-          totalAccepted += project.stats.imaging.accepted_images;
-          totalDesired += project.stats.imaging.desired_images;
-        }
-      }
-
-      return {
-        accepted: totalAccepted,
-        desired: totalDesired,
-        total: totalDesired,
-      };
-    },
-    getProjectProgressPercentage(group: ProjectGroup): number {
-      const stats = this.getProjectStats(group);
-      if (stats.desired === 0) return 0;
-      return Math.min(Math.round((stats.accepted / stats.desired) * 100), 100);
-    },
-    getProjectStrokeDashoffset(group: ProjectGroup): number {
-      const percentage = this.getProjectProgressPercentage(group);
-      return this.projectCircumference - (percentage / 100) * this.projectCircumference;
-    },
-    getProjectProgressColor(group: ProjectGroup): string {
-      const percentage = this.getProjectProgressPercentage(group);
-      if (percentage >= 100) return 'hsl(142, 76%, 36%)'; // green
-      if (percentage >= 50) return 'hsl(48, 96%, 53%)'; // yellow
-      return 'hsl(221, 83%, 53%)'; // blue
-    },
   },
   computed: {
     listView(): boolean {
@@ -434,14 +398,6 @@ export default {
 </script>
 
 <style scoped>
-.project-group {
-  margin-bottom: 2rem;
-}
-
-.project-group:last-child {
-  margin-bottom: 0;
-}
-
 .info {
   display: grid;
   grid-auto-flow: column;

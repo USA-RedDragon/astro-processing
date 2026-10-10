@@ -10,7 +10,11 @@
     </section>
 
     <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" :project="project?.name ?? ''" />
-    <PaletteMixer v-if="mosaics.length > 0" :masters="mosaics" />
+    <PaletteMixer
+      v-if="mosaics.length > 0"
+      :masters="mosaics"
+      :cover-palette="project?.cover?.mosaic ? project.cover.palette : ''"
+    />
 
     <!-- Targets Section -->
     <div class="space-y-4">
@@ -102,7 +106,10 @@ const GET_PROJECT_WITH_TARGETS_QUERY = `
           }
           filters {
             filter_name
-            exposure_time
+            template_name
+            exposure
+            exposure_source
+            enabled
             gain
             offset
             imaging {
@@ -122,6 +129,12 @@ const GET_PROJECT_WITH_TARGETS_QUERY = `
           acquired_images
         }
         last_image_date
+        plans
+        plans_met
+      }
+      cover {
+        palette
+        mosaic
       }
     }
   }

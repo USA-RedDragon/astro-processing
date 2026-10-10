@@ -2,7 +2,7 @@
         <Card class="target-card relative overflow-hidden">
         <!-- Status Badge at top right -->
         <div class="absolute top-5 right-2 z-10">
-          <Badge :variant="getStatusVariant(target)">
+          <Badge :variant="getStatusVariant(target)" :title="statusTitle">
             {{ getStatusText(target) }}
           </Badge>
         </div>
@@ -32,7 +32,7 @@
             <StatsDisplay :stats="target.stats.total" total />
 
             <div v-if="target.stats.filters && target.stats.filters.length > 0" class="text-sm space-y-1">
-              <div class="font-semibold mt-2 mb-1">By Filter:</div>
+              <div class="font-semibold mt-2 mb-1">By exposure plan:</div>
               <div
                 v-for="(filterStats, index) in target.stats.filters"
                 :key="index"
@@ -40,7 +40,8 @@
                 :class="{
                   'bg-green-500/20 dark:bg-green-500/30':
                     filterStats.imaging.accepted_images >= filterStats.imaging.desired_images &&
-                    filterStats.imaging.desired_images > 0
+                    filterStats.imaging.desired_images > 0,
+                  'opacity-60': filterStats.enabled === false,
                 }"
               >
                 <span class="font-medium">{{ formatFilterName(filterStats) }}:</span>
@@ -52,8 +53,12 @@
         </CardContent>
 
         <!-- Circular Progress at bottom right -->
-        <div v-if="target.stats" class="absolute bottom-0 right-0">
-          <ProgressCircle :percentage="getProgressPercentage(target)" />
+        <div v-if="target.stats && target.stats.total.desired_images > 0" class="absolute bottom-0 right-0">
+          <ProgressCircle
+            :percentage="getProgressPercentage(target)"
+            caption="accepted of desired"
+            :title="circleTitle"
+          />
         </div>
         </Card>
 </template>
@@ -89,24 +94,34 @@ export default {
       required: true,
     },
   },
-  data: function() {
-    return {
-    };
-  },
-  mounted() {
-  },
-  unmounted() {
+  computed: {
+    enabledPlans(): TargetFilterStats[] {
+      return (this.target.stats?.filters ?? []).filter((f) => f.enabled === true);
+    },
+    allPlansMet(): boolean {
+      const plans = this.enabledPlans;
+      return plans.length > 0 && plans.every((f) => f.imaging.accepted_images >= f.imaging.desired_images);
+    },
+    circleTitle(): string {
+      const t = this.target.stats.total;
+      return `${t.accepted_images} accepted of ${t.desired_images} desired, all plans together`;
+    },
+    statusTitle(): string {
+      const plans = this.enabledPlans;
+      const met = plans.filter((f) => f.imaging.accepted_images >= f.imaging.desired_images).length;
+      return `${met} of ${plans.length} enabled exposure plans have their desired accepted subs`;
+    },
   },
   methods: {
     formatDate,
     formatRA,
     formatDec,
     formatFilterName(filterStats: TargetFilterStats): string {
-      let name = filterStats.filter_name;
+      let name = filterStats.template_name ?? `${filterStats.filter_name || 'Unknown'} (template missing)`;
       const parts = [];
 
-      if (filterStats.exposure_time !== undefined && filterStats.exposure_time !== null) {
-        parts.push(`${filterStats.exposure_time.toFixed(1)}s`);
+      if (filterStats.exposure !== undefined && filterStats.exposure !== null) {
+        parts.push(`${filterStats.exposure}s${filterStats.exposure_source === 'template' ? ' template default' : ''}`);
       }
       if (filterStats.gain !== undefined && filterStats.gain !== null) {
         parts.push(`Gain ${filterStats.gain}`);
@@ -122,6 +137,7 @@ export default {
       if (parts.length > 0) {
         name += ` (${parts.join(', ')})`;
       }
+      if (filterStats.enabled === false) name += ' · off';
 
       return name;
     },
@@ -129,26 +145,16 @@ export default {
       if (!target.stats || !target.stats.total) return 0;
       const { accepted_images, desired_images } = target.stats.total;
       if (desired_images === 0) return 0;
-      return Math.min(Math.round((accepted_images / desired_images) * 100), 100);
+      return Math.round((accepted_images / desired_images) * 100);
     },
     getStatusVariant(
       target: Target,
     ): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (target.stats && target.stats.total) {
-        const { accepted_images, desired_images } = target.stats.total;
-        if (accepted_images >= desired_images) {
-          return 'default'; // completed
-        }
-      }
+      if (this.allPlansMet) return 'default';
       return target.active ? 'secondary' : 'outline';
     },
     getStatusText(target: Target): string {
-      if (target.stats && target.stats.total) {
-        const { accepted_images, desired_images } = target.stats.total;
-        if (accepted_images >= desired_images) {
-          return 'Completed';
-        }
-      }
+      if (this.allPlansMet) return 'All plans met';
       return target.active ? 'Active' : 'Inactive';
     },
   },

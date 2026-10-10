@@ -18,6 +18,10 @@
           <span>Rejected:</span>
           <span :class="rejectedClass + ' ml-1'">{{ stats.rejected_images }}</span>
         </span>
+        <span v-if="remainingAcquired > 0" title="Acquired subs Target Scheduler has not graded">
+          <span>Not graded:</span>
+          <span class="ml-1">{{ remainingAcquired }}</span>
+        </span>
       </div>
     </div>
     <div class="flex gap-2" v-if="!total">
@@ -47,7 +51,7 @@
         v-if="remainingAcquiredPercentage > 0"
         class="bg-muted-foreground/30"
         :style="{ width: remainingAcquiredPercentage + '%' }"
-        :title="`Acquired (not yet processed): ${remainingAcquired}`"
+        :title="`Not graded by Target Scheduler: ${remainingAcquired}`"
       ></div>
     </div>
   </div>
@@ -98,7 +102,6 @@ export default {
       return (this.stats.accepted_images / this.maxValue) * 100;
     },
     remainingAcquired(): number {
-      // Acquired images that haven't been accepted or rejected yet
       return Math.max(0, this.stats.acquired_images - this.stats.accepted_images - this.stats.rejected_images);
     },
     remainingAcquiredPercentage(): number {
