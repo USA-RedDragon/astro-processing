@@ -338,6 +338,20 @@ describe('commands', () => {
       note: 'Undone by change #ffff0000',
     })
     expect(undoState(rec({ status: 'conflict' })).enabled).toBe(false)
+    expect(
+      undoState(
+        rec({
+          status: 'cancelled',
+          message: 'Withdrawn from the database queue before the scheduler applied it.',
+        }),
+      ),
+    ).toMatchObject({
+      enabled: false,
+      note: 'Withdrawn from the database queue before the scheduler applied it.',
+    })
+    expect(undoState(rec({ status: 'cancelled' })).note).toBe(
+      'Cancelled; the server recorded no reason',
+    )
   })
 })
 

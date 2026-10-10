@@ -750,7 +750,12 @@ export function undoState(r: CommandRecord): {
     case 'saved':
       return { label: 'Undo', enabled: true, cancel: false, note: reverses }
     case 'cancelled':
-      return { label: 'Undo', enabled: false, cancel: false, note: 'Never reached the observatory' }
+      return {
+        label: 'Undo',
+        enabled: false,
+        cancel: false,
+        note: r.message || 'Cancelled; the server recorded no reason',
+      }
     default:
       return {
         label: 'Undo',

@@ -122,16 +122,17 @@ function badgeOf(r: CommandRecord) {
 const entries = computed(() =>
   shown.value.map((r) => {
     const multi = new Set((r.diffs ?? []).map((d) => d.object.name)).size > 1
+    const undo = undoState(r)
     return {
       r,
       badge: badgeOf(r),
-      undo: undoState(r),
+      undo,
       diffs: (r.diffs ?? []).map((d) => ({
         field: multi ? `${d.object.name} · ${d.field}` : d.field,
         before: d.before === null || d.before === undefined ? 'not recorded' : show(d.before),
         after: show(d.after),
       })),
-      note: [r.message, r.note].filter(Boolean).join(' · '),
+      note: [r.message === undo.note ? '' : r.message, r.note].filter(Boolean).join(' · '),
     }
   }),
 )
