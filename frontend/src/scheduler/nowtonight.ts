@@ -196,7 +196,7 @@ function syncPill(s: SyncReport | undefined): Pill {
   const title =
     'Time since SymmetricDS last delivered a batch or heartbeat from ' +
     (s.node || 'the other node')
-  if (s.errors > 0)
+  if (s.errors !== undefined && s.errors > 0)
     return {
       label: 'Sync lag',
       value: `${s.errors} ${s.errors === 1 ? 'batch' : 'batches'} in error`,

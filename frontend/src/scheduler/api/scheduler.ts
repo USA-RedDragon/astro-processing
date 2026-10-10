@@ -295,7 +295,7 @@ export interface SyncReport extends SourceState {
   heartbeat?: string
   last_batch?: string
   lag_seconds?: number
-  errors: number
+  errors?: number
 }
 
 export interface Conditions {
