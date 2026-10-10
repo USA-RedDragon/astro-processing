@@ -12,6 +12,7 @@ import {
   median,
   nightRange,
   pausePayload,
+  leftOutView,
   pickTable,
   planDiff,
   planSummary,
@@ -337,5 +338,37 @@ describe('commands', () => {
       note: 'Undone by change #ffff0000',
     })
     expect(undoState(rec({ status: 'conflict' })).enabled).toBe(false)
+  })
+})
+
+describe('left out', () => {
+  const at = (h: number, m = 0) => new Date(Date.UTC(2026, 9, 10, h, m)).toISOString()
+  it('names the closest score loss with both totals', () => {
+    const v = leftOutView({
+      project_name: 'Barnard',
+      target_name: "Barnard's E",
+      reason: 'lower score',
+      at: at(3),
+      until: at(3, 30),
+      winner_name: 'M31',
+      winner_total: 0.81,
+      total: 0.72,
+      reasons: [
+        { reason: 'not yet visible', from: at(1), until: at(3), minutes: 120 },
+        { reason: 'lower score', from: at(3), until: at(4), minutes: 60 },
+      ],
+    })
+    expect(v.name).toBe("Barnard · Barnard's E")
+    expect(v.why).toMatch(/^Outscored by M31 \(0\.81 vs 0\.72\) at \d\d:\d\d$/)
+    expect(v.other).toMatch(/^not yet visible \d\d:\d\d–\d\d:\d\d$/)
+  })
+  it('labels a reason seen only after the night', () => {
+    const v = leftOutView({ target_name: 'M33', reason: 'not visible', at: at(11), after_night: true })
+    expect(v.why).toMatch(/^Not visible at \d\d:\d\d, the planner's last pass after the night$/)
+    expect(v.other).toBe('')
+  })
+  it('gives the span of the main reason', () => {
+    const v = leftOutView({ target_name: 'NGC 7000', reason: 'moon avoidance', at: at(2), until: at(6) })
+    expect(v.why).toMatch(/^Moon avoidance, \d\d:\d\d–\d\d:\d\d$/)
   })
 })

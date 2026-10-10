@@ -25,6 +25,7 @@ import {
   ms,
   nightRange,
   overrides,
+  leftOutView,
   pickTable,
   planDiff,
   planSummary,
@@ -312,14 +313,7 @@ const fmtScore = (v: number | undefined) => (v === undefined ? '—' : v.toFixed
 const pct = (w: number) => Math.round(w * 100)
 
 
-const leftOut = computed(() =>
-  (preview.value?.left_out ?? []).map((l) => ({
-    name:
-      [l.project_name, l.target_name].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') ||
-      'Unnamed',
-    why: l.reason ?? '',
-  })),
-)
+const leftOut = computed(() => (preview.value?.left_out ?? []).map(leftOutView))
 
 const fields: OverrideField[] = ['priority', 'state', 'minimumtime']
 const wiProject = ref<number | null>(null)
@@ -797,11 +791,24 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             <li v-for="(l, i) in leftOut" :key="i">
               <div style="font-weight: 600">{{ l.name }}</div>
               <div class="muted">{{ l.why }}</div>
+              <div v-if="l.other" class="xsmall muted">Also: {{ l.other }}</div>
             </li>
           </ul>
           <p v-else class="empty" style="padding: 0">
             {{ preview ? 'The preview leaves no project out.' : '' }}
           </p>
+        </div>
+        <div v-if="preview?.stop_reason || preview?.assumptions?.length">
+          <h3 class="h3">How this was simulated</h3>
+          <p v-if="preview.error" class="small" style="margin: 0; color: var(--bad)">
+            The simulation failed: {{ preview.error }}
+          </p>
+          <p v-if="preview.stop_reason" class="small muted" style="margin: 0">
+            It stopped because {{ preview.stop_reason }}.
+          </p>
+          <ul class="small muted" style="margin: 0.25rem 0 0; padding-left: 1.25rem">
+            <li v-for="a in preview.assumptions ?? []" :key="a.key">{{ a.text }}</li>
+          </ul>
         </div>
       </section>
 

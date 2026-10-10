@@ -1,5 +1,6 @@
 import type { CommandRecord, EditPayload } from './api/commands'
 import type {
+  LeftOut,
   OverrideField,
   Override,
   PlanBlock,
@@ -763,4 +764,29 @@ export function waitingFor(
   return waiting.filter((c) =>
     (c.objects ?? []).some((o) => o.entity === entity && o.id !== undefined && ids.has(o.id)),
   )
+}
+
+export interface LeftOutView {
+  name: string
+  why: string
+  other: string
+}
+
+export function leftOutView(l: LeftOut): LeftOutView {
+  const name =
+    [l.project_name, l.target_name].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') ||
+    'Unnamed'
+  const reason = l.reason ?? ''
+  const span = l.at ? (l.until && l.until !== l.at ? `${hm(l.at)}–${hm(l.until)}` : hm(l.at)) : ''
+  let why: string
+  if (reason === 'lower score' && l.winner_name && l.total !== undefined && l.winner_total !== undefined)
+    why = `Outscored by ${l.winner_name} (${l.winner_total.toFixed(2)} vs ${l.total.toFixed(2)}) at ${hm(l.at)}`
+  else if (l.after_night)
+    why = `${capitalise(reason)} at ${hm(l.at)}, the planner's last pass after the night`
+  else why = span ? `${capitalise(reason)}, ${span}` : capitalise(reason)
+  const other = (l.reasons ?? [])
+    .filter((r) => r.reason !== reason)
+    .map((r) => `${r.reason} ${hm(r.from)}–${hm(r.until)}`)
+    .join(' · ')
+  return { name, why, other }
 }

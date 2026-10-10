@@ -116,12 +116,31 @@ export interface PlanBlock {
   reason?: string
 }
 
+export interface LeftOutReason {
+  reason: string
+  from: string
+  until: string
+  minutes: number
+}
+
 export interface LeftOut {
   project_id?: number
   project_name?: string
   target_id?: number
   target_name?: string
   reason?: string
+  at?: string
+  until?: string
+  winner_name?: string
+  winner_total?: number
+  total?: number
+  after_night?: boolean
+  reasons?: LeftOutReason[] | null
+}
+
+export interface PreviewAssumption {
+  key: string
+  text: string
 }
 
 export interface Preview {
@@ -132,6 +151,9 @@ export interface Preview {
   blocks?: PlanBlock[] | null
   left_out?: LeftOut[] | null
   skips?: SchedulerSkip[] | null
+  stop_reason?: string
+  error?: string
+  assumptions?: PreviewAssumption[] | null
 }
 
 export type OverrideField = 'priority' | 'state' | 'minimumtime'
