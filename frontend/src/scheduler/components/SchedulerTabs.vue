@@ -431,6 +431,43 @@ const scoreRows = computed(() =>
 )
 const knownTotal = computed(() => scoreRows.value.reduce((a, r) => a + (r.contrib ?? 0), 0))
 
+const steeringRow = computed(
+  () =>
+    (p.value as { filterSteering?: { weight: number; missing: boolean } } | undefined)
+      ?.filterSteering,
+)
+const steering = computed(
+  () => !!steeringRow.value && !steeringRow.value.missing && steeringRow.value.weight > 0,
+)
+
+const steeringOn =
+  'On: each target and panel shoots the filter furthest behind its goal that still gains most ' +
+  'per hour, keeping broadband out of a bright moon.'
+
+async function toggleSteering() {
+  const pr = p.value
+  if (!pr) return
+  const cur = steeringRow.value
+  try {
+    const r = await submitCommand('ruleweight.edit', {
+      project_id: pr.id,
+      project_guid: pr.guid,
+      project_name: pr.name,
+      changes: [
+        {
+          rule: 'Filter Steering',
+          before: cur && !cur.missing ? cur.weight : null,
+          after: steering.value ? 0 : 100,
+        },
+      ],
+    })
+    notifyCommand(r)
+    await load()
+  } catch (e) {
+    errorToast(e)
+  }
+}
+
 async function saveWeights() {
   const pr = p.value
   if (!pr) return
@@ -1073,6 +1110,16 @@ function numInput(e: Event): number {
                 >≈ {{ target.season.nightsLeft }} usable nights left this season, so Rarity scores
                 {{ r2(target.rarity) }}.</template
               >
+            </div>
+          </div>
+          <div class="tile small">
+            <label class="row" style="font-weight: 600; flex-wrap: nowrap">
+              <input type="checkbox" :checked="steering" @change="toggleSteering" />
+              Steer filters by goal
+            </label>
+            <div class="muted">
+              {{ steering ? steeringOn : "Off: filters follow the scheduler's exposure order." }}
+              Targets without goals always follow the exposure order.
             </div>
           </div>
         </div>
