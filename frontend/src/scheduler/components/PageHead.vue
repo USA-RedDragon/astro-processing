@@ -13,7 +13,7 @@ defineProps<{ context?: string; title: string }>()
         <slot />
       </div>
     </div>
-    <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2">
+    <div v-if="$slots.actions" class="flex flex-wrap items-center gap-2 min-w-0 max-w-full">
       <slot name="actions" />
     </div>
   </div>

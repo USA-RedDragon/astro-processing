@@ -331,6 +331,13 @@ const unmeasured = computed(() => {
   return (d.filters ?? []).filter((f) => !measured.has(f))
 })
 const noiseRows = computed(() => (detail.value?.noise ?? []).filter((n) => n.median !== null))
+function fluxScales(f: string): string {
+  return (detail.value?.health ?? [])
+    .filter((h) => h.filter === f && h.fluxScale !== null && h.fluxScale !== undefined)
+    .sort((a, b) => a.panel - b.panel)
+    .map((h) => `P${h.panel} ${h.fluxScale!.toFixed(2)}`)
+    .join(' · ')
+}
 const seamNote =
   "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, and the two panels' noise ratio. Warnings above 0.2σ level, 0.3σ step or 1.5× noise."
 const seamWarnings = computed(() => seamRows.value.filter((s) => !s.ok).length)
@@ -575,10 +582,15 @@ const tabs = computed<[Tab, string][]>(() => [
         No mosaics yet. Add one from Add target, or adopt your existing ones under Adoption review.
       </span>
       <template #actions>
-        <label v-if="list.length" class="field" style="min-width: 14rem">
+        <label
+          v-if="list.length"
+          class="field"
+          style="min-width: min(14rem, 100%); max-width: 100%"
+        >
           <span>Mosaic</span>
           <select
             class="input"
+            style="max-width: 100%"
             :value="key"
             @change="pick(($event.target as HTMLSelectElement).value)"
           >
@@ -837,6 +849,7 @@ const tabs = computed<[Tab, string][]>(() => [
                 <th scope="col" style="text-align: right">p90</th>
                 <th scope="col" style="text-align: right">Worst</th>
                 <th scope="col" style="text-align: right">Tiles</th>
+                <th scope="col">Flux scale by panel</th>
                 <th scope="col">Measured</th>
               </tr>
             </thead>
@@ -850,6 +863,7 @@ const tabs = computed<[Tab, string][]>(() => [
                   }}<template v-if="n.maxPanel !== null"> · Panel {{ n.maxPanel }}</template>
                 </td>
                 <td style="text-align: right">{{ n.tiles }}</td>
+                <td>{{ fluxScales(n.filter) || '—' }}</td>
                 <td class="muted">
                   {{ n.measuredAt ? shortDate(n.measuredAt) : '—' }}
                 </td>
