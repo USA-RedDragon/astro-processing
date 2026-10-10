@@ -495,12 +495,12 @@ function setDraft(a: Adoption, v: 'accepted' | 'rejected') {
 async function applyAdoption(only?: Adoption[]) {
   const ds = only
     ? only.map((a) => ({
-        id: a.id,
-        subject: a.subject,
-        title: a.project,
-        before: a.status as string,
-        after: 'accepted',
-      }))
+      id: a.id,
+      subject: a.subject,
+      title: a.project,
+      before: a.status as string,
+      after: 'accepted',
+    }))
     : changes.value
   if (!ds.length) return
   busy.value = true
