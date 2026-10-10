@@ -39,6 +39,24 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Tonight' },
   },
   {
+    path: '/catalogues',
+    name: 'catalogues',
+    component: () => import('../scheduler/pages/CataloguesPage.vue'),
+    meta: { title: 'Catalogues' },
+  },
+  {
+    path: '/finder',
+    name: 'finder',
+    component: () => import('../scheduler/pages/FinderPage.vue'),
+    meta: { title: 'Finder' },
+  },
+  {
+    path: '/collabs',
+    name: 'collabs',
+    component: () => import('../scheduler/pages/CollabsPage.vue'),
+    meta: { title: 'Collabs' },
+  },
+  {
     path: '/targets',
     name: 'targets',
     redirect: (to) => ({ path: '/', query: { ...to.query, view: 'list' } }),
@@ -58,16 +76,13 @@ const routes: RouteRecordRaw[] = [
     ['/mosaics/:projectId', 'mosaic'],
     ['/templates', 'templates'],
     ['/history', 'history'],
-    ['/catalogues', 'catalogues'],
-    ['/finder', 'finder'],
-    ['/collabs', 'collabs'],
   ].map(([path, name]) => ({
     path: path!,
     name: name!,
     component: () => import('../views/MainPage.vue'),
     beforeEnter: (to: { fullPath: string }) => {
-      window.location.href = `https://astro-stacker.jackal-stargazer.ts.net${to.fullPath}`;
-      return false;
+      window.location.href = `https://astro-stacker.jackal-stargazer.ts.net${to.fullPath}`
+      return false
     },
   })),
   {
