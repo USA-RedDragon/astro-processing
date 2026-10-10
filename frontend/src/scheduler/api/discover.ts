@@ -156,17 +156,26 @@ export interface Rig {
   basis: RigBasis
 }
 
+export interface SkyNight {
+  night: string
+  mag: number
+  frames: number
+  filter: string
+}
+
 export interface SkyBasis {
-  source: 'measured' | 'none'
-  method: string | null
+  source: 'measured' | 'config' | 'none'
+  method?: string | null
   filter: string | null
   band?: string | null
   nights: number
   frames: number
   from: string | null
   to: string | null
-  perNight: { night: string; mag: number; frames: number }[]
+  perNight: SkyNight[]
   reason: string | null
+  stale?: boolean
+  error?: string | null
 }
 
 export interface HalphaMap {
@@ -462,13 +471,23 @@ export function rigSource(r: Rig | null | undefined): string {
 }
 
 export function skySource(mag: number | null | undefined, b: SkyBasis | null | undefined): string {
-  if (mag === null || mag === undefined || !b || b.source === 'none')
-    return 'Sky brightness not measured yet' + (b?.reason ? `: ${b.reason}` : '') + '.'
-  const how = [b.filter ? 'from ' + b.filter + ' masters' : '', b.method ? `(${b.method})` : '']
-    .filter(Boolean)
-    .join(' ')
-  const span = b.from && b.to ? `, ${monthYear(b.from)} to ${monthYear(b.to)}` : ''
-  return `Sky ${mag.toFixed(2)} ${b.band ? b.band + ' ' : ''}mag/arcsec², measured${how ? ' ' + how : ''}, ${b.frames} ${b.frames === 1 ? 'frame' : 'frames'} over ${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${span}.`
+  if (!b) return 'Sky brightness not measured yet: the API sent no basis for it.'
+  if (b.source === 'none' || mag === null || mag === undefined)
+    return `Sky brightness not measured yet: ${b.reason ?? 'the API gave no reason'}.`
+  const band = b.band ? b.band + ' ' : ''
+  if (b.source === 'config')
+    return `Sky ${mag.toFixed(2)} ${band}mag/arcsec², set in discover.sky-brightness, not measured.`
+  const span = b.from && b.to ? `, ${b.from} to ${b.to}` : ''
+  const nights = b.perNight
+    .map((n) => `${n.night} ${n.mag.toFixed(2)} (${n.frames} ${n.filter})`)
+    .join(', ')
+  const parts = [
+    `Sky ${mag.toFixed(2)} ${band}mag/arcsec², measured from ${b.filter ? b.filter + ' ' : ''}subs: ${b.frames} ${b.frames === 1 ? 'frame' : 'frames'} over ${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${span}.`,
+  ]
+  if (nights) parts.push(`Per night: ${nights}.`)
+  if (b.method) parts.push(`Method: ${b.method}.`)
+  if (b.stale) parts.push(`Stale: ${b.error ?? 'the last re-measure failed'}.`)
+  return parts.join(' ')
 }
 
 export function halphaSource(m: HalphaMap | null | undefined): string {

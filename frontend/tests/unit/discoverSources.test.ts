@@ -40,20 +40,49 @@ describe('discover sources', () => {
   })
 
   it('never guesses the sky', () => {
-    expect(skySource(null, null)).toBe('Sky brightness not measured yet.')
+    const measured = {
+      source: 'measured' as const,
+      method: 'median background',
+      filter: 'L, R',
+      band: 'Gaia G',
+      nights: 2,
+      frames: 19,
+      from: '2026-01-10',
+      to: '2026-09-02',
+      perNight: [
+        { night: '2026-09-02', mag: 20.81, frames: 6, filter: 'R' },
+        { night: '2026-01-10', mag: 20.69, frames: 13, filter: 'L' },
+      ],
+      reason: null,
+    }
+    expect(skySource(null, null)).toContain('not measured yet')
     expect(
-      skySource(20.8, {
-        source: 'measured',
-        method: 'median background',
-        filter: 'L',
-        nights: 3,
-        frames: 40,
-        from: null,
-        to: null,
+      skySource(null, {
+        ...measured,
+        source: 'none',
+        method: null,
         perNight: [],
-        reason: null,
+        reason: 'no masters',
       }),
-    ).toContain('20.80 mag/arcsec², measured from L masters (median background), 40 frames over 3 nights')
+    ).toBe('Sky brightness not measured yet: no masters.')
+    const m = skySource(20.8, measured)
+    expect(m).toContain(
+      '20.80 Gaia G mag/arcsec², measured from L, R subs: 19 frames over 2 nights',
+    )
+    expect(m).toContain('2026-09-02 20.81 (6 R), 2026-01-10 20.69 (13 L)')
+    expect(m).toContain('Method: median background.')
+    expect(m).not.toContain('Stale')
+    expect(skySource(20.8, { ...measured, stale: true, error: 'db down' })).toContain(
+      'Stale: db down.',
+    )
+    const set = skySource(21.2, {
+      ...measured,
+      source: 'config',
+      method: 'set in discover.sky-brightness',
+      perNight: [],
+    })
+    expect(set).toContain('set in discover.sky-brightness, not measured')
+    expect(set).not.toContain('measured from')
   })
 
   it('describes the H-alpha map state', () => {
