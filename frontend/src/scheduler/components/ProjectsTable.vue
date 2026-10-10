@@ -21,7 +21,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  basisText,
   getPlanning,
+  measureText,
   pct,
   r1,
   r2,
@@ -111,6 +113,13 @@ function pendingFor(p: Project): string {
   return w.status === 'queued' ? 'queued' : 'applies ' + whenApplies(w)
 }
 
+const adoptTitle = computed(() => {
+  const g = projects.value.flatMap((p) => p.targets.flatMap((t) => t.goals))[0]?.defaultGoal
+  return g
+    ? `The stacker's default goal, faint-signal SNR ${g.snr} per filter${g.plateauStop ? ' with the plateau stop' : ''}; the desired counts stay as a fallback`
+    : 'Use the stacker\'s default goal per filter; the desired counts stay as a fallback'
+})
+
 function kindLabel(p: Project): string {
   if (p.isMosaic) return `${p.targets.length} panels`
   return p.targets.length === 1 ? 'Single' : `${p.targets.length} targets`
@@ -118,14 +127,16 @@ function kindLabel(p: Project): string {
 
 function weakestText(p: Project): string {
   const w = p.weakest
-  if (!w) return p.targets.length ? 'No master yet' : 'No targets'
+  if (!w) return p.targets.length ? 'No enabled exposure plans' : 'No targets'
   const m = p.isMosaic && p.weakestTarget ? /(Panel\s*\d+)\s*$/i.exec(p.weakestTarget) : null
-  const prefix = m ? m[1] + ' ' : ''
+  const prefix = (m ? m[1] + ' ' : '') + w.filter + ' · '
   const g = w.progress
-  if (!g) return prefix + w.filter + ' · no master yet'
-  if (g.kind === 'depth')
-    return `${prefix}${w.filter} ${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
-  return `${prefix}${w.filter} SNR ${r1(g.achieved)} of ${r1(g.goal)}`
+  if (g && g.kind === 'depth' && !g.unmeasured)
+    return `${prefix}${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
+  if (g && g.kind === 'snr') return `${prefix}SNR ${r1(g.achieved)} of ${r1(g.goal)}`
+  if (g?.unmeasured) return prefix + g.unmeasured
+  const meas = w.measurement ? ` · measured SNR ${r1(w.measurement.snr)}` : ' · ' + measureText(w)
+  return `${prefix}${w.accepted}/${w.desired} ${basisText(w.completionBasis)}${meas}`
 }
 
 async function setField(p: Project, field: 'priority' | 'state', value: unknown) {
@@ -188,7 +199,7 @@ async function adoptGoals() {
             target_name: t.name,
             filter: g.filter,
             before: null,
-            after: { kind: 0, snr_goal: 10, plateau_stop: true },
+            after: { kind: 0, snr_goal: g.defaultGoal.snr, plateau_stop: g.defaultGoal.plateauStop },
           })),
       ),
   )
@@ -249,7 +260,7 @@ function applySet() {
       <Button variant="outline" @click="applyBulkPri">Set priority</Button>
       <Button
         variant="outline"
-        title="Faint-signal SNR 10 per filter, with the plateau stop; the desired counts stay as a fallback"
+:title="adoptTitle"
         @click="adoptGoals"
       >
         Finish on goals
@@ -266,8 +277,9 @@ function applySet() {
         </CardTitle>
         <CardDescription>
           Change priority or state right in the row; it applies when the current exposure ends.
-          Progress is the weakest filter against its faint-SNR goal; for a mosaic, its weakest
-          panel.
+          Progress is the least complete exposure plan, counted as Target Scheduler counts it:
+          against the goal where one is in force, otherwise against the desired count. For a
+          mosaic, its least complete panel.
         </CardDescription>
       </CardHeader>
       <CardContent class="flex flex-col gap-3">
@@ -370,7 +382,7 @@ function applySet() {
                       class="h-1.5"
                     />
                     <span class="w-11 text-right font-semibold">
-                      {{ p.weakest?.progress ? pct(p.progress) : '—' }}
+                      {{ pct(Math.min(1, p.progress)) }}
                     </span>
                   </div>
                   <div class="text-xs text-muted-foreground">
@@ -406,8 +418,8 @@ function applySet() {
           No project matches these filters.
         </p>
         <p class="text-xs text-muted-foreground">
-          Novelty and Rarity are this project's scores for the two new planner rules. Open a
-          project's Scoring tab to see how they add up.
+          Novelty and Rarity are worked out here with Target Scheduler's formulas from its own
+          data. Open a project's Scoring tab to see how they add up.
         </p>
       </CardContent>
     </Card>
