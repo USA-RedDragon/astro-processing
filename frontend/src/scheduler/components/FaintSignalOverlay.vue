@@ -26,6 +26,7 @@ const ids = { band: `${uid}-band`, stars: `${uid}-stars`, sky: `${uid}-sky` }
 const info = ref<GoalMaskInfo | null>(null)
 const state = ref<'idle' | 'loading' | 'ready' | 'missing' | 'failed'>('idle')
 const failure = ref('')
+const missingReason = ref('')
 const showStars = ref(false)
 const showSky = ref(false)
 
@@ -36,6 +37,7 @@ watch(
     const n = ++seq
     info.value = null
     failure.value = ''
+    missingReason.value = ''
     if (!object || !filter) {
       state.value = 'idle'
       return
@@ -44,11 +46,17 @@ watch(
     try {
       const got = await getGoalMaskInfo(object, filter)
       if (n !== seq) return
+      if (got.measured === false) {
+        missingReason.value = got.reason ?? ''
+        state.value = 'missing'
+        return
+      }
       info.value = got
       state.value = 'ready'
     } catch (e) {
       if (n !== seq) return
       if (e instanceof ApiError && e.status === 404) {
+        missingReason.value = 'no master for this filter'
         state.value = 'missing'
       } else {
         state.value = 'failed'
@@ -232,7 +240,7 @@ function click(e: MouseEvent) {
   </p>
   <p v-if="stale" class="xsmall" style="margin: 0; color: var(--warn)">{{ stale }}</p>
   <p v-if="master && state === 'missing'" class="small muted" style="margin: 0">
-    Not measured yet. The next goal measurement records which pixels it uses.
+    Not measured yet<template v-if="missingReason">: {{ missingReason }}</template>.
   </p>
   <p v-if="state === 'failed'" class="small" style="margin: 0; color: var(--warn)">
     Could not load the measured pixels: {{ failure }}

@@ -1,6 +1,8 @@
 import { api, API_BASE, query } from './client'
 
 export interface GoalMaskInfo {
+  measured: boolean
+  reason?: string
   object: string
   filter: string
   width: number

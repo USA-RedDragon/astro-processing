@@ -29,6 +29,8 @@ import FaintSignalOverlay from './FaintSignalOverlay.vue'
 import { api, query } from '../api/client'
 
 interface GoalMaskInfo {
+  measured?: boolean
+  reason?: string
   band_lo: number | null
   band_hi: number | null
   band_pct: number
@@ -300,9 +302,10 @@ watch(
       const m = g.measurement
       if (!m) continue
       try {
-        maskInfo[g.filter] = await api.get<GoalMaskInfo>(
+        const got = await api.get<GoalMaskInfo>(
           '/goals/mask/info' + query({ object: m.object, filter: m.filter }),
         )
+        maskInfo[g.filter] = got.measured === false ? 'not measured yet: ' + (got.reason ?? 'no reason given') : got
       } catch (e) {
         maskInfo[g.filter] = e instanceof Error ? e.message : String(e)
       }
