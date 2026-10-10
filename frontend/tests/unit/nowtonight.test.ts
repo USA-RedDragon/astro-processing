@@ -12,6 +12,7 @@ import {
   conditionPills,
   filterRuns,
   hfrLimitFor,
+  latestImage,
   rejectLineText,
   moonLine,
   moonPhaseText,
@@ -308,5 +309,54 @@ describe('mosaic balance', () => {
   it('drops the balancing note when a weight is set', () => {
     const w = mosaicBalance(current, { blocks: [block(1, 1, 7, 0.75)] }, projects)
     expect(w[0].balancingOff).toBe(false)
+  })
+})
+
+describe('latest sub image', () => {
+  const sub = (
+    id: number,
+    h: number,
+    m: number,
+    filter: string,
+    extra: Partial<TonightSub> = {},
+  ): TonightSub => ({
+    id,
+    time: t(h, m),
+    project_id: 40,
+    project: 'Garlic Nebula',
+    target_id: 84,
+    target: 'Garlic Nebula',
+    filter,
+    grading: 'accepted',
+    ...extra,
+  })
+  const older = sub(4, 5, 7, 'O-III', { indexed: true, preview_url: 'https://x/older.jpg' })
+
+  it('shows the newest sub when it has a preview', () => {
+    const latest = sub(5, 5, 18, 'H-a', { indexed: true, preview_url: 'https://x/new.jpg' })
+    expect(
+      latestImage({ since: t(0), subs: [older, latest], latest, latest_preview: latest }),
+    ).toEqual({ sub: latest, note: '' })
+  })
+
+  it('labels an older preview with its own time and says what is pending', () => {
+    const latest = sub(5, 5, 18, 'H-a')
+    const got = latestImage({ since: t(0), subs: [older, latest], latest, latest_preview: older })
+    expect(got?.sub).toBe(older)
+    expect(got?.note).toBe(
+      'Showing the 00:07 O-III sub of Garlic Nebula, the newest with a preview. The 00:18 H-a sub has not reached the stacker yet.',
+    )
+    const indexed = { ...latest, indexed: true, target: 'Pelican Nebula' }
+    expect(
+      latestImage({ since: t(0), subs: [], latest: indexed, latest_preview: older })?.note,
+    ).toContain(
+      'The 00:18 H-a sub of Pelican Nebula is in the stacker, but its preview is not made yet.',
+    )
+  })
+
+  it('shows nothing when no sub tonight has a preview', () => {
+    const latest = sub(5, 5, 18, 'H-a')
+    expect(latestImage({ since: t(0), subs: [latest], latest })).toBeNull()
+    expect(latestImage(null)).toBeNull()
   })
 })

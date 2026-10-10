@@ -228,6 +228,7 @@ export interface TonightSub {
   preview_url?: string
   width?: number | null
   height?: number | null
+  indexed?: boolean
 }
 
 export interface GraderHfrSettings {
@@ -303,6 +304,7 @@ export interface TonightSubs {
   since: string
   subs: TonightSub[]
   latest?: TonightSub
+  latest_preview?: TonightSub
   grader?: GraderSummary
 }
 

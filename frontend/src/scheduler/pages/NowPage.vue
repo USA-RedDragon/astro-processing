@@ -45,6 +45,7 @@ import {
   hfrLimitFor,
   rejectLineText,
   hmDuration,
+  latestImage,
   moonLine,
   noSourceText,
   powerView,
@@ -405,6 +406,7 @@ const latestTargetSubs = computed(() => {
 const latestHours = computed(
   () => latestTargetSubs.value.reduce((a, s) => a + (s.exposure ?? 0), 0) / 3600,
 )
+const latestShown = computed(() => latestImage(subs.value))
 const latestVerdict = computed(() => verdictBadge(latest.value?.verdict))
 
 const chartRange = computed<[number, number]>(() => {
@@ -859,13 +861,15 @@ const cross = (x: number, y: number, r: number) =>
         </div>
         <template v-if="latest">
           <img
-            v-if="latest.preview_url"
-            :src="latest.preview_url"
+            v-if="latestShown"
+            :src="latestShown.sub.preview_url"
             :alt="
-              'Stretched preview of the latest ' +
-              filterName(latest.filter) +
+              'Stretched preview of the ' +
+              hm(latestShown.sub.time) +
+              ' ' +
+              filterName(latestShown.sub.filter) +
               ' sub of ' +
-              latest.target
+              latestShown.sub.target
             "
             class="sky"
           />
@@ -887,6 +891,9 @@ const cross = (x: number, y: number, r: number) =>
               No preview yet
             </text>
           </svg>
+          <p v-if="latestShown?.note" class="small muted" style="margin: 0">
+            {{ latestShown.note }}
+          </p>
           <div class="spread" style="align-items: flex-start; gap: 1rem 1.5rem">
             <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
               <div style="font-weight: 600; font-size: 0.9375rem">

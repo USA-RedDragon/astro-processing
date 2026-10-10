@@ -10,6 +10,7 @@ import type {
   SchedProject,
   SyncReport,
   TonightSub,
+  TonightSubs,
   WeatherReport,
   SafetyReport,
   MountReport,
@@ -457,4 +458,25 @@ export function nightSpan(start: Date): string {
   return m1 === m2
     ? `${dayFmt.format(start)}–${dayFmt.format(end)} ${m1}`
     : `${dayFmt.format(start)} ${m1}–${dayFmt.format(end)} ${m2}`
+}
+
+export interface LatestImage {
+  sub: TonightSub
+  note: string
+}
+
+export function latestImage(subs: TonightSubs | null | undefined): LatestImage | null {
+  const latest = subs?.latest
+  if (!latest) return null
+  if (latest.preview_url) return { sub: latest, note: '' }
+  const shown = subs.latest_preview
+  if (!shown?.preview_url || shown.id === latest.id) return null
+  const of = latest.target !== shown.target ? ` of ${latest.target}` : ''
+  const stage = latest.indexed
+    ? 'is in the stacker, but its preview is not made yet'
+    : 'has not reached the stacker yet'
+  return {
+    sub: shown,
+    note: `Showing the ${hm(shown.time)} ${filterName(shown.filter)} sub of ${shown.target}, the newest with a preview. The ${hm(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
+  }
 }
