@@ -80,11 +80,10 @@ function openHistory() {
       </template>
     </div>
     <p class="muted xsmall" style="margin: 0">
-      Edits apply when the current exposure ends, never mid-sub and never after a minimum-time
-      window. If the PC doesn't answer, they wait here in order and go out when it does.
+      If the PC doesn't answer, edits wait here in order and go out when it does.
     </p>
     <div v-if="pending.length" class="list">
-      <span class="list-title">Waiting for the end of an exposure</span>
+      <span class="list-title">Waiting to apply</span>
       <div v-for="c in pending" :key="c.id" class="list-row">
         <span
           >{{ c.title }} <span class="muted">· {{ when(c) }}</span></span
