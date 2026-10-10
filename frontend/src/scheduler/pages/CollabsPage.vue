@@ -8,6 +8,7 @@ import {
   filterColour,
   getCollabs,
   hours,
+  minAltitudeText,
   raText,
   rigFrame,
   rigSource,
@@ -68,7 +69,69 @@ function icon(c: Criterion) {
     ? 'M5 12l5 5L20 7'
     : c.result === 'fail'
       ? 'M18 6 6 18M6 6l12 12'
-      : 'M5 12h14'
+      : c.result === 'open'
+        ? 'M12 7v6M12 17h.01'
+        : 'M5 12h14'
+}
+
+function resultText(c: Criterion) {
+  const r =
+    c.result === 'pass'
+      ? 'passes'
+      : c.result === 'fail'
+        ? 'fails'
+        : c.result === 'open'
+          ? 'not checked'
+          : 'no limit set'
+  return c.scope === 'tonight' ? r + ' tonight' : r
+}
+
+function verdictText(c: Collab, short = false) {
+  const v = c.verdict ?? (c.fits ? 'fits' : 'no')
+  if (v === 'fits') return short ? 'Fits' : 'Fits your rig · every rig criterion passes'
+  if (v === 'no') return short ? 'Does not fit' : 'Does not fit your rig'
+  const n = c.unchecked ?? 0
+  return `${short ? 'Not fully checked' : 'Not fully checked against your rig'} · ${n} not checked`
+}
+
+function verdictClass(c: Collab) {
+  const v = c.verdict ?? (c.fits ? 'fits' : 'no')
+  return v === 'fits' ? 'ok' : v === 'no' ? 'bad' : 'warn'
+}
+
+const minAlt = computed(() =>
+  minAltitudeText(view.value?.night?.minAltitude, view.value?.night?.minAltitudeSource),
+)
+
+const sourceHost = computed(() => {
+  const u = view.value?.sourceUrl
+  if (!u) return null
+  try {
+    return new URL(u).host
+  } catch {
+    return u
+  }
+})
+
+function lastLight(c: Collab): string | null {
+  const ts = c.have.map((h) => h.lastNight).filter((x): x is string => !!x)
+  if (!ts.length) return null
+  return ts.reduce((a, b) => (new Date(b) > new Date(a) ? b : a))
+}
+
+function coverageText(c: Collab) {
+  if (c.kind === 'mosaic') {
+    if (!c.panels) return 'your frame is unknown'
+    const ov = Math.round((view.value?.overlap ?? 0) * 100)
+    return `${c.panels} of your frames (${c.columns} × ${c.rows}) at ${ov}% overlap`
+  }
+  if (c.coverage === null) return 'not measured'
+  return `one frame centred at this camera angle covers ${Math.round(c.coverage * 100)}% of the region`
+}
+
+function goalsText(c: Collab) {
+  const e = Object.entries(c.goals)
+  return e.length ? e.map(([k, v]) => `${k} ${v} h`).join(' · ') : 'No goals set'
 }
 function tone(c: Criterion) {
   return c.result === 'pass'
@@ -143,18 +206,27 @@ function skyHref(c: Collab): string {
 }
 
 function crit(c: Collab) {
-  return c.criteria.filter((x) => x.result !== 'open')
+  return c.criteria.filter((x) => x.result !== 'none')
 }
 
 function why(c: Collab) {
-  const bad = c.criteria.filter((x) => x.result === 'fail')
-  const list = bad.length ? bad : c.criteria.filter((x) => x.result === 'pass')
-  return list.map((x) => `${x.name} ${x.rule}`).join(' · ') || 'No limits set'
+  const rig = c.criteria.filter((x) => (x.scope ?? 'rig') === 'rig')
+  const bad = rig.filter((x) => x.result === 'fail')
+  const open = rig.filter((x) => x.result === 'open')
+  const parts = [
+    ...bad.map((x) => `${x.name} ${x.rule}`),
+    ...open.map((x) => `${x.name} ${x.rule} (not checked)`),
+  ]
+  if (!parts.length)
+    parts.push(...rig.filter((x) => x.result === 'pass').map((x) => `${x.name} ${x.rule}`))
+  return parts.join(' · ') || 'No limits set'
 }
 
 function kindText(c: Collab) {
   if (c.kind !== 'mosaic') return 'Single field'
-  return `Mosaic · ≈ ${c.panels} of your frames`
+  if (!c.panels) return 'Mosaic · your frame is unknown'
+  if (c.panels === 1) return 'Mosaic · fits in one of your frames'
+  return `Mosaic · ${c.panels} of your frames`
 }
 
 function chart(c: Collab) {
@@ -191,7 +263,7 @@ function chart(c: Collab) {
 function regionLabel(c: Collab): string {
   const r = c.region
   const near = c.near ? ' around ' + c.near : ''
-  return `Collaboration region, ${r.width.toFixed(2)} by ${r.height.toFixed(2)} degrees${near}${c.coverage === null ? ', your coverage not measured' : `, with your frame at the requested camera angle covering about ${Math.round(c.coverage * 100)} percent of it`}`
+  return `DSS2 colour survey image with the collaboration region, ${r.width.toFixed(2)} by ${r.height.toFixed(2)} degrees${near}${c.coverage === null ? ', your coverage not measured' : `, with your frame centred at the requested camera angle covering ${Math.round(c.coverage * 100)} percent of it`}`
 }
 
 function altLabel(c: Collab): string {
@@ -201,15 +273,19 @@ function altLabel(c: Collab): string {
 }
 
 function monthBars(c: Collab) {
-  return c.months.map((v) => ({
+  const best = c.bestMonths ?? []
+  return c.months.map((v, i) => ({
     h: Math.max(2, Math.round((Math.min(v, 9) / 9) * 36)) + 'px',
-    c: v >= 4 ? 'var(--bar)' : 'var(--bar-off)',
+    c: best.includes(i + 1) ? 'var(--bar)' : 'var(--bar-off)',
   }))
 }
 
 function bestMonths(c: Collab) {
-  const best = c.months.map((v, i) => (v >= 4 ? MONTHS[i] : '')).filter(Boolean)
-  return best.length ? 'Best months ' + best.join(', ') : 'No month with four dark hours'
+  const best = (c.bestMonths ?? []).map((m) => MONTHS[m - 1])
+  const g = view.value?.bestMonthHours
+  const rule =
+    g !== undefined ? `${g} or more dark hours above ${minAlt.value}` : 'enough dark hours'
+  return best.length ? `Best months ${best.join(', ')} (${rule})` : `No month with ${rule}`
 }
 </script>
 
@@ -217,8 +293,8 @@ function bestMonths(c: Collab) {
   <main class="page wide">
     <PageHead context="Discover" title="Collabs">
       <span>
-        Starfront collaborations, read from collab.starfront.space by the server. Read only: nothing
-        here talks to Starfront on your behalf.
+        Starfront collaborations, read from {{ sourceHost ?? 'Starfront' }} by the server. Read
+        only: nothing here talks to Starfront on your behalf.
       </span>
       <template #actions>
         <span v-if="view" class="xsmall muted num">
@@ -300,12 +376,11 @@ function bestMonths(c: Collab) {
         </div>
         <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.375rem">
           <span
-            :class="['badge', c.fits ? 'ok' : 'bad']"
+            :class="['badge', verdictClass(c)]"
             style="font-size: 0.875rem; padding: 0.375rem 0.75rem"
           >
-            {{ c.fits ? 'Fits your rig · every criterion passes' : 'Does not fit your rig' }}
+            {{ verdictText(c) }}
           </span>
-          <span class="xsmall muted">Joining needs a Starfront sign-in — not set up</span>
         </div>
       </div>
 
@@ -381,19 +456,7 @@ function bestMonths(c: Collab) {
             <div>
               <dt>Your coverage</dt>
               <dd>
-                {{
-                  c.kind === 'mosaic'
-                    ? `${c.panels} frames (${c.columns} × ${c.rows})`
-                    : c.coverage === null
-                      ? 'not measured'
-                      : `≈ ${Math.round(c.coverage * 100)}% in one frame`
-                }}
-              </dd>
-            </div>
-            <div>
-              <dt>Deal for you</dt>
-              <dd>
-                {{ c.kind === 'mosaic' ? 'cells of your own frame size' : '1 cell, centred' }}
+                {{ coverageText(c) }}
               </dd>
             </div>
           </dl>
@@ -459,7 +522,9 @@ function bestMonths(c: Collab) {
                 ><span style="font-weight: 500">{{ x.name }}</span>
                 <span class="muted">{{ ' ' + x.rule }}</span></span
               >
-              <span class="num" :style="{ color: tone(x), textAlign: 'right' }">{{ x.you }}</span>
+              <span class="num" :style="{ color: tone(x), textAlign: 'right' }"
+                >{{ x.you }}<span class="sr-only"> ({{ resultText(x) }})</span></span
+              >
             </li>
           </ul>
         </section>
@@ -471,7 +536,7 @@ function bestMonths(c: Collab) {
               >≈ {{ hours(c.tonight.hours) }}
               {{
                 view?.night?.minAltitude !== undefined && view?.night?.minAltitude !== null
-                  ? `above ${view.night.minAltitude}°`
+                  ? `above ${minAlt}`
                   : 'up'
               }}
               in the dark</span
@@ -576,10 +641,9 @@ function bestMonths(c: Collab) {
                 ><span v-else>{{ h.name }}</span
                 ><span v-if="i < c.have.length - 1">, </span>
               </template>
-              {{ c.have.length === 1 ? 'masters overlap' : 'masters overlap' }} this region:
-              {{ c.have.reduce((a, h) => a + h.subs, 0) }} subs stacked<template
-                v-if="c.have[0]!.lastNight"
-                >, last on {{ shortDate(c.have[0]!.lastNight) }}</template
+              masters overlap this region:
+              {{ c.have.reduce((a, h) => a + h.subs, 0) }} subs stacked<template v-if="lastLight(c)"
+                >, last light {{ shortDate(lastLight(c)!) }}</template
               >.
             </p>
             <div v-for="h in have(c)" :key="h.name" class="havebar small num">
@@ -591,10 +655,7 @@ function bestMonths(c: Collab) {
               </div>
               <span style="text-align: right">{{ h.hours ? hours(h.hours) : 'none' }}</span>
             </div>
-            <p class="xsmall muted" style="margin: 0">
-              Effective hours from the stacker. Starfront has no way to share subs today, so these
-              stay yours.
-            </p>
+            <p class="xsmall muted" style="margin: 0">Effective hours from the stacker.</p>
           </template>
         </section>
       </div>
@@ -646,17 +707,10 @@ function bestMonths(c: Collab) {
                 >
               </td>
               <td style="white-space: nowrap">
-                {{
-                  Object.entries(c.goals)
-                    .map(([k, v]) => `${k} ${v}`)
-                    .join(' · ') || '—'
-                }}
-                h
+                {{ goalsText(c) }}
               </td>
               <td>
-                <span :class="['badge', c.fits ? 'ok' : 'bad']">{{
-                  c.fits ? 'Fits' : 'Does not fit'
-                }}</span>
+                <span :class="['badge', verdictClass(c)]">{{ verdictText(c, true) }}</span>
                 <div class="xsmall muted">{{ why(c) }}</div>
                 <ul v-if="expanded[c.id]" class="crit xsmall" style="margin-top: 0.375rem">
                   <li v-for="x in crit(c)" :key="x.name">
