@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
+import { API_BASE, query } from '../api/client'
 import {
   MONTHS,
   decText,
@@ -122,7 +123,23 @@ function region(c: Collab) {
   const fh = fr?.h ?? 0
   const diag = Math.hypot(fw, fh)
   const s = Math.min(360 / Math.max(r.width, diag), 240 / Math.max(r.height, diag))
-  return { rw: r.width * s, rh: r.height * s, fw: fw * s, fh: fh * s, rot: r.rotation || 0 }
+  return {
+    rw: r.width * s,
+    rh: r.height * s,
+    fw: fw * s,
+    fh: fh * s,
+    rot: r.rotation || 0,
+    fov: 400 / s,
+  }
+}
+
+function skyHref(c: Collab): string {
+  const r = c.region
+  return (
+    API_BASE +
+    '/sky/cutout' +
+    query({ ra: r.ra, dec: r.dec, fov: region(c).fov, rotation: 0, width: 800, height: 560 })
+  )
 }
 
 function crit(c: Collab) {
@@ -304,6 +321,14 @@ function bestMonths(c: Collab) {
         >
           <svg viewBox="0 0 400 280" role="img" :aria-label="regionLabel(c)" class="sky">
             <rect x="0" y="0" width="400" height="280" fill="var(--sky)" />
+            <image
+              :href="skyHref(c)"
+              x="0"
+              y="0"
+              width="400"
+              height="280"
+              preserveAspectRatio="xMidYMid slice"
+            />
             <rect
               :x="200 - region(c).rw / 2"
               :y="140 - region(c).rh / 2"
@@ -332,7 +357,7 @@ function bestMonths(c: Collab) {
               fill-opacity="0.06"
               stroke="#f4f4f8"
               stroke-width="1.5"
-              :transform="`rotate(${region(c).rot} 200 140)`"
+              :transform="`rotate(${-region(c).rot} 200 140)`"
             />
             <text x="12" y="268" font-size="11" fill="#f4f4f8">
               {{
