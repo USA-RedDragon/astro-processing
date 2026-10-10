@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { submitCommand, type CommandRecord } from '../api/commands'
-import { getProject, type Project as PlanningProject } from '../api/planning'
 import { onEvent } from '../api/events'
 import {
   getConditions,
@@ -378,70 +377,11 @@ const facts = computed(() => {
   return out
 })
 
-const planner = ref<PlanningProject | null>(null)
-const plannerError = ref('')
-
-async function loadPlanner(id: number | undefined) {
-  if (id === undefined) {
-    planner.value = null
-    return
-  }
-  try {
-    planner.value = (await getProject(id)).project
-    plannerError.value = ''
-  } catch (e) {
-    planner.value = null
-    plannerError.value = e instanceof Error ? e.message : String(e)
-  }
-}
-
-watch(
-  () => target.value?.project_id,
-  (id) => loadPlanner(id),
-  { immediate: true },
-)
-
-const plannerRules = computed(() => {
-  const p = planner.value
-  const t = target.value
-  if (!p || !t) return []
-  const pt = p.targets.find((x) => x.id === t.target_id)
-  const have = new Set((st.value.scores ?? []).map((s) => s.rule))
-  const out: { name: string; score: number; title: string }[] = []
-  for (const rule of ['Novelty', 'Rarity'] as const) {
-    if (have.has(rule)) continue
-    const raw = rule === 'Novelty' ? (pt?.novelty ?? p.novelty) : (pt?.rarity ?? p.rarity)
-    const rw = p.ruleWeights.find((w) => w.name === rule)
-    const weight = rw && !rw.missing ? rw.weight : 0
-    const why =
-      rule === 'Novelty'
-        ? `weakest filter at ${Math.round((pt?.progress ?? p.progress) * 100)}% of its goal`
-        : pt?.season?.outOfSeason
-          ? 'out of season'
-          : pt?.season
-            ? `about ${pt.season.nightsLeft} usable nights left`
-            : 'season unknown'
-    out.push({
-      name: weight > 0 ? `${rule} (weight ${weight})` : `${rule} (off)`,
-      score: (weight / 100) * raw,
-      title:
-        (weight > 0
-          ? `Planner score ${raw.toFixed(2)} × weight ${weight}; the scheduler did not report this rule`
-          : `This project has no ${rule} weight, so the scheduler leaves the rule out. Its planner score is ${raw.toFixed(2)}`) +
-        ` (${why}).`,
-    })
-  }
-  return out
-})
-
 const rules = computed(() => {
   const t = target.value
   const out = (st.value.scores ?? []).map((s) => ({
     name:
-      /priority/i.test(s.rule) &&
-      !/meridian/i.test(s.rule) &&
-      t?.priority !== undefined &&
-      t.priority !== null
+      s.rule === 'Project Priority' && t?.priority !== undefined && t.priority !== null
         ? `${s.rule} (${priorityName(t.priority)})`
         : s.weight === 0
           ? `${s.rule} (weight 0)`
@@ -449,7 +389,6 @@ const rules = computed(() => {
     score: contribution(s),
     title: `weight ${s.weight} × score ${s.score}`,
   }))
-  out.push(...plannerRules.value)
   const total = st.value.score_total
   if (total !== null && total !== undefined)
     out.push({ name: 'Total now', score: total, title: '' })
