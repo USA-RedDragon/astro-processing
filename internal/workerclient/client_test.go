@@ -28,6 +28,10 @@ func TestCoverageAndGaps(t *testing.T) {
 				"set_temp":-23,"lights":20,"flat":{"quality":"fallback","night":"2025-05-13","frames":30,"age_days":211,"rotation_mismatch":true},
 				"dark":{"quality":"missing","age_days":0},"bias":{"quality":"fallback","night":"2025-02-05","frames":30,"age_days":308}}]`))
 		case "/api/v1/coverage/dark-gaps":
+			_, _ = w.Write([]byte(`{"ladder":[-25,-15,-5,5],"min_frames":3,"set_temp_exact_c":1,"set_temp_scale_max_c":10,
+				"gaps":[{"gain":0,"offset":50,"exposure":600,"set_temp":-25,"lights":2566,"nights":48,"latest_night":"2026-02-25",
+				"other_exposures":[300]}]}`))
+		case "/old/api/v1/coverage/dark-gaps":
 			_, _ = w.Write([]byte(`[{"gain":0,"offset":50,"set_temp":-25,"lights":2566,"nights":48,"latest_night":"2026-02-25"}]`))
 		default:
 			http.NotFound(w, r)
@@ -47,8 +51,16 @@ func TestCoverageAndGaps(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(gaps) != 1 || gaps[0].SetTemp != -25 || gaps[0].Lights != 2566 {
+	if len(gaps.Gaps) != 1 || gaps.Gaps[0].SetTemp != -25 || gaps.Gaps[0].Lights != 2566 || *gaps.Gaps[0].Exposure != 600 ||
+		len(gaps.Gaps[0].OtherExposures) != 1 || len(gaps.Ladder) != 4 || *gaps.MinFrames != 3 || *gaps.SetTempScaleMaxC != 10 {
 		t.Errorf("gaps = %+v", gaps)
+	}
+	old, err := workerclient.New(srv.URL + "/old").DarkGaps(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(old.Gaps) != 1 || old.Ladder != nil || old.MinFrames != nil {
+		t.Errorf("old shape = %+v", old)
 	}
 }
 

@@ -3,6 +3,7 @@
 package workerclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -23,6 +24,20 @@ type Match struct {
 	SetTemp          *float64 `json:"set_temp"`
 	RotationMismatch bool     `json:"rotation_mismatch"`
 	Scaled           bool     `json:"scaled"`
+	Exposure         *float64 `json:"exposure"`
+	Source           string   `json:"source"`
+	Master           string   `json:"master"`
+	Basis            *Basis   `json:"basis"`
+	HeaderError      string   `json:"header_error"`
+}
+
+type Basis struct {
+	Night    string `json:"night"`
+	Exposure string `json:"exposure"`
+	Gain     string `json:"gain"`
+	Offset   string `json:"offset"`
+	SetTemp  string `json:"set_temp"`
+	BinX     string `json:"bin_x"`
 }
 
 type Row struct {
@@ -41,12 +56,22 @@ type Row struct {
 }
 
 type DarkGap struct {
-	Gain        *float64 `json:"gain"`
-	Offset      *float64 `json:"offset"`
-	SetTemp     float64  `json:"set_temp"`
-	Lights      int32    `json:"lights"`
-	Nights      int32    `json:"nights"`
-	LatestNight string   `json:"latest_night"`
+	Gain           *float64  `json:"gain"`
+	Offset         *float64  `json:"offset"`
+	Exposure       *float64  `json:"exposure"`
+	SetTemp        float64   `json:"set_temp"`
+	Lights         int32     `json:"lights"`
+	Nights         int32     `json:"nights"`
+	LatestNight    string    `json:"latest_night"`
+	OtherExposures []float64 `json:"other_exposures"`
+}
+
+type DarkGapReport struct {
+	Ladder           []float64 `json:"ladder"`
+	MinFrames        *int32    `json:"min_frames"`
+	SetTempExactC    *float64  `json:"set_temp_exact_c"`
+	SetTempScaleMaxC *float64  `json:"set_temp_scale_max_c"`
+	Gaps             []DarkGap `json:"gaps"`
 }
 
 type Preview struct {
@@ -232,10 +257,22 @@ func (c *Client) Objects(ctx context.Context) ([]Object, error) {
 	return objects, err
 }
 
-func (c *Client) DarkGaps(ctx context.Context) ([]DarkGap, error) {
-	var gaps []DarkGap
-	err := c.get(ctx, "/api/v1/coverage/dark-gaps", &gaps)
-	return gaps, err
+func (c *Client) DarkGaps(ctx context.Context) (DarkGapReport, error) {
+	var raw json.RawMessage
+	if err := c.get(ctx, "/api/v1/coverage/dark-gaps", &raw); err != nil {
+		return DarkGapReport{}, err
+	}
+	var rep DarkGapReport
+	if t := bytes.TrimSpace(raw); len(t) > 0 && t[0] == '[' {
+		if err := json.Unmarshal(t, &rep.Gaps); err != nil {
+			return DarkGapReport{}, fmt.Errorf("pixinsight-worker: decode dark gaps: %w", err)
+		}
+		return rep, nil
+	}
+	if err := json.Unmarshal(raw, &rep); err != nil {
+		return DarkGapReport{}, fmt.Errorf("pixinsight-worker: decode dark gaps: %w", err)
+	}
+	return rep, nil
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) (err error) {

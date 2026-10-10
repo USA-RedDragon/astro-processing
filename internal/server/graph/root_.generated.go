@@ -34,14 +34,28 @@ type DirectiveRoot struct {
 }
 
 type ComplexityRoot struct {
+	CalibrationBasis struct {
+		BinX     func(childComplexity int) int
+		Exposure func(childComplexity int) int
+		Gain     func(childComplexity int) int
+		Night    func(childComplexity int) int
+		Offset   func(childComplexity int) int
+		SetTemp  func(childComplexity int) int
+	}
+
 	CalibrationMatch struct {
 		AgeDays          func(childComplexity int) int
+		Basis            func(childComplexity int) int
+		Exposure         func(childComplexity int) int
 		Frames           func(childComplexity int) int
+		HeaderError      func(childComplexity int) int
+		Master           func(childComplexity int) int
 		Night            func(childComplexity int) int
 		Quality          func(childComplexity int) int
 		RotationMismatch func(childComplexity int) int
 		Scaled           func(childComplexity int) int
 		SetTemp          func(childComplexity int) int
+		Source           func(childComplexity int) int
 		TempOff          func(childComplexity int) int
 	}
 
@@ -66,13 +80,23 @@ type ComplexityRoot struct {
 		Y func(childComplexity int) int
 	}
 
+	DarkLibrary struct {
+		Gaps             func(childComplexity int) int
+		Ladder           func(childComplexity int) int
+		MinFrames        func(childComplexity int) int
+		SetTempExactC    func(childComplexity int) int
+		SetTempScaleMaxC func(childComplexity int) int
+	}
+
 	DarkLibraryGap struct {
-		Gain        func(childComplexity int) int
-		LatestNight func(childComplexity int) int
-		Lights      func(childComplexity int) int
-		Nights      func(childComplexity int) int
-		Offset      func(childComplexity int) int
-		SetTemp     func(childComplexity int) int
+		Exposure       func(childComplexity int) int
+		Gain           func(childComplexity int) int
+		LatestNight    func(childComplexity int) int
+		Lights         func(childComplexity int) int
+		Nights         func(childComplexity int) int
+		Offset         func(childComplexity int) int
+		OtherExposures func(childComplexity int) int
+		SetTemp        func(childComplexity int) int
 	}
 
 	FilterMaster struct {
@@ -198,15 +222,15 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Commit          func(childComplexity int) int
-		DarkLibraryGaps func(childComplexity int) int
-		OtherTarget     func(childComplexity int, name string) int
-		OtherTargets    func(childComplexity int) int
-		Project         func(childComplexity int, id int) int
-		Projects        func(childComplexity int, orderBy *model.ProjectOrderBy) int
-		Target          func(childComplexity int, id int) int
-		Targets         func(childComplexity int, orderBy *model.TargetOrderBy) int
-		Version         func(childComplexity int) int
+		Commit       func(childComplexity int) int
+		DarkLibrary  func(childComplexity int) int
+		OtherTarget  func(childComplexity int, name string) int
+		OtherTargets func(childComplexity int) int
+		Project      func(childComplexity int, id int) int
+		Projects     func(childComplexity int, orderBy *model.ProjectOrderBy) int
+		Target       func(childComplexity int, id int) int
+		Targets      func(childComplexity int, orderBy *model.TargetOrderBy) int
+		Version      func(childComplexity int) int
 	}
 
 	Subframe struct {
@@ -291,18 +315,79 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 	_ = ec
 	switch typeName + "." + field {
 
+	case "CalibrationBasis.bin_x":
+		if e.ComplexityRoot.CalibrationBasis.BinX == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.BinX(childComplexity), true
+	case "CalibrationBasis.exposure":
+		if e.ComplexityRoot.CalibrationBasis.Exposure == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.Exposure(childComplexity), true
+	case "CalibrationBasis.gain":
+		if e.ComplexityRoot.CalibrationBasis.Gain == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.Gain(childComplexity), true
+	case "CalibrationBasis.night":
+		if e.ComplexityRoot.CalibrationBasis.Night == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.Night(childComplexity), true
+	case "CalibrationBasis.offset":
+		if e.ComplexityRoot.CalibrationBasis.Offset == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.Offset(childComplexity), true
+	case "CalibrationBasis.set_temp":
+		if e.ComplexityRoot.CalibrationBasis.SetTemp == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationBasis.SetTemp(childComplexity), true
+
 	case "CalibrationMatch.age_days":
 		if e.ComplexityRoot.CalibrationMatch.AgeDays == nil {
 			break
 		}
 
 		return e.ComplexityRoot.CalibrationMatch.AgeDays(childComplexity), true
+	case "CalibrationMatch.basis":
+		if e.ComplexityRoot.CalibrationMatch.Basis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationMatch.Basis(childComplexity), true
+	case "CalibrationMatch.exposure":
+		if e.ComplexityRoot.CalibrationMatch.Exposure == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationMatch.Exposure(childComplexity), true
 	case "CalibrationMatch.frames":
 		if e.ComplexityRoot.CalibrationMatch.Frames == nil {
 			break
 		}
 
 		return e.ComplexityRoot.CalibrationMatch.Frames(childComplexity), true
+	case "CalibrationMatch.header_error":
+		if e.ComplexityRoot.CalibrationMatch.HeaderError == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationMatch.HeaderError(childComplexity), true
+	case "CalibrationMatch.master":
+		if e.ComplexityRoot.CalibrationMatch.Master == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationMatch.Master(childComplexity), true
 	case "CalibrationMatch.night":
 		if e.ComplexityRoot.CalibrationMatch.Night == nil {
 			break
@@ -333,6 +418,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.CalibrationMatch.SetTemp(childComplexity), true
+	case "CalibrationMatch.source":
+		if e.ComplexityRoot.CalibrationMatch.Source == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CalibrationMatch.Source(childComplexity), true
 	case "CalibrationMatch.temp_off":
 		if e.ComplexityRoot.CalibrationMatch.TempOff == nil {
 			break
@@ -432,6 +523,43 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Crop.Y(childComplexity), true
 
+	case "DarkLibrary.gaps":
+		if e.ComplexityRoot.DarkLibrary.Gaps == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibrary.Gaps(childComplexity), true
+	case "DarkLibrary.ladder":
+		if e.ComplexityRoot.DarkLibrary.Ladder == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibrary.Ladder(childComplexity), true
+	case "DarkLibrary.min_frames":
+		if e.ComplexityRoot.DarkLibrary.MinFrames == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibrary.MinFrames(childComplexity), true
+	case "DarkLibrary.set_temp_exact_c":
+		if e.ComplexityRoot.DarkLibrary.SetTempExactC == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibrary.SetTempExactC(childComplexity), true
+	case "DarkLibrary.set_temp_scale_max_c":
+		if e.ComplexityRoot.DarkLibrary.SetTempScaleMaxC == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibrary.SetTempScaleMaxC(childComplexity), true
+
+	case "DarkLibraryGap.exposure":
+		if e.ComplexityRoot.DarkLibraryGap.Exposure == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibraryGap.Exposure(childComplexity), true
 	case "DarkLibraryGap.gain":
 		if e.ComplexityRoot.DarkLibraryGap.Gain == nil {
 			break
@@ -462,6 +590,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.DarkLibraryGap.Offset(childComplexity), true
+	case "DarkLibraryGap.other_exposures":
+		if e.ComplexityRoot.DarkLibraryGap.OtherExposures == nil {
+			break
+		}
+
+		return e.ComplexityRoot.DarkLibraryGap.OtherExposures(childComplexity), true
 	case "DarkLibraryGap.set_temp":
 		if e.ComplexityRoot.DarkLibraryGap.SetTemp == nil {
 			break
@@ -1071,12 +1205,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Query.Commit(childComplexity), true
-	case "Query.darkLibraryGaps":
-		if e.ComplexityRoot.Query.DarkLibraryGaps == nil {
+	case "Query.darkLibrary":
+		if e.ComplexityRoot.Query.DarkLibrary == nil {
 			break
 		}
 
-		return e.ComplexityRoot.Query.DarkLibraryGaps(childComplexity), true
+		return e.ComplexityRoot.Query.DarkLibrary(childComplexity), true
 
 	case "Query.otherTarget":
 		if e.ComplexityRoot.Query.OtherTarget == nil {
@@ -1551,8 +1685,36 @@ func newExecutionContext(
 
 var sources = []*ast.Source{
 	{Name: "../../../graph/calibration.graphqls", Input: `extend type Query {
-  "Dark library setpoints that lights need but no darks cover. Empty when the worker is not configured."
-  darkLibraryGaps: [DarkLibraryGap!]!
+  "The stacker's dark library settings and the dark sets lights need but no darks cover. Null when the worker is not configured."
+  darkLibrary: DarkLibrary
+}
+
+"Where a calibration set comes from: built here from its frames, or a master made elsewhere and imported."
+enum CalibrationSource {
+  FRAMES
+  IMPORTED
+}
+
+"Where each value of an imported master's setup came from: header, file name, folder name or hand-entered."
+type CalibrationBasis {
+  night: String
+  exposure: String
+  gain: String
+  offset: String
+  set_temp: String
+  bin_x: String
+}
+
+type DarkLibrary {
+  "Configured setpoints, in °C, the stacker keeps the dark library at. Empty when the stacker does not report them."
+  ladder: [Float!]!
+  "Fewest frames the stacker builds a master from."
+  min_frames: Int
+  "A dark set counts at a setpoint when within this many °C."
+  set_temp_exact_c: Float
+  "Furthest, in °C, a dark's setpoint may be from the lights' when its thermal signal is scaled."
+  set_temp_scale_max_c: Float
+  gaps: [DarkLibraryGap!]!
 }
 
 enum CalibrationQuality {
@@ -1576,6 +1738,14 @@ type CalibrationMatch {
   rotation_mismatch: Boolean!
   "The dark's thermal signal must be scaled to the lights."
   scaled: Boolean!
+  "Dark exposure in seconds."
+  exposure: Float
+  source: CalibrationSource
+  "Object key of an imported master."
+  master: String
+  basis: CalibrationBasis
+  "Why an imported master's header gave no values."
+  header_error: String
 }
 
 "One night of lights sharing a filter and camera settings, with its calibration."
@@ -1593,13 +1763,19 @@ type CalibrationRow {
   bias: CalibrationMatch!
 }
 
+"Lights at one gain, offset and exposure near one ladder setpoint with no dark set of that exposure there."
 type DarkLibraryGap {
   gain: Float
   offset: Float
+  "Exposure of the lights, in seconds."
+  exposure: Float
+  "Ladder setpoint in °C."
   set_temp: Float!
   lights: Int!
   nights: Int!
   latest_night: String!
+  "Exposures of the dark sets at this setpoint, gain and offset, which the stacker scales to these lights for now."
+  other_exposures: [Float!]!
 }
 
 "The well-covered part of an image, as fractions of its width and height."
@@ -1971,6 +2147,24 @@ var parsedSchema = gqlparser.MustLoadSchema(sources...)
 // Each function is generated once per unique object type, deduplicating the
 // switch statements that were previously inlined in every fieldContext_* function.
 
+func (ec *executionContext) childFields_CalibrationBasis(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "night":
+		return ec.fieldContext_CalibrationBasis_night(ctx, field)
+	case "exposure":
+		return ec.fieldContext_CalibrationBasis_exposure(ctx, field)
+	case "gain":
+		return ec.fieldContext_CalibrationBasis_gain(ctx, field)
+	case "offset":
+		return ec.fieldContext_CalibrationBasis_offset(ctx, field)
+	case "set_temp":
+		return ec.fieldContext_CalibrationBasis_set_temp(ctx, field)
+	case "bin_x":
+		return ec.fieldContext_CalibrationBasis_bin_x(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CalibrationBasis", field.Name)
+}
+
 func (ec *executionContext) childFields_CalibrationMatch(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "quality":
@@ -1989,6 +2183,16 @@ func (ec *executionContext) childFields_CalibrationMatch(ctx context.Context, fi
 		return ec.fieldContext_CalibrationMatch_rotation_mismatch(ctx, field)
 	case "scaled":
 		return ec.fieldContext_CalibrationMatch_scaled(ctx, field)
+	case "exposure":
+		return ec.fieldContext_CalibrationMatch_exposure(ctx, field)
+	case "source":
+		return ec.fieldContext_CalibrationMatch_source(ctx, field)
+	case "master":
+		return ec.fieldContext_CalibrationMatch_master(ctx, field)
+	case "basis":
+		return ec.fieldContext_CalibrationMatch_basis(ctx, field)
+	case "header_error":
+		return ec.fieldContext_CalibrationMatch_header_error(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type CalibrationMatch", field.Name)
 }
@@ -2035,12 +2239,30 @@ func (ec *executionContext) childFields_Crop(ctx context.Context, field graphql.
 	return nil, fmt.Errorf("no field named %q was found under type Crop", field.Name)
 }
 
+func (ec *executionContext) childFields_DarkLibrary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "ladder":
+		return ec.fieldContext_DarkLibrary_ladder(ctx, field)
+	case "min_frames":
+		return ec.fieldContext_DarkLibrary_min_frames(ctx, field)
+	case "set_temp_exact_c":
+		return ec.fieldContext_DarkLibrary_set_temp_exact_c(ctx, field)
+	case "set_temp_scale_max_c":
+		return ec.fieldContext_DarkLibrary_set_temp_scale_max_c(ctx, field)
+	case "gaps":
+		return ec.fieldContext_DarkLibrary_gaps(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type DarkLibrary", field.Name)
+}
+
 func (ec *executionContext) childFields_DarkLibraryGap(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "gain":
 		return ec.fieldContext_DarkLibraryGap_gain(ctx, field)
 	case "offset":
 		return ec.fieldContext_DarkLibraryGap_offset(ctx, field)
+	case "exposure":
+		return ec.fieldContext_DarkLibraryGap_exposure(ctx, field)
 	case "set_temp":
 		return ec.fieldContext_DarkLibraryGap_set_temp(ctx, field)
 	case "lights":
@@ -2049,6 +2271,8 @@ func (ec *executionContext) childFields_DarkLibraryGap(ctx context.Context, fiel
 		return ec.fieldContext_DarkLibraryGap_nights(ctx, field)
 	case "latest_night":
 		return ec.fieldContext_DarkLibraryGap_latest_night(ctx, field)
+	case "other_exposures":
+		return ec.fieldContext_DarkLibraryGap_other_exposures(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type DarkLibraryGap", field.Name)
 }

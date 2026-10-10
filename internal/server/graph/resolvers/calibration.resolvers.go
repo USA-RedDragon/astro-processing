@@ -13,23 +13,16 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 )
 
-// DarkLibraryGaps is the resolver for the darkLibraryGaps field.
-func (r *queryResolver) DarkLibraryGaps(ctx context.Context) ([]*model.DarkLibraryGap, error) {
+// DarkLibrary is the resolver for the darkLibrary field.
+func (r *queryResolver) DarkLibrary(ctx context.Context) (*model.DarkLibrary, error) {
 	if r.worker == nil {
-		return []*model.DarkLibraryGap{}, nil
+		return nil, nil
 	}
-	gaps, err := r.worker.DarkGaps(ctx)
+	rep, err := r.worker.DarkGaps(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get dark library gaps: %w", err)
 	}
-	out := make([]*model.DarkLibraryGap, 0, len(gaps))
-	for _, g := range gaps {
-		out = append(out, &model.DarkLibraryGap{
-			Gain: g.Gain, Offset: g.Offset, SetTemp: g.SetTemp,
-			Lights: g.Lights, Nights: g.Nights, LatestNight: g.LatestNight,
-		})
-	}
-	return out, nil
+	return toDarkLibrary(rep), nil
 }
 
 // Query returns graph.QueryResolver implementation.

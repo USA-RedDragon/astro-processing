@@ -1,6 +1,34 @@
 extend type Query {
-  "Dark library setpoints that lights need but no darks cover. Empty when the worker is not configured."
-  darkLibraryGaps: [DarkLibraryGap!]!
+  "The stacker's dark library settings and the dark sets lights need but no darks cover. Null when the worker is not configured."
+  darkLibrary: DarkLibrary
+}
+
+"Where a calibration set comes from: built here from its frames, or a master made elsewhere and imported."
+enum CalibrationSource {
+  FRAMES
+  IMPORTED
+}
+
+"Where each value of an imported master's setup came from: header, file name, folder name or hand-entered."
+type CalibrationBasis {
+  night: String
+  exposure: String
+  gain: String
+  offset: String
+  set_temp: String
+  bin_x: String
+}
+
+type DarkLibrary {
+  "Configured setpoints, in °C, the stacker keeps the dark library at. Empty when the stacker does not report them."
+  ladder: [Float!]!
+  "Fewest frames the stacker builds a master from."
+  min_frames: Int
+  "A dark set counts at a setpoint when within this many °C."
+  set_temp_exact_c: Float
+  "Furthest, in °C, a dark's setpoint may be from the lights' when its thermal signal is scaled."
+  set_temp_scale_max_c: Float
+  gaps: [DarkLibraryGap!]!
 }
 
 enum CalibrationQuality {
@@ -24,6 +52,14 @@ type CalibrationMatch {
   rotation_mismatch: Boolean!
   "The dark's thermal signal must be scaled to the lights."
   scaled: Boolean!
+  "Dark exposure in seconds."
+  exposure: Float
+  source: CalibrationSource
+  "Object key of an imported master."
+  master: String
+  basis: CalibrationBasis
+  "Why an imported master's header gave no values."
+  header_error: String
 }
 
 "One night of lights sharing a filter and camera settings, with its calibration."
@@ -41,13 +77,19 @@ type CalibrationRow {
   bias: CalibrationMatch!
 }
 
+"Lights at one gain, offset and exposure near one ladder setpoint with no dark set of that exposure there."
 type DarkLibraryGap {
   gain: Float
   offset: Float
+  "Exposure of the lights, in seconds."
+  exposure: Float
+  "Ladder setpoint in °C."
   set_temp: Float!
   lights: Int!
   nights: Int!
   latest_night: String!
+  "Exposures of the dark sets at this setpoint, gain and offset, which the stacker scales to these lights for now."
+  other_exposures: [Float!]!
 }
 
 "The well-covered part of an image, as fractions of its width and height."

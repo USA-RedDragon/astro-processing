@@ -9,6 +9,16 @@ import (
 	"strconv"
 )
 
+// Where each value of an imported master's setup came from: header, file name, folder name or hand-entered.
+type CalibrationBasis struct {
+	Night    *string `json:"night,omitempty"`
+	Exposure *string `json:"exposure,omitempty"`
+	Gain     *string `json:"gain,omitempty"`
+	Offset   *string `json:"offset,omitempty"`
+	SetTemp  *string `json:"set_temp,omitempty"`
+	BinX     *string `json:"bin_x,omitempty"`
+}
+
 type CalibrationMatch struct {
 	Quality CalibrationQuality `json:"quality"`
 	// Night the calibration frames were taken.
@@ -24,6 +34,14 @@ type CalibrationMatch struct {
 	RotationMismatch bool `json:"rotation_mismatch"`
 	// The dark's thermal signal must be scaled to the lights.
 	Scaled bool `json:"scaled"`
+	// Dark exposure in seconds.
+	Exposure *float64           `json:"exposure,omitempty"`
+	Source   *CalibrationSource `json:"source,omitempty"`
+	// Object key of an imported master.
+	Master *string           `json:"master,omitempty"`
+	Basis  *CalibrationBasis `json:"basis,omitempty"`
+	// Why an imported master's header gave no values.
+	HeaderError *string `json:"header_error,omitempty"`
 }
 
 // One night of lights sharing a filter and camera settings, with its calibration.
@@ -49,13 +67,31 @@ type Crop struct {
 	H float64 `json:"h"`
 }
 
+type DarkLibrary struct {
+	// Configured setpoints, in °C, the stacker keeps the dark library at. Empty when the stacker does not report them.
+	Ladder []float64 `json:"ladder"`
+	// Fewest frames the stacker builds a master from.
+	MinFrames *int32 `json:"min_frames,omitempty"`
+	// A dark set counts at a setpoint when within this many °C.
+	SetTempExactC *float64 `json:"set_temp_exact_c,omitempty"`
+	// Furthest, in °C, a dark's setpoint may be from the lights' when its thermal signal is scaled.
+	SetTempScaleMaxC *float64          `json:"set_temp_scale_max_c,omitempty"`
+	Gaps             []*DarkLibraryGap `json:"gaps"`
+}
+
+// Lights at one gain, offset and exposure near one ladder setpoint with no dark set of that exposure there.
 type DarkLibraryGap struct {
-	Gain        *float64 `json:"gain,omitempty"`
-	Offset      *float64 `json:"offset,omitempty"`
-	SetTemp     float64  `json:"set_temp"`
-	Lights      int32    `json:"lights"`
-	Nights      int32    `json:"nights"`
-	LatestNight string   `json:"latest_night"`
+	Gain   *float64 `json:"gain,omitempty"`
+	Offset *float64 `json:"offset,omitempty"`
+	// Exposure of the lights, in seconds.
+	Exposure *float64 `json:"exposure,omitempty"`
+	// Ladder setpoint in °C.
+	SetTemp     float64 `json:"set_temp"`
+	Lights      int32   `json:"lights"`
+	Nights      int32   `json:"nights"`
+	LatestNight string  `json:"latest_night"`
+	// Exposures of the dark sets at this setpoint, gain and offset, which the stacker scales to these lights for now.
+	OtherExposures []float64 `json:"other_exposures"`
 }
 
 // One filter's stacked master for a target: only subs that scored well, added as they arrive.
@@ -388,6 +424,62 @@ func (e *CalibrationQuality) UnmarshalJSON(b []byte) error {
 }
 
 func (e CalibrationQuality) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	e.MarshalGQL(&buf)
+	return buf.Bytes(), nil
+}
+
+// Where a calibration set comes from: built here from its frames, or a master made elsewhere and imported.
+type CalibrationSource string
+
+const (
+	CalibrationSourceFrames   CalibrationSource = "FRAMES"
+	CalibrationSourceImported CalibrationSource = "IMPORTED"
+)
+
+var AllCalibrationSource = []CalibrationSource{
+	CalibrationSourceFrames,
+	CalibrationSourceImported,
+}
+
+func (e CalibrationSource) IsValid() bool {
+	switch e {
+	case CalibrationSourceFrames, CalibrationSourceImported:
+		return true
+	}
+	return false
+}
+
+func (e CalibrationSource) String() string {
+	return string(e)
+}
+
+func (e *CalibrationSource) UnmarshalGQL(v any) error {
+	str, ok := v.(string)
+	if !ok {
+		return fmt.Errorf("enums must be strings")
+	}
+
+	*e = CalibrationSource(str)
+	if !e.IsValid() {
+		return fmt.Errorf("%s is not a valid CalibrationSource", str)
+	}
+	return nil
+}
+
+func (e CalibrationSource) MarshalGQL(w io.Writer) {
+	_, _ = fmt.Fprint(w, strconv.Quote(e.String()))
+}
+
+func (e *CalibrationSource) UnmarshalJSON(b []byte) error {
+	s, err := strconv.Unquote(string(b))
+	if err != nil {
+		return err
+	}
+	return e.UnmarshalGQL(s)
+}
+
+func (e CalibrationSource) MarshalJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	e.MarshalGQL(&buf)
 	return buf.Bytes(), nil

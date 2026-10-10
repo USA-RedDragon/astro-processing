@@ -18,7 +18,7 @@ import (
 // region    ************************** generated!.gotpl **************************
 
 type QueryResolver interface {
-	DarkLibraryGaps(ctx context.Context) ([]*model.DarkLibraryGap, error)
+	DarkLibrary(ctx context.Context) (*model.DarkLibrary, error)
 	Version(ctx context.Context) (string, error)
 	Commit(ctx context.Context) (string, error)
 	OtherTargets(ctx context.Context) ([]*model.OtherTarget, error)
@@ -120,6 +120,144 @@ func (ec *executionContext) field_Query_targets_args(ctx context.Context, rawArg
 // endregion ***************************** args.gotpl *****************************
 
 // region    **************************** field.gotpl *****************************
+
+func (ec *executionContext) _CalibrationBasis_night(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_night(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Night, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_night(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationBasis_exposure(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_exposure(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Exposure, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_exposure(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationBasis_gain(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_gain(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Gain, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_gain(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationBasis_offset(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_offset(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Offset, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_offset(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationBasis_set_temp(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_set_temp(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SetTemp, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_set_temp(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationBasis_bin_x(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationBasis) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationBasis_bin_x(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.BinX, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationBasis_bin_x(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationBasis", field, false, false, errors.New("field of type String does not have child fields"))
+}
 
 func (ec *executionContext) _CalibrationMatch_quality(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
@@ -303,6 +441,130 @@ func (ec *executionContext) _CalibrationMatch_scaled(ctx context.Context, field 
 }
 func (ec *executionContext) fieldContext_CalibrationMatch_scaled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("CalibrationMatch", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationMatch_exposure(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationMatch_exposure(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Exposure, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationMatch_exposure(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationMatch", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationMatch_source(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationMatch_source(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Source, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.CalibrationSource) graphql.Marshaler {
+			return ec.marshalOCalibrationSource2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCalibrationSource(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationMatch_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationMatch", field, false, false, errors.New("field of type CalibrationSource does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationMatch_master(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationMatch_master(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Master, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationMatch_master(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationMatch", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CalibrationMatch_basis(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationMatch_basis(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Basis, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *model.CalibrationBasis) graphql.Marshaler {
+			return ec.marshalOCalibrationBasis2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCalibrationBasis(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationMatch_basis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "CalibrationMatch",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CalibrationBasis(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _CalibrationMatch_header_error(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationMatch) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CalibrationMatch_header_error(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.HeaderError, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_CalibrationMatch_header_error(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CalibrationMatch", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _CalibrationRow_night(ctx context.Context, field graphql.CollectedField, obj *model.CalibrationRow) (ret graphql.Marshaler) {
@@ -677,6 +939,130 @@ func (ec *executionContext) fieldContext_Crop_h(_ context.Context, field graphql
 	return graphql.NewScalarFieldContext("Crop", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
+func (ec *executionContext) _DarkLibrary_ladder(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibrary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibrary_ladder(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Ladder, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []float64) graphql.Marshaler {
+			return ec.marshalNFloat2ᚕfloat64ᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibrary_ladder(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibrary", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibrary_min_frames(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibrary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibrary_min_frames(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinFrames, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibrary_min_frames(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibrary", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibrary_set_temp_exact_c(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibrary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibrary_set_temp_exact_c(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SetTempExactC, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibrary_set_temp_exact_c(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibrary", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibrary_set_temp_scale_max_c(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibrary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibrary_set_temp_scale_max_c(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SetTempScaleMaxC, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibrary_set_temp_scale_max_c(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibrary", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibrary_gaps(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibrary) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibrary_gaps(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Gaps, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []*model.DarkLibraryGap) graphql.Marshaler {
+			return ec.marshalNDarkLibraryGap2ᚕᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐDarkLibraryGapᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibrary_gaps(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "DarkLibrary",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_DarkLibraryGap(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _DarkLibraryGap_gain(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibraryGap) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -720,6 +1106,29 @@ func (ec *executionContext) _DarkLibraryGap_offset(ctx context.Context, field gr
 	)
 }
 func (ec *executionContext) fieldContext_DarkLibraryGap_offset(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibraryGap", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibraryGap_exposure(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibraryGap) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibraryGap_exposure(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Exposure, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibraryGap_exposure(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DarkLibraryGap", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
@@ -813,6 +1222,29 @@ func (ec *executionContext) _DarkLibraryGap_latest_night(ctx context.Context, fi
 }
 func (ec *executionContext) fieldContext_DarkLibraryGap_latest_night(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("DarkLibraryGap", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _DarkLibraryGap_other_exposures(ctx context.Context, field graphql.CollectedField, obj *model.DarkLibraryGap) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_DarkLibraryGap_other_exposures(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OtherExposures, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []float64) graphql.Marshaler {
+			return ec.marshalNFloat2ᚕfloat64ᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_DarkLibraryGap_other_exposures(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("DarkLibraryGap", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
 func (ec *executionContext) _FilterMaster_filter(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
@@ -1546,33 +1978,33 @@ func (ec *executionContext) fieldContext_Mosaic_crop(_ context.Context, field gr
 	return fc, nil
 }
 
-func (ec *executionContext) _Query_darkLibraryGaps(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Query_darkLibrary(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_Query_darkLibraryGaps(ctx, field)
+			return ec.fieldContext_Query_darkLibrary(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return ec.Resolvers.Query().DarkLibraryGaps(ctx)
+			return ec.Resolvers.Query().DarkLibrary(ctx)
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v []*model.DarkLibraryGap) graphql.Marshaler {
-			return ec.marshalNDarkLibraryGap2ᚕᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐDarkLibraryGapᚄ(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *model.DarkLibrary) graphql.Marshaler {
+			return ec.marshalODarkLibrary2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐDarkLibrary(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
-func (ec *executionContext) fieldContext_Query_darkLibraryGaps(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_Query_darkLibrary(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	fc = &graphql.FieldContext{
 		Object:     "Query",
 		Field:      field,
 		IsMethod:   true,
 		IsResolver: true,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.childFields_DarkLibraryGap(ctx, field)
+			return ec.childFields_DarkLibrary(ctx, field)
 		},
 	}
 	return fc, nil
@@ -1964,6 +2396,69 @@ func (ec *executionContext) fieldContext_Query___schema(_ context.Context, field
 
 // region    **************************** object.gotpl ****************************
 
+var calibrationBasisImplementors = []string{"CalibrationBasis"}
+
+func (ec *executionContext) _CalibrationBasis(ctx context.Context, sel ast.SelectionSet, obj *model.CalibrationBasis) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, calibrationBasisImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CalibrationBasis")
+		case "night":
+			out.Values[i] = ec._CalibrationBasis_night(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "exposure":
+			out.Values[i] = ec._CalibrationBasis_exposure(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "gain":
+			out.Values[i] = ec._CalibrationBasis_gain(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "offset":
+			out.Values[i] = ec._CalibrationBasis_offset(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "set_temp":
+			out.Values[i] = ec._CalibrationBasis_set_temp(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "bin_x":
+			out.Values[i] = ec._CalibrationBasis_bin_x(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var calibrationMatchImplementors = []string{"CalibrationMatch"}
 
 func (ec *executionContext) _CalibrationMatch(ctx context.Context, sel ast.SelectionSet, obj *model.CalibrationMatch) graphql.Marshaler {
@@ -2014,6 +2509,31 @@ func (ec *executionContext) _CalibrationMatch(ctx context.Context, sel ast.Selec
 		case "scaled":
 			out.Values[i] = ec._CalibrationMatch_scaled(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "exposure":
+			out.Values[i] = ec._CalibrationMatch_exposure(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "source":
+			out.Values[i] = ec._CalibrationMatch_source(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "master":
+			out.Values[i] = ec._CalibrationMatch_master(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "basis":
+			out.Values[i] = ec._CalibrationMatch_basis(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "header_error":
+			out.Values[i] = ec._CalibrationMatch_header_error(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
 		default:
@@ -2178,6 +2698,64 @@ func (ec *executionContext) _Crop(ctx context.Context, sel ast.SelectionSet, obj
 	return out
 }
 
+var darkLibraryImplementors = []string{"DarkLibrary"}
+
+func (ec *executionContext) _DarkLibrary(ctx context.Context, sel ast.SelectionSet, obj *model.DarkLibrary) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, darkLibraryImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("DarkLibrary")
+		case "ladder":
+			out.Values[i] = ec._DarkLibrary_ladder(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "min_frames":
+			out.Values[i] = ec._DarkLibrary_min_frames(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "set_temp_exact_c":
+			out.Values[i] = ec._DarkLibrary_set_temp_exact_c(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "set_temp_scale_max_c":
+			out.Values[i] = ec._DarkLibrary_set_temp_scale_max_c(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "gaps":
+			out.Values[i] = ec._DarkLibrary_gaps(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var darkLibraryGapImplementors = []string{"DarkLibraryGap"}
 
 func (ec *executionContext) _DarkLibraryGap(ctx context.Context, sel ast.SelectionSet, obj *model.DarkLibraryGap) graphql.Marshaler {
@@ -2200,6 +2778,11 @@ func (ec *executionContext) _DarkLibraryGap(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
+		case "exposure":
+			out.Values[i] = ec._DarkLibraryGap_exposure(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "set_temp":
 			out.Values[i] = ec._DarkLibraryGap_set_temp(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -2217,6 +2800,11 @@ func (ec *executionContext) _DarkLibraryGap(ctx context.Context, sel ast.Selecti
 			}
 		case "latest_night":
 			out.Values[i] = ec._DarkLibraryGap_latest_night(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "other_exposures":
+			out.Values[i] = ec._DarkLibraryGap_other_exposures(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
@@ -2482,7 +3070,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("Query")
-		case "darkLibraryGaps":
+		case "darkLibrary":
 			field := field
 
 			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
@@ -2491,8 +3079,8 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_darkLibraryGaps(ctx, field)
-				if res == graphql.Null {
+				res = ec._Query_darkLibrary(ctx, field)
+				if res == graphql.RequiredNull {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -2843,11 +3431,41 @@ func (ec *executionContext) marshalNMosaic2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋa
 	return ec._Mosaic(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOCalibrationBasis2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCalibrationBasis(ctx context.Context, sel ast.SelectionSet, v *model.CalibrationBasis) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CalibrationBasis(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOCalibrationSource2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCalibrationSource(ctx context.Context, v any) (*model.CalibrationSource, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var res = new(model.CalibrationSource)
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOCalibrationSource2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCalibrationSource(ctx context.Context, sel ast.SelectionSet, v *model.CalibrationSource) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return v
+}
+
 func (ec *executionContext) marshalOCrop2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐCrop(ctx context.Context, sel ast.SelectionSet, v *model.Crop) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
 	}
 	return ec._Crop(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalODarkLibrary2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐDarkLibrary(ctx context.Context, sel ast.SelectionSet, v *model.DarkLibrary) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._DarkLibrary(ctx, sel, v)
 }
 
 // endregion ***************************** type.gotpl *****************************
