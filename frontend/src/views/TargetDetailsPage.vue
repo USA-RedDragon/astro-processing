@@ -14,11 +14,19 @@
         &larr; {{ target.project.name }}
       </router-link>
       <h1 class="text-2xl font-semibold mt-1">{{ target.name }}</h1>
+      <div id="target-sched-head" class="mt-2 empty:hidden" />
       <p class="text-sm text-muted-foreground mt-1">
         Scores and statuses are the stacker's: how much a sub is worth compared to the best subs for
         that filter, from 0 to 1. Darker sky, tighter stars and clearer air score higher.
       </p>
     </div>
+
+    <SchedulerTabs
+      v-if="target?.project"
+      :project-id="target.project.id"
+      :target-id="target.id"
+      head-to="#target-sched-head"
+    />
 
     <MastersCard v-if="masters.length > 0" :masters="masters" :updating="updatingFilters" />
 
@@ -228,6 +236,7 @@ import CalibrationCard from '@/components/CalibrationCard.vue';
 import PreviewLink from '@/components/PreviewLink.vue';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
+import SchedulerTabs from '@/scheduler/components/SchedulerTabs.vue';
 import SkeletonRows from '@/components/SkeletonRows.vue';
 import API from '@/lib/API';
 import { onChange, onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
@@ -343,6 +352,7 @@ export default {
     PreviewLink,
     MastersCard,
     PaletteMixer,
+    SchedulerTabs,
     SkeletonRows,
     Card,
     CardContent,

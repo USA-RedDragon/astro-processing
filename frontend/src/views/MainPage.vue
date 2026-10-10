@@ -1,14 +1,27 @@
 <template>
   <div>
-    <div v-if="loading" class="flex justify-center items-center min-h-screen">
+    <div v-if="loading && !listView" class="flex justify-center items-center min-h-screen">
       <p class="text-lg">Loading targets...</p>
     </div>
-    <div v-else-if="error" class="flex justify-center items-center min-h-screen">
+    <div v-else-if="error && !listView" class="flex justify-center items-center min-h-screen">
       <p class="text-lg text-red-500">Error loading targets: {{ error }}</p>
     </div>
     <div v-else class="space-y-8">
       <!-- Sort Bar -->
-      <div class="px-4 py-4 flex items-center gap-4">
+      <div class="px-4 py-4 flex flex-wrap items-center gap-4">
+        <div role="group" aria-label="View" class="inline-flex rounded-md border p-0.5 gap-0.5">
+          <button
+            v-for="v in ['cards', 'list']"
+            :key="v"
+            type="button"
+            class="h-8 px-3 rounded-sm text-sm cursor-pointer"
+            :class="(v === 'list') === listView ? 'bg-secondary font-semibold' : 'text-muted-foreground'"
+            :aria-pressed="(v === 'list') === listView"
+            @click="setView(v)"
+          >
+            {{ v === 'list' ? 'List' : 'Cards' }}
+          </button>
+        </div>
         <label class="text-sm font-medium">Sort by:</label>
         <SelectRoot v-model="sortField">
           <SelectTrigger class="w-[200px]">
@@ -35,11 +48,43 @@
             <SelectItem value="ASC">Ascending</SelectItem>
           </SelectContent>
         </SelectRoot>
+
+        <input
+          v-model="filter.q"
+          type="search"
+          aria-label="Search name, description or target"
+          placeholder="Search name, description or target"
+          class="h-9 w-full sm:w-[15rem] rounded-md border border-input bg-transparent px-3 text-sm shadow-xs
+            outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+        >
+
+        <SelectRoot v-for="f in filterSelects" :key="f.key" v-model="filter[f.key]">
+          <SelectTrigger class="min-w-[7rem]" :aria-label="f.label">
+            <span class="text-muted-foreground">{{ f.label }}:</span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem v-for="o in f.options" :key="o" :value="o">{{ o }}</SelectItem>
+          </SelectContent>
+        </SelectRoot>
+
+        <button
+          v-if="filtering"
+          type="button"
+          class="text-sm underline underline-offset-4 cursor-pointer"
+          @click="filter = emptyFilter()"
+        >
+          Clear filters
+        </button>
+      </div>
+
+      <div v-if="listView" class="px-4">
+        <ProjectsTable :filter="filter" :order="projects.map((p) => p.id)" />
       </div>
 
       <!-- Cards keep their own heights: dealt left to right into columns, so
            the sort order reads across and nothing stretches to its row. -->
-      <div v-if="projects.length > 0" class="info px-4">
+      <div v-if="!listView && shownProjects.length > 0" class="info px-4">
         <div v-for="(column, c) in columns" :key="c" class="flex flex-col gap-4 min-w-0">
           <ProjectCard
             v-for="project in column"
@@ -50,7 +95,11 @@
         </div>
       </div>
 
-      <div v-if="otherTargets.length > 0" class="px-4 space-y-4">
+      <p v-if="!listView && projects.length > 0 && shownProjects.length === 0" class="px-4 text-muted-foreground">
+        No project matches these filters.
+      </p>
+
+      <div v-if="!listView && otherTargets.length > 0" class="px-4 space-y-4">
         <div>
           <h2 class="text-xl font-semibold">Other targets</h2>
           <p class="text-sm text-muted-foreground">Imaged outside Target Scheduler.</p>
@@ -77,6 +126,8 @@ import {
   SelectValue
 } from '@/components/ui/select';
 import { onChange, onEvent, onReconnect } from '@/lib/events';
+import ProjectsTable from '@/scheduler/components/ProjectsTable.vue';
+import { emptyFilter, filterActive, matchesFilter, type ProjectFilter } from '@/scheduler/projects';
 import type { OtherTarget, Project, ProjectCover } from '../graphql/graphql';
 
 // Reloaded when the stacker updates a master or mosaic.
@@ -173,6 +224,7 @@ export default {
   components: {
     OtherTargetCard,
     ProjectCard,
+    ProjectsTable,
     SelectRoot,
     SelectContent,
     SelectItem,
@@ -214,6 +266,12 @@ export default {
       projectCircumference: 2 * Math.PI * 35, // 35 is the radius for project headers
       sortField: 'LAST_IMAGE_DATE' as string,
       sortDirection: 'DESC' as string,
+      filter: emptyFilter() as ProjectFilter,
+      filterSelects: [
+        { key: 'pri', label: 'Priority', options: ['All', 'High', 'Normal', 'Low'] },
+        { key: 'state', label: 'State', options: ['All', 'Active', 'Inactive', 'Closed', 'Draft'] },
+        { key: 'kind', label: 'Kind', options: ['All', 'Single', 'Mosaic'] },
+      ] as { key: 'pri' | 'state' | 'kind'; label: string; options: string[] }[],
       columnCount: 3,
       stopEvents: () => {},
       stopReconnect: () => {},
@@ -230,6 +288,13 @@ export default {
     },
   },
   methods: {
+    emptyFilter,
+    setView(v: string) {
+      const query = { ...this.$route.query };
+      if (v === 'list') query.view = 'list';
+      else delete query.view;
+      this.$router.replace({ query });
+    },
     fitColumns() {
       const w = window.innerWidth;
       this.columnCount = w > 2400 ? 4 : w > 1200 ? 3 : w > 800 ? 2 : 1;
@@ -328,9 +393,27 @@ export default {
     },
   },
   computed: {
+    listView(): boolean {
+      return this.$route.query.view === 'list';
+    },
+    filtering(): boolean {
+      return filterActive(this.filter);
+    },
+    shownProjects(): Project[] {
+      return this.projects.filter((p) =>
+        matchesFilter(this.filter, {
+          name: p.name,
+          description: p.description,
+          priority: p.priority,
+          state: p.state,
+          isMosaic: !!p.is_mosaic,
+          targetNames: (p.targets ?? []).map((t) => t?.name ?? ''),
+        }),
+      );
+    },
     columns(): Project[][] {
       const cols: Project[][] = Array.from({ length: this.columnCount }, () => []);
-      this.projects.forEach((p, i) => cols[i % this.columnCount]!.push(p));
+      this.shownProjects.forEach((p, i) => cols[i % this.columnCount]!.push(p));
       return cols;
     },
     otherColumns(): OtherTarget[][] {

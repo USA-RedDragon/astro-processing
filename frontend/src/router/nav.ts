@@ -32,6 +32,12 @@ export const navGroups: NavGroup[] = [
     label: 'Plan',
     items: [
       {
+        to: '/?view=list',
+        label: 'Projects',
+        note: 'All projects, bulk priority, open one',
+        names: ['targets'],
+      },
+      {
         to: '/mosaics',
         label: 'Mosaics',
         note: 'Panels, seams, seasons, adoption',

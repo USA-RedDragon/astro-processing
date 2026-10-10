@@ -4,6 +4,11 @@
       <ProjectCard :project="project" :show-cover="false" />
     </template>
 
+    <section class="space-y-4" aria-labelledby="scheduler-h">
+      <h2 id="scheduler-h" class="text-xl font-semibold">Scheduler</h2>
+      <SchedulerTabs :project-id="$route.params.id as string" />
+    </section>
+
     <MosaicCard v-if="mosaics.length > 0" :mosaics="mosaics" :project="project?.name ?? ''" />
     <PaletteMixer v-if="mosaics.length > 0" :masters="mosaics" />
 
@@ -29,6 +34,7 @@ import TargetCard from '@/components/TargetCard.vue';
 import ProjectCard from '@/components/ProjectCard.vue';
 import MosaicCard from '@/components/MosaicCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
+import SchedulerTabs from '@/scheduler/components/SchedulerTabs.vue';
 import API from '@/lib/API';
 import { onChange, onEvent, onReconnect, type LiveEvent } from '@/lib/events';
 import type { Mosaic, Target, Project } from '../graphql/graphql';
@@ -128,6 +134,7 @@ export default {
     ProjectCard,
     MosaicCard,
     PaletteMixer,
+    SchedulerTabs,
   },
   data() {
     return {
