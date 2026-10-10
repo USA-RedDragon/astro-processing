@@ -77,7 +77,7 @@ export interface CatalogueEntry {
   hours: Record<string, number>
   subjects: SubjectRef[]
   tonight?: Tonight
-  fit: Fit
+  fit: Fit | null
 }
 
 export interface CatalogueSummary {
@@ -180,7 +180,7 @@ export interface FinderRow {
   group: string
   fit: Fit
   brightness: string
-  brightScore: number
+  brightScore: number | null
   narrowband: string
   halpha?: { rayleigh: number; peak: number; radiusDeg: number } | null
   months: number[]
@@ -255,7 +255,7 @@ export interface Collab {
   panels: number
   columns: number
   rows: number
-  coverage: number
+  coverage: number | null
   tonight?: Tonight
   curve?: { at: string; alt: number }[]
   months: number[]

@@ -1,5 +1,6 @@
 import { api, query } from './client'
 import { submitCommand } from './commands'
+import type { Rig as DiscoverRig } from './discover'
 
 export interface SkyPoint {
   ra: number
@@ -20,7 +21,7 @@ export interface PlannedPanel {
   col: number
   centre: SkyPoint
   rotationDeg: number
-  footprint: Footprint
+  footprint: Footprint | null
   covers: number
 }
 
@@ -44,6 +45,7 @@ export interface FramingOption {
 
 export interface Framing {
   rig: Rig
+  rigInfo?: DiscoverRig | null
   rotation: number
   suggestedRotation: number
   overlap: number
@@ -99,7 +101,7 @@ export interface MosaicPanel {
   ra: number
   dec: number
   rotation: number
-  footprint: Footprint
+  footprint: Footprint | null
   filters: PanelFilter[] | null
   progress: number
   weakest: string

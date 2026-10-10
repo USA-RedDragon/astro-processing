@@ -35,6 +35,9 @@ export interface Progress {
   region: boolean
   done: boolean
   measuredAt: string
+  depthSystem?: 'gaia-g' | 'xp-ab'
+  depthBand?: string
+  depthApprox?: boolean
 }
 
 export interface FilterGoal {

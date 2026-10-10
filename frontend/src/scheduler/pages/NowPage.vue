@@ -422,8 +422,7 @@ const plannerRules = computed(() => {
             ? `about ${pt.season.nightsLeft} usable nights left`
             : 'season unknown'
     out.push({
-      name:
-        weight > 0 ? `${rule} (weight ${weight})` : `${rule} (off)`,
+      name: weight > 0 ? `${rule} (weight ${weight})` : `${rule} (off)`,
       score: (weight / 100) * raw,
       title:
         (weight > 0

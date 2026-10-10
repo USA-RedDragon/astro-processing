@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { rigSource } from '../api/discover'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { frame, project, type Framing, type FramingOption, type SkyPoint } from '../api/mosaics'
 
@@ -156,9 +157,10 @@ const view = computed(() => {
   const c = shown.value
   const rig = framing.value?.rig
   const pts: [number, number][] = []
-  if (c) for (const p of c.panels) for (const v of p.footprint) pts.push(project(centre.value, v))
+  if (c)
+    for (const p of c.panels) for (const v of p.footprint ?? []) pts.push(project(centre.value, v))
   const major = (props.object.majorArcmin || 0) / 60
-  let ext = Math.max(major * 1.15, rig ? rig.widthDeg : 3.32)
+  let ext = Math.max(major * 1.15, rig?.widthDeg ?? 0, 0.25)
   for (const [x, y] of pts)
     ext = Math.max(ext, Math.abs(x) * 2 * 1.1, Math.abs(y) * 2 * 1.1 * (W / H))
   const scale = W / ext
@@ -171,17 +173,19 @@ function toSvg(p: SkyPoint): [number, number] {
 }
 
 const polys = computed(() =>
-  (shown.value?.panels ?? []).map((p) => {
-    const corners = p.footprint.map(toSvg)
-    const [cx, cy] = toSvg(p.centre)
-    return {
-      n: p.n,
-      points: corners.map((c) => c.map((v) => v.toFixed(1)).join(',')).join(' '),
-      cx,
-      cy,
-      covers: p.covers,
-    }
-  }),
+  (shown.value?.panels ?? [])
+    .filter((p) => p.footprint)
+    .map((p) => {
+      const corners = (p.footprint ?? []).map(toSvg)
+      const [cx, cy] = toSvg(p.centre)
+      return {
+        n: p.n,
+        points: corners.map((c) => c.map((v) => v.toFixed(1)).join(',')).join(' '),
+        cx,
+        cy,
+        covers: p.covers,
+      }
+    }),
 )
 
 const outline = computed(() => {
@@ -224,6 +228,15 @@ const coverText = computed(() =>
 )
 const options = computed(() => framing.value?.options ?? [])
 const rig = computed(() => framing.value?.rig)
+const rigText = computed(() => {
+  const r = framing.value?.rigInfo
+  if (!r) return 'unknown'
+  const parts: string[] = []
+  if (r.focalLength !== null) parts.push(`${Math.round(r.focalLength)} mm`)
+  if (r.basis.telescope) parts.push(r.basis.telescope)
+  if (r.basis.camera) parts.push(r.basis.camera)
+  return parts.join(' · ') || 'unknown'
+})
 
 function useSuggested() {
   if (framing.value) rotation.value = Math.round(framing.value.suggestedRotation)
@@ -329,15 +342,16 @@ function useSuggested() {
             <div class="fact">
               <span class="xsmall muted">Field of view</span
               ><span class="num">{{
-                rig ? `${rig.widthDeg.toFixed(2)}° × ${rig.heightDeg.toFixed(2)}°` : '3.32° × 2.22°'
+                rig ? `${rig.widthDeg.toFixed(2)}° × ${rig.heightDeg.toFixed(2)}°` : 'unknown'
               }}</span>
             </div>
             <div class="fact">
               <span class="xsmall muted">Scale</span
-              ><span class="num">{{ rig ? rig.scaleArcsec.toFixed(3) : '1.915' }}″/px</span>
+              ><span class="num">{{ rig ? rig.scaleArcsec.toFixed(3) + '″/px' : 'unknown' }}</span>
             </div>
             <div class="fact wide">
-              <span class="xsmall muted">Rig</span><span>405 mm f/5.4 · ASI2600MM Pro</span>
+              <span class="xsmall muted">Rig</span><span>{{ rigText }}</span>
+              <span class="xsmall muted">{{ rigSource(framing?.rigInfo) }}</span>
             </div>
           </div>
           <p class="small muted" style="margin: 0">
@@ -391,7 +405,8 @@ function useSuggested() {
       </div>
       <p class="xsmall muted" style="margin: 0">
         Nights assume about 40% effective-to-open-shutter time and
-        {{ framing ? framing.nightHours.toFixed(1) : '7' }} usable dark hours a night{{
+        {{ framing ? framing.nightHours.toFixed(1) : 'an unknown number of' }} usable dark hours a
+        night{{
           framing && framing.bestMonths.length
             ? ' in ' + framing.bestMonths.join(', ')
             : " in the object's best months"

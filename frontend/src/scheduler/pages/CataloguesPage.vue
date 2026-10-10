@@ -194,12 +194,13 @@ const pickLinks = computed(() =>
 )
 
 function addFor(e: CatalogueEntry, subject?: string) {
-  const mosaic = e.fit.panels > 1
+  const fit = e.fit
+  const mosaic = !!fit && fit.panels > 1
   return addLink(e.object, mosaic ? 'mosaic' : 'frame', {
     rotation: e.object.pa || undefined,
-    panels: mosaic ? e.fit.panels : undefined,
-    cols: mosaic ? e.fit.columns : undefined,
-    rows: mosaic ? e.fit.rows : undefined,
+    panels: mosaic ? fit.panels : undefined,
+    cols: mosaic ? fit.columns : undefined,
+    rows: mosaic ? fit.rows : undefined,
     subject,
   })
 }
@@ -336,9 +337,11 @@ async function decide(m: ReviewItem, after: Decision) {
             <span class="muted">
               · {{ typeLabel(pick.object.type) }} · {{ size(pick.object) }} ·
               {{
-                pick.fit.panels > 1
-                  ? pick.fit.panels + ' panels'
-                  : Math.round(pick.fit.fill * 100) + '% of the frame'
+                !pick.fit
+                  ? 'fit unknown until the rig is measured'
+                  : pick.fit.panels > 1
+                    ? pick.fit.panels + ' panels'
+                    : Math.round(pick.fit.fill * 100) + '% of the frame'
               }}
             </span>
           </span>

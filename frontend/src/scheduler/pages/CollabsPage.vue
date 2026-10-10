@@ -174,7 +174,7 @@ function chart(c: Collab) {
 function regionLabel(c: Collab): string {
   const r = c.region
   const near = c.near ? ' around ' + c.near : ''
-  return `Collaboration region, ${r.width.toFixed(2)} by ${r.height.toFixed(2)} degrees${near}, with your frame at the requested camera angle covering about ${Math.round(c.coverage * 100)} percent of it`
+  return `Collaboration region, ${r.width.toFixed(2)} by ${r.height.toFixed(2)} degrees${near}${c.coverage === null ? ', your coverage not measured' : `, with your frame at the requested camera angle covering about ${Math.round(c.coverage * 100)} percent of it`}`
 }
 
 function altLabel(c: Collab): string {
@@ -358,7 +358,9 @@ function bestMonths(c: Collab) {
                 {{
                   c.kind === 'mosaic'
                     ? `${c.panels} frames (${c.columns} × ${c.rows})`
-                    : `≈ ${Math.round(c.coverage * 100)}% in one frame`
+                    : c.coverage === null
+                      ? 'not measured'
+                      : `≈ ${Math.round(c.coverage * 100)}% in one frame`
                 }}
               </dd>
             </div>

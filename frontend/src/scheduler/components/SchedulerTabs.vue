@@ -736,11 +736,21 @@ function numInput(e: Event): number {
                   fg.progress
                     ? mode === 'depth'
                       ? fg.progress.depth
-                        ? r1(fg.progress.depth)
+                        ? (fg.progress.depthApprox ? '≈ ' : '') + r1(fg.progress.depth)
                         : '—'
                       : r1(fg.progress.snr)
                     : '—'
                 }}</strong>
+                <span
+                  v-if="mode === 'depth' && fg.progress?.depthBand"
+                  class="xsmall muted"
+                  :title="
+                    fg.progress.depthApprox
+                      ? 'Approximate: narrowband depth is estimated from Gaia XP spectra'
+                      : undefined
+                  "
+                  >{{ fg.progress.depthBand }}</span
+                >
                 <span class="muted">of</span>
                 <label :for="'goal-' + fg.filter" class="sr-only"
                   >{{ fg.filter }} {{ mode === 'depth' ? 'depth goal' : 'faint SNR goal' }}</label

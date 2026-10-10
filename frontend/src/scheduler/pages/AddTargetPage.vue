@@ -382,8 +382,8 @@ function back() {
   step.value = Math.max(1, step.value - 1)
 }
 
-const frameW = computed(() => snap.value?.frame?.widthDeg || 3.32)
-const frameH = computed(() => snap.value?.frame?.heightDeg || 2.22)
+const frameW = computed(() => snap.value?.frame?.widthDeg || null)
+const frameH = computed(() => snap.value?.frame?.heightDeg || null)
 
 const panels = computed<PanelDraft[]>(() => {
   const o = pick.value?.object
@@ -729,8 +729,12 @@ function goStep(i: number) {
           {{ step === 2 ? 'Frame ' + (pick ? label(pick.object) : '') : 'Mosaic plan' }}
         </h2>
         <span v-if="pick" class="xsmall muted"
-          >RA {{ (pick.object.ra / 15).toFixed(3) }} h · Dec {{ pick.object.dec.toFixed(2) }}° · one
-          frame is {{ frameW.toFixed(2) }}° × {{ frameH.toFixed(2) }}°</span
+          >RA {{ (pick.object.ra / 15).toFixed(3) }} h · Dec {{ pick.object.dec.toFixed(2) }}° ·
+          {{
+            frameW && frameH
+              ? `one frame is ${frameW.toFixed(2)}° × ${frameH.toFixed(2)}°`
+              : 'frame size unknown until the rig is measured'
+          }}</span
         >
       </div>
       <FramePlanner
