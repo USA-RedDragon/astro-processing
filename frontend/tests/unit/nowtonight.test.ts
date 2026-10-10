@@ -62,7 +62,7 @@ describe('conditions', () => {
     )
   })
 
-  it('shows the power state without load or watts', () => {
+  it('shows the power state and the runtime the UPS reports', () => {
     expect(powerView({ source: 'none', on_battery: false, low_battery: false })).toBeNull()
     const on = powerView({
       source: 'prometheus',
@@ -71,10 +71,11 @@ describe('conditions', () => {
       flags: ['OL'],
       charge: 100,
       model: 'CyberPower EC450G',
-      shutdown_seconds: 60,
+      runtime_seconds: 4300,
     })!
     expect(on.label).toBe('On line')
     expect(on.alert).toBe('')
+    expect(on.runtime).toBe('1 h 12 min')
     const ob = powerView({
       source: 'prometheus',
       on_battery: true,
@@ -82,11 +83,11 @@ describe('conditions', () => {
       flags: ['OB'],
       charge: 90,
       on_battery_seconds: 23 * 60,
-      shutdown_seconds: 3600,
       input_voltage: 0,
     })!
     expect(ob.label).toBe('On battery')
-    expect(ob.alert).toBe('On battery 0:23 · shutdown in 0:37')
+    expect(ob.alert).toBe('On battery 0:23')
+    expect(ob.runtime).toBe('')
     expect(ob.voltage).toBe('Input 0 V')
   })
 

@@ -13,7 +13,7 @@ import type {
   MountReport,
 } from './api/scheduler'
 import { SITE_TZ, hm, shortDate } from './format'
-import { ms, timeByTarget, type Tone } from './plan'
+import { duration, ms, timeByTarget, type Tone } from './plan'
 
 export interface Row {
   label: string
@@ -116,7 +116,7 @@ export interface PowerView {
   charge: string
   model: string
   alert: string
-  shutdown: string
+  runtime: string
   voltage: string
 }
 
@@ -127,10 +127,6 @@ export function powerView(p: PowerReport | undefined): PowerView | null {
   if (onBattery) {
     const on = p.on_battery_seconds
     alert = on !== undefined ? `On battery ${hmDuration(on)}` : 'On battery'
-    if (p.shutdown_seconds && on !== undefined) {
-      const left = p.shutdown_seconds - on
-      alert += left > 0 ? ` · shutdown in ${hmDuration(left)}` : ' · shutdown due'
-    }
   }
   return {
     label: onBattery
@@ -141,12 +137,10 @@ export function powerView(p: PowerReport | undefined): PowerView | null {
         ? 'On line'
         : 'Unknown',
     tone: onBattery ? (p.low_battery ? 'bad' : 'warn') : p.flags?.includes('OL') ? 'ok' : '',
-    charge: p.charge !== undefined ? `${Math.round(p.charge)}%` : '—',
+    charge: p.charge !== undefined ? `${Math.round(p.charge)}%` : 'Charge not reported',
     model: p.model ?? '',
     alert,
-    shutdown: p.shutdown_seconds
-      ? `${p.shutdown_seconds} s on battery → park → Powerbox off → shutdown`
-      : '',
+    runtime: p.runtime_seconds !== undefined ? duration(p.runtime_seconds) : '',
     voltage:
       onBattery && p.input_voltage !== undefined ? `Input ${Math.round(p.input_voltage)} V` : '',
   }

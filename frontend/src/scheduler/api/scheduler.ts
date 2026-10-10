@@ -284,10 +284,10 @@ export interface PowerReport extends SourceState {
   charge?: number
   input_voltage?: number
   flags?: string[]
-  on_battery: boolean
-  low_battery: boolean
+  on_battery?: boolean
+  low_battery?: boolean
   on_battery_seconds?: number
-  shutdown_seconds?: number
+  runtime_seconds?: number
 }
 
 export interface SyncReport extends SourceState {

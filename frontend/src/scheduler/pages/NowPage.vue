@@ -1334,17 +1334,9 @@ const cross = (x: number, y: number, r: number) =>
           <div v-if="power.alert" role="status" class="battery-alert num">
             {{ power.alert }}<template v-if="power.voltage"> · {{ power.voltage }}</template>
           </div>
-          <details v-if="power.shutdown" class="small">
-            <summary>
-              <span style="font-weight: 500">Auto-shutdown armed</span>
-              <span class="muted">· {{ power.shutdown }}</span>
-            </summary>
-            <p class="xsmall muted" style="margin: 0.5rem 0 0">
-              After {{ conditions?.power.shutdown_seconds }} s on battery NINA parks the mount, the
-              Powerbox switches its outputs off, then Windows shuts down. While on battery this card
-              also shows the input voltage. The UPS reports no load or runtime, so neither is shown.
-            </p>
-          </details>
+          <p v-if="power.runtime" class="small muted num" style="margin: 0">
+            Runtime the UPS reports: {{ power.runtime }}
+          </p>
         </template>
         <p v-else class="empty" style="padding: 0">{{ powerEmpty }}</p>
       </section>
