@@ -17,8 +17,9 @@
               <span class="font-medium ml-2">Dec:</span> {{ target.dec != null ? formatDec(target.dec) : '' }}
               <span class="ml-2">({{ target.epoch }})</span>
             </p>
-            <p v-if="target.rotation !== null" class="text-xs text-muted-foreground">
-              <span class="font-medium">Rotation:</span> {{ target.rotation.toFixed(1) }}°
+            <p class="text-xs text-muted-foreground">
+              <span class="font-medium">Rotation:</span>
+              {{ target.rotation != null ? target.rotation.toFixed(1) + '°' : 'not set' }}
             </p>
             <p v-if="target.stats?.last_image_date" class="text-xs text-muted-foreground">
               <span class="font-medium">Last Image:</span> {{ formatDate(target.stats.last_image_date) }}

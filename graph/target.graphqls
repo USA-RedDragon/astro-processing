@@ -29,7 +29,7 @@ type Target {
   ra: Float
   dec: Float
   epoch: Epoch!
-  rotation: Float!
+  rotation: Float
   region_of_interest: Float!
   project: Project
   stats: TargetStats!

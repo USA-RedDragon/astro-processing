@@ -44,7 +44,7 @@ type Target struct {
 	RA               *float64 `json:"ra" gorm:"column:ra"`
 	Dec              *float64 `json:"dec" gorm:"column:dec"`
 	EpochCode        Epoch    `json:"epoch_code" gorm:"column:epochcode;not null"`
-	Rotation         float64  `json:"rotation" gorm:"column:rotation"`
+	Rotation         *float64 `json:"rotation" gorm:"column:rotation"`
 	RegionOfInterest float64  `json:"region_of_interest" gorm:"column:roi"`
 	ProjectID        *int     `json:"project_id" gorm:"column:projectid"`
 	Project          *Project `json:"project,omitempty" gorm:"foreignKey:ProjectID;references:ID"`

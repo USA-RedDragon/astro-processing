@@ -333,7 +333,7 @@ type Target struct {
 	Ra               *float64     `json:"ra,omitempty"`
 	Dec              *float64     `json:"dec,omitempty"`
 	Epoch            Epoch        `json:"epoch"`
-	Rotation         float64      `json:"rotation"`
+	Rotation         *float64     `json:"rotation,omitempty"`
 	RegionOfInterest float64      `json:"region_of_interest"`
 	Project          *Project     `json:"project,omitempty"`
 	Stats            *TargetStats `json:"stats"`

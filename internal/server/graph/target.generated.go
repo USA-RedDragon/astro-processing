@@ -1315,11 +1315,11 @@ func (ec *executionContext) _Target_rotation(ctx context.Context, field graphql.
 			return obj.Rotation, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
-			return ec.marshalNFloat2float64(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
 		},
 		true,
-		true,
+		false,
 	)
 }
 func (ec *executionContext) fieldContext_Target_rotation(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
@@ -2225,7 +2225,7 @@ func (ec *executionContext) _Target(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "rotation":
 			out.Values[i] = ec._Target_rotation(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
+			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "region_of_interest":
