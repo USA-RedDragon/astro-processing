@@ -202,7 +202,7 @@ const waitingLabel = computed(() => {
       </label>
       <label for="h-obj" class="field grow">
         <span>Project, target or template</span>
-        <input id="h-obj" v-model="q" type="search" class="input" placeholder="Cygnis Loop" />
+        <input id="h-obj" v-model="q" type="search" class="input" placeholder="Search changes" />
       </label>
       <button type="button" class="btn link small" style="height: 2.25rem" @click="clear">
         Clear filters
