@@ -248,6 +248,7 @@ type Object struct {
 	Nights     int32   `json:"nights"`
 	FirstNight *string `json:"first_night"`
 	LastNight  *string `json:"last_night"`
+	Recorded   int32   `json:"recorded"`
 	Scheduled  bool    `json:"scheduled"`
 }
 

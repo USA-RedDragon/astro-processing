@@ -124,7 +124,11 @@ func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterM
 	return out, nil
 }
 
+func isOther(o workerclient.Object) bool {
+	return !o.Scheduled && o.Recorded < o.Lights
+}
+
 func graphObject(o workerclient.Object) *model.OtherTarget {
-	return &model.OtherTarget{Name: o.Name, Lights: o.Lights, Stacked: o.Stacked, Nights: o.Nights,
+	return &model.OtherTarget{Name: o.Name, Lights: o.Lights, Recorded: o.Recorded, Stacked: o.Stacked, Nights: o.Nights,
 		FirstNight: o.FirstNight, LastNight: o.LastNight}
 }

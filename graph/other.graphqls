@@ -1,13 +1,15 @@
 extend type Query {
-  "Targets with lights that Target Scheduler has no record of, such as comets and targets imaged before it. Empty when the worker is not configured."
+  "Objects with lights that Target Scheduler did not record and no Target Scheduler target, linked or of the same name, such as comets and targets imaged before it. Empty when the worker is not configured."
   otherTargets: [OtherTarget!]!
   otherTarget(name: String!): OtherTarget
 }
 
-"A target imaged outside Target Scheduler, known only from its files."
+"An object with no Target Scheduler target, known from its files."
 type OtherTarget {
   name: String!
   lights: Int!
+  "Lights Target Scheduler recorded: a target GUID in the header or an acquired image row for the file."
+  recorded: Int!
   "Lights in its masters."
   stacked: Int!
   nights: Int!

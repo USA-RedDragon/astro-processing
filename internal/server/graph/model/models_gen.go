@@ -191,10 +191,12 @@ type Mosaic struct {
 	Crop *Crop `json:"crop,omitempty"`
 }
 
-// A target imaged outside Target Scheduler, known only from its files.
+// An object with no Target Scheduler target, known from its files.
 type OtherTarget struct {
 	Name   string `json:"name"`
 	Lights int32  `json:"lights"`
+	// Lights Target Scheduler recorded: a target GUID in the header or an acquired image row for the file.
+	Recorded int32 `json:"recorded"`
 	// Lights in its masters.
 	Stacked    int32           `json:"stacked"`
 	Nights     int32           `json:"nights"`

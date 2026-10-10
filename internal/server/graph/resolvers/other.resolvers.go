@@ -48,7 +48,7 @@ func (r *queryResolver) OtherTargets(ctx context.Context) ([]*model.OtherTarget,
 	}
 	out := []*model.OtherTarget{}
 	for _, o := range objects {
-		if !o.Scheduled {
+		if isOther(o) {
 			out = append(out, graphObject(o))
 		}
 	}
@@ -65,7 +65,7 @@ func (r *queryResolver) OtherTarget(ctx context.Context, name string) (*model.Ot
 		return nil, fmt.Errorf("failed to list targets: %w", err)
 	}
 	for _, o := range objects {
-		if o.Name == name && !o.Scheduled {
+		if o.Name == name && isOther(o) {
 			return graphObject(o), nil
 		}
 	}

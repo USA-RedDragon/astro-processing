@@ -173,6 +173,7 @@ type ComplexityRoot struct {
 		Masters    func(childComplexity int) int
 		Name       func(childComplexity int) int
 		Nights     func(childComplexity int) int
+		Recorded   func(childComplexity int) int
 		Stacked    func(childComplexity int) int
 	}
 
@@ -973,6 +974,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.OtherTarget.Nights(childComplexity), true
+	case "OtherTarget.recorded":
+		if e.ComplexityRoot.OtherTarget.Recorded == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OtherTarget.Recorded(childComplexity), true
 	case "OtherTarget.stacked":
 		if e.ComplexityRoot.OtherTarget.Stacked == nil {
 			break
@@ -1861,15 +1868,17 @@ extend type Query {
 }
 `, BuiltIn: false},
 	{Name: "../../../graph/other.graphqls", Input: `extend type Query {
-  "Targets with lights that Target Scheduler has no record of, such as comets and targets imaged before it. Empty when the worker is not configured."
+  "Objects with lights that Target Scheduler did not record and no Target Scheduler target, linked or of the same name, such as comets and targets imaged before it. Empty when the worker is not configured."
   otherTargets: [OtherTarget!]!
   otherTarget(name: String!): OtherTarget
 }
 
-"A target imaged outside Target Scheduler, known only from its files."
+"An object with no Target Scheduler target, known from its files."
 type OtherTarget {
   name: String!
   lights: Int!
+  "Lights Target Scheduler recorded: a target GUID in the header or an acquired image row for the file."
+  recorded: Int!
   "Lights in its masters."
   stacked: Int!
   nights: Int!
@@ -2415,6 +2424,8 @@ func (ec *executionContext) childFields_OtherTarget(ctx context.Context, field g
 		return ec.fieldContext_OtherTarget_name(ctx, field)
 	case "lights":
 		return ec.fieldContext_OtherTarget_lights(ctx, field)
+	case "recorded":
+		return ec.fieldContext_OtherTarget_recorded(ctx, field)
 	case "stacked":
 		return ec.fieldContext_OtherTarget_stacked(ctx, field)
 	case "nights":

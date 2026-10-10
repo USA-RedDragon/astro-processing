@@ -75,6 +75,29 @@ func (ec *executionContext) fieldContext_OtherTarget_lights(_ context.Context, f
 	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
+func (ec *executionContext) _OtherTarget_recorded(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OtherTarget_recorded(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Recorded, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OtherTarget_recorded(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _OtherTarget_stacked(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -262,6 +285,11 @@ func (ec *executionContext) _OtherTarget(ctx context.Context, sel ast.SelectionS
 			}
 		case "lights":
 			out.Values[i] = ec._OtherTarget_lights(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "recorded":
+			out.Values[i] = ec._OtherTarget_recorded(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
