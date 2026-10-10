@@ -206,21 +206,80 @@ export interface TonightSub {
   height?: number | null
 }
 
-export interface HFRLimit {
-  target_id: number
+export interface GraderHfrSettings {
+  project_grading: boolean
+  enabled: boolean
+  sigma_factor: number
+  auto_accept_level?: number
+  accept_improvement: boolean
+  max_sample_size: number
+  delay_threshold_percent: number
+  mode: 'immediate' | 'delayed'
+}
+
+export type GraderPlanState =
+  | 'limit'
+  | 'project_grading_off'
+  | 'hfr_grading_off'
+  | 'no_images'
+  | 'too_few_samples'
+  | 'invalid_samples'
+
+export interface GraderPlanLimit {
+  plan_id: number
   filter: string
-  mean: number
-  sd: number
+  exposure_seconds: number
+  state: GraderPlanState
+  acquired: number
+  matching: number
   samples: number
-  limit: number
+  reference_image_id?: number
+  reference_at?: string
+  reference_exposure?: number
+  gain?: number
+  offset?: number
+  binning?: string
+  roi?: number
+  mean?: number
+  sd?: number
+  lower?: number
+  upper?: number
+  reject_above?: number
+  reject_below?: number
+  zero_rejected?: boolean
+  invalid_samples?: number
+  population_rule?: string
+}
+
+export interface GraderReport {
+  generated_at?: string
+  project_id: number
+  target_id: number
+  target_name: string
+  hfr?: GraderHfrSettings
+  plans: GraderPlanLimit[]
+}
+
+export interface GraderTarget {
+  target_id: number
+  source: 'plugin' | 'last_known'
+  fetched_at: string
+  error?: string
+  report: GraderReport | null
+}
+
+export interface GraderSummary {
+  state: 'ok' | 'unsupported' | 'unreachable' | 'unconfigured' | 'error'
+  note?: string
+  version?: string
+  targets: GraderTarget[]
 }
 
 export interface TonightSubs {
   since: string
   subs: TonightSub[]
   latest?: TonightSub
-  hfr_sigma?: number
-  hfr_limits?: HFRLimit[]
+  grader?: GraderSummary
 }
 
 export type ConditionSource = 'none' | 'error' | 'prometheus' | 'symmetricds'

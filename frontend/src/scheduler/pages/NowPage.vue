@@ -41,7 +41,9 @@ import PageHead from '../components/PageHead.vue'
 import {
   conditionPills,
   hasData,
+  filterRuns,
   hfrLimitFor,
+  rejectLineText,
   hmDuration,
   moonLine,
   noSourceText,
@@ -422,16 +424,17 @@ const chartRange = computed<[number, number]>(() => {
 const hfrBox = { x0: 56, x1: 1180, yTop: 20, yBottom: 190 }
 const rmsBox = { x0: 56, x1: 1180, yTop: 8, yBottom: 70 }
 const curId = computed(() => target.value?.target_id ?? latest.value?.target_id)
-const hfrLimit = computed(() =>
-  hfrLimitFor(
-    subs.value?.hfr_limits,
+const graderView = computed(() => {
+  const live = target.value && exposure.value && target.value.target_id === curId.value
+  return hfrLimitFor(
+    subs.value?.grader,
     allSubs.value,
     curId.value,
-    target.value && exposure.value && target.value.target_id === curId.value
-      ? exposure.value.filter
-      : undefined,
-  ),
-)
+    live ? exposure.value?.filter : undefined,
+    live ? exposure.value?.plan_id : undefined,
+  )
+})
+const hfrLimit = computed(() => graderView.value.line)
 const hfr = computed(() =>
   subChart(
     allSubs.value,
@@ -447,6 +450,19 @@ const hfr = computed(() =>
   ),
 )
 const rejectY = computed(() => (hfrLimit.value ? hfr.value.y(hfrLimit.value.limit) : null))
+const rejectSegments = computed(() => {
+  const l = hfrLimit.value
+  if (!l || curId.value === undefined) return []
+  const [t0, t1] = chartRange.value
+  const x = (t: number) => hfrBox.x0 + ((t - t0) / (t1 - t0)) * (hfrBox.x1 - hfrBox.x0)
+  const list = allSubs.value
+  const lastSub = list[list.length - 1]
+  const shooting = exposure.value?.filter === l.filter && lastSub?.filter === l.filter
+  return filterRuns(list, curId.value, l.filter).map(([a, b], i, runs) => ({
+    x1: Math.max(hfrBox.x0, x(a) - 6),
+    x2: Math.min(hfrBox.x1, i === runs.length - 1 && shooting ? nowX.value : x(b) + 6),
+  }))
+})
 const rms = computed(() =>
   subChart(
     allSubs.value,
@@ -1053,17 +1069,24 @@ const cross = (x: number, y: number, r: number) =>
               stroke-dasharray="2 3"
               opacity="0.6"
             />
-            <template v-if="rejectY !== null && hfrLimit">
+            <template v-if="rejectY !== null && hfrLimit && rejectSegments.length">
               <line
-                :x1="hfrBox.x0"
+                v-for="(r, i) in rejectSegments"
+                :key="'rj' + i"
+                :x1="r.x1"
                 :y1="rejectY"
-                :x2="hfrBox.x1"
+                :x2="r.x2"
                 :y2="rejectY"
                 stroke="var(--warn)"
                 stroke-width="1.5"
                 stroke-dasharray="6 4"
               />
-              <text :x="hfrBox.x0 + 6" :y="rejectY - 6" font-size="11" fill="var(--warn)">
+              <text
+                :x="rejectSegments[0].x1 + 6"
+                :y="rejectY - 6"
+                font-size="11"
+                fill="var(--warn)"
+              >
                 reject above {{ hfrLimit.limit.toFixed(2) }} px
               </text>
             </template>
@@ -1218,12 +1241,9 @@ const cross = (x: number, y: number, r: number) =>
         <span v-if="hfrLimit" class="legend"
           ><svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true">
             <path d="M1 7h16" stroke="var(--warn)" stroke-width="1.5" stroke-dasharray="6 4" /></svg
-          >Grader's HFR limit for {{ filterName(hfrLimit.filter) }}: mean of
-          {{ hfrLimit.samples }} accepted subs + {{ subs?.hfr_sigma }}σ</span
+          >{{ rejectLineText(hfrLimit) }}</span
         >
-        <span v-else-if="subs && subs.hfr_sigma === undefined"
-          >The grader's HFR check is off, so there is no reject line.</span
-        >
+        <span v-else-if="graderView.note">{{ graderView.note }}</span>
       </div>
     </section>
 

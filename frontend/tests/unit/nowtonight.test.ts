@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type {
   Conditions,
+  GraderPlanLimit,
+  GraderSummary,
   MoonNight,
   Preview,
   SchedProject,
@@ -8,7 +10,9 @@ import type {
 } from '@/scheduler/api/scheduler'
 import {
   conditionPills,
+  filterRuns,
   hfrLimitFor,
+  rejectLineText,
   moonLine,
   moonPhaseText,
   mosaicBalance,
@@ -132,9 +136,7 @@ describe('moon', () => {
     next_full: '2026-10-25T00:00:00Z',
   }
   it('describes rise and set inside the night', () => {
-    expect(moonLine(m, Date.parse(t(1)), Date.parse(t(11)))).toBe(
-      'Moon 1%, rises 04:00.',
-    )
+    expect(moonLine(m, Date.parse(t(1)), Date.parse(t(11)))).toBe('Moon 1%, rises 04:00.')
     expect(moonLine(m, Date.parse(t(1)), Date.parse(t(7)))).toBe(
       'Moon 1%, below the horizon all night.',
     )
@@ -155,18 +157,100 @@ describe('moon', () => {
 
 describe('reject line', () => {
   const subs = [
-    { target_id: 5, filter: 'Red' },
-    { target_id: 5, filter: 'H-a' },
+    { target_id: 5, filter: 'Red', time: t(2) },
+    { target_id: 5, filter: 'Red', time: t(2, 10) },
+    { target_id: 5, filter: 'H-a', time: t(2, 20) },
+    { target_id: 7, filter: 'Red', time: t(2, 30) },
+    { target_id: 5, filter: 'Red', time: t(2, 40) },
   ] as TonightSub[]
-  const limits = [
-    { target_id: 5, filter: 'Red', mean: 2, sd: 0.1, samples: 10, limit: 2.4 },
-    { target_id: 5, filter: 'H-a', mean: 1.8, sd: 0.1, samples: 10, limit: 2.2 },
-  ]
-  it('uses the current filter, else the last sub', () => {
-    expect(hfrLimitFor(limits, subs, 5)?.limit).toBe(2.2)
-    expect(hfrLimitFor(limits, subs, 5, 'Red')?.limit).toBe(2.4)
-    expect(hfrLimitFor(limits, subs, 6)).toBeNull()
-    expect(hfrLimitFor([], subs, 5)).toBeNull()
+  const hfr = {
+    project_grading: true,
+    enabled: true,
+    sigma_factor: 4,
+    accept_improvement: true,
+    max_sample_size: 10,
+    delay_threshold_percent: 0,
+    mode: 'immediate' as const,
+  }
+  const plan = (
+    id: number,
+    filter: string,
+    extra: Partial<GraderPlanLimit> = {},
+  ): GraderPlanLimit => ({
+    plan_id: id,
+    filter,
+    exposure_seconds: 300,
+    state: 'limit',
+    acquired: 60,
+    matching: 52,
+    samples: 9,
+    mean: 1.8,
+    sd: 0.07,
+    upper: 2.08,
+    reject_above: 2.08,
+    population_rule: 'the 9 newest of 52 subs',
+    ...extra,
+  })
+  const grader = (extra: Partial<GraderSummary> = {}): GraderSummary => ({
+    state: 'ok',
+    targets: [
+      {
+        target_id: 5,
+        source: 'plugin',
+        fetched_at: t(3),
+        report: {
+          project_id: 1,
+          target_id: 5,
+          target_name: 'M31',
+          hfr,
+          plans: [plan(1, 'Red', { reject_above: 2.4 }), plan(2, 'H-a', { reject_above: 2.2 })],
+        },
+      },
+    ],
+    ...extra,
+  })
+  it('uses the current plan, else the current filter, else the last sub', () => {
+    expect(hfrLimitFor(grader(), subs, 5).line?.limit).toBe(2.4)
+    expect(hfrLimitFor(grader(), subs, 5, 'H-a').line?.limit).toBe(2.2)
+    expect(hfrLimitFor(grader(), subs, 5, 'Red', 2).line?.limit).toBe(2.2)
+    expect(hfrLimitFor(grader(), subs, 6).line).toBeNull()
+    expect(hfrLimitFor(undefined, subs, 5)).toEqual({ line: null, note: '' })
+  })
+  it('says why there is no line', () => {
+    expect(
+      hfrLimitFor(grader({ state: 'unsupported', version: '5.8.2.202', targets: [] }), subs, 5)
+        .note,
+    ).toBe('Grader limit not reported by this plugin version (5.8.2.202).')
+    expect(hfrLimitFor(grader({ state: 'unreachable', targets: [] }), subs, 5).note).toMatch(
+      /^Plugin unreachable/,
+    )
+    const few = grader()
+    few.targets[0].report!.plans[0] = plan(1, 'Red', {
+      state: 'too_few_samples',
+      samples: 2,
+      reject_above: undefined,
+    })
+    expect(hfrLimitFor(few, subs, 5, 'Red').note).toBe(
+      'The grader has 2 matching Red subs to compare against and accepts every sub until it has 3.',
+    )
+  })
+  it('describes the plugin limit and its basis', () => {
+    const line = hfrLimitFor(grader(), subs, 5, 'H-a').line!
+    expect(rejectLineText(line)).toBe(
+      "Grader's HFR limit for H-a: mean 1.80 px + 4σ (σ 0.070 px) of the 9 newest of 52 subs; any HFR below the mean is accepted.",
+    )
+    const old = grader()
+    old.targets[0].source = 'last_known'
+    old.targets[0].error = 'plugin unreachable'
+    expect(rejectLineText(hfrLimitFor(old, subs, 5, 'H-a').line!)).toMatch(
+      /Plugin unreachable: last known from \d\d:\d\d \(plugin unreachable\)\.$/,
+    )
+  })
+  it('finds the runs of one filter', () => {
+    expect(filterRuns(subs, 5, 'Red')).toEqual([
+      [Date.parse(t(2)), Date.parse(t(2, 10))],
+      [Date.parse(t(2, 40)), Date.parse(t(2, 40))],
+    ])
   })
 })
 

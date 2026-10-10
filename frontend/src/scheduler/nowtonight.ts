@@ -1,6 +1,8 @@
 import type {
   Conditions,
-  HFRLimit,
+  GraderHfrSettings,
+  GraderPlanLimit,
+  GraderSummary,
   MoonNight,
   PlanBlock,
   PowerReport,
@@ -13,7 +15,7 @@ import type {
   MountReport,
 } from './api/scheduler'
 import { SITE_TZ, hm, shortDate } from './format'
-import { duration, ms, timeByTarget, type Tone } from './plan'
+import { duration, filterName, ms, timeByTarget, type Tone } from './plan'
 
 export interface Row {
   label: string
@@ -266,16 +268,137 @@ export function moonPhaseText(m: MoonNight | null): string {
   return parts.join(' · ')
 }
 
+export interface RejectLine {
+  limit: number
+  filter: string
+  plan: GraderPlanLimit
+  hfr: GraderHfrSettings
+  source: 'plugin' | 'last_known'
+  fetchedAt: string
+  error?: string
+}
+
+export interface GraderView {
+  line: RejectLine | null
+  note: string
+}
+
+function planNote(p: GraderPlanLimit): string {
+  const f = filterName(p.filter)
+  switch (p.state) {
+    case 'project_grading_off':
+      return "This project doesn't use the grader, so every sub is accepted and there is no reject line."
+    case 'hfr_grading_off':
+      return "The grader's HFR check is off, so there is no reject line."
+    case 'no_images':
+      return `The grader has no ${f} subs for this exposure plan yet, so there is no reject line.`
+    case 'too_few_samples':
+      return `The grader has ${p.samples} matching ${f} subs to compare against and accepts every sub until it has 3.`
+    case 'invalid_samples':
+      return `${p.invalid_samples} of the grader's ${p.samples} ${f} comparison subs have no HFR, so its mean is undefined and it rejects every sub it does not auto-accept.`
+  }
+  return ''
+}
+
 export function hfrLimitFor(
-  limits: HFRLimit[] | undefined,
+  grader: GraderSummary | undefined,
   subs: TonightSub[],
   targetId: number | undefined,
   filter?: string,
-): HFRLimit | null {
-  if (!limits?.length || targetId === undefined) return null
+  planId?: number,
+): GraderView {
+  if (!grader || targetId === undefined) return { line: null, note: '' }
+  if (grader.state === 'unsupported')
+    return {
+      line: null,
+      note:
+        'Grader limit not reported by this plugin version' +
+        (grader.version ? ` (${grader.version}).` : '.'),
+    }
+  if (grader.state === 'unconfigured')
+    return {
+      line: null,
+      note: "The scheduler API is not configured, so the grader's limit is unknown.",
+    }
+  const entry = grader.targets.find((t) => t.target_id === targetId)
+  if (!entry?.report) {
+    if (grader.state === 'unreachable')
+      return {
+        line: null,
+        note: 'Plugin unreachable, and no grader limit was received from it earlier.',
+      }
+    if (grader.state === 'error')
+      return {
+        line: null,
+        note: `Could not read the grader limit from the plugin: ${grader.note ?? ''}`,
+      }
+    return { line: null, note: '' }
+  }
   const want = filter ?? [...subs].reverse().find((s) => s.target_id === targetId)?.filter
-  if (!want) return null
-  return limits.find((l) => l.target_id === targetId && l.filter === want) ?? null
+  const plans = entry.report.plans
+  const plan =
+    (planId !== undefined ? plans.find((p) => p.plan_id === planId) : undefined) ??
+    plans
+      .filter((p) => p.filter === want)
+      .sort((a, b) => (b.reference_at ?? '').localeCompare(a.reference_at ?? ''))[0]
+  if (!plan) {
+    return {
+      line: null,
+      note: want ? `The plugin reported no ${filterName(want)} exposure plan for this target.` : '',
+    }
+  }
+  const hfr = entry.report.hfr
+  if (plan.state !== 'limit' || plan.reject_above === undefined || !hfr)
+    return { line: null, note: planNote(plan) }
+  return {
+    line: {
+      limit: plan.reject_above,
+      filter: plan.filter,
+      plan,
+      hfr,
+      source: entry.source,
+      fetchedAt: entry.fetched_at,
+      error: entry.error,
+    },
+    note: '',
+  }
+}
+
+export function rejectLineText(l: RejectLine): string {
+  const p = l.plan
+  const parts = [
+    `Grader's HFR limit for ${filterName(l.filter)}: mean ${p.mean?.toFixed(2)} px + ${l.hfr.sigma_factor}σ (σ ${p.sd?.toFixed(3)} px) of ${p.population_rule ?? `${p.samples} subs`}`,
+  ]
+  if (l.hfr.auto_accept_level !== undefined)
+    parts.push(`HFR at or below ${l.hfr.auto_accept_level} px is always accepted`)
+  if (l.hfr.accept_improvement) parts.push('any HFR below the mean is accepted')
+  else if (p.reject_below !== undefined)
+    parts.push(`it also rejects below ${p.reject_below.toFixed(2)} px`)
+  let text = parts.join('; ') + '.'
+  if (l.source === 'last_known')
+    text += ` Plugin unreachable: last known from ${hm(l.fetchedAt)}${l.error ? ` (${l.error})` : ''}.`
+  return text
+}
+
+export function filterRuns(
+  subs: TonightSub[],
+  targetId: number,
+  filter: string,
+): Array<[number, number]> {
+  const runs: Array<[number, number]> = []
+  let open: [number, number] | null = null
+  for (const s of subs) {
+    const t = ms(s.time)
+    if (isNaN(t)) continue
+    if (s.target_id === targetId && s.filter === filter) {
+      if (open) open[1] = t
+      else {
+        open = [t, t]
+        runs.push(open)
+      }
+    } else open = null
+  }
+  return runs
 }
 
 export interface BalanceWarning {
