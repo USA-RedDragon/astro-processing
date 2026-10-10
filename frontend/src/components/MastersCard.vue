@@ -5,8 +5,15 @@
     </CardHeader>
     <CardContent>
       <p class="text-sm text-muted-foreground mb-4">
-        Subs scoring at least 0.3 of the target's best, added as they arrive. The XISF opens in PixInsight
-        upright and plate solved.
+        <template v-if="minScore != null">
+          The stacker adds a sub as it arrives when its score is at least {{ minScore }} &times; the best score
+          of its target in that filter.
+        </template>
+        <template v-if="scoped">
+          A master holds every light named &ldquo;{{ objectName }}&rdquo; in its filter, also lights of other or no
+          Target Scheduler targets.
+        </template>
+        The XISF opens in PixInsight upright and plate solved.
       </p>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div v-for="m in masters" :key="m.filter" class="rounded-md border overflow-hidden">
@@ -50,6 +57,13 @@
             <div class="tabular-nums">
               {{ m.effective_hours.toFixed(1) }} h effective
               <span class="text-muted-foreground">&middot; {{ m.exposure_hours.toFixed(1) }} h total</span>
+            </div>
+            <div v-if="m.lowest_score != null" class="text-xs text-muted-foreground tabular-nums">
+              {{ m.subs }} subs, scores &ge; {{ m.lowest_score.toFixed(2) }} as stacked
+            </div>
+            <div v-if="m.object_lights != null" class="text-xs text-muted-foreground tabular-nums">
+              {{ m.subs }} of {{ m.object_lights }} lights named &ldquo;{{ objectName }}&rdquo;;
+              {{ m.target_subs }} from this target
             </div>
             <div class="text-xs text-muted-foreground">Updated {{ formatDate(Date.parse(m.updated_at) / 1000) }}</div>
             <div class="flex flex-wrap gap-2 mt-1">
@@ -115,7 +129,10 @@ export default {
       type: Array as PropType<FilterMaster[]>,
       required: true,
     },
-    // Filters being stacked right now.
+    objectName: {
+      type: String,
+      default: '',
+    },
     updating: {
       type: Array as PropType<string[]>,
       default: () => [],
@@ -148,6 +165,14 @@ export default {
           img.src = m.preview_url;
         }
       },
+    },
+  },
+  computed: {
+    minScore(): number | null {
+      return this.masters.find((m) => m.min_score != null)?.min_score ?? null;
+    },
+    scoped(): boolean {
+      return this.objectName !== '' && this.masters.some((m) => m.object_lights != null);
     },
   },
   methods: {
