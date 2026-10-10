@@ -33,8 +33,26 @@
               <TableCell class="text-right tabular-nums">{{ r.set_temp != null ? `${r.set_temp} °C` : '' }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ r.lights }}</TableCell>
               <TableCell><Badge :variant="variant(r.flat)">{{ flatText(r.flat) }}</Badge></TableCell>
-              <TableCell><Badge :variant="variant(r.dark)">{{ darkText(r.dark) }}</Badge></TableCell>
-              <TableCell><Badge :variant="variant(r.bias)">{{ ageText(r.bias) }}</Badge></TableCell>
+              <TableCell>
+                <Badge :variant="variant(r.dark)">{{ darkText(r, r.dark) }}</Badge>
+                <span
+                  v-if="importedText(r.dark)"
+                  class="block text-xs text-muted-foreground"
+                  :title="importedTitle(r.dark)"
+                >
+                  {{ importedText(r.dark) }}
+                </span>
+              </TableCell>
+              <TableCell>
+                <Badge :variant="variant(r.bias)">{{ ageText(r.bias) }}</Badge>
+                <span
+                  v-if="importedText(r.bias)"
+                  class="block text-xs text-muted-foreground"
+                  :title="importedTitle(r.bias)"
+                >
+                  {{ importedText(r.bias) }}
+                </span>
+              </TableCell>
             </TableRow>
           </TableBody>
         </UiTable>
@@ -56,6 +74,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import SkeletonRows from '@/components/SkeletonRows.vue';
+import { darkText, importedText, importedTitle } from '@/lib/calibration';
 import type { CalibrationMatch, CalibrationRow } from '../graphql/graphql';
 
 export default {
@@ -116,11 +135,9 @@ export default {
       const text = this.ageText(m);
       return m.rotation_mismatch ? `${text}, other angle` : text;
     },
-    darkText(m: CalibrationMatch): string {
-      if (m.quality === 'MISSING') return 'none';
-      if (!m.scaled) return 'match';
-      return m.temp_off ? `scaled, ${m.temp_off} °C off` : 'scaled';
-    },
+    darkText,
+    importedText,
+    importedTitle,
   },
 };
 </script>
