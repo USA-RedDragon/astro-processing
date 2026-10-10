@@ -13,7 +13,7 @@
     </CardHeader>
     <CardContent>
       <p class="text-sm text-muted-foreground mb-4">
-        The panels' masters, plate solved and blended. Rebuilt 30 minutes after a panel's master last changed.
+        The panels' masters, plate solved and blended.
         Linear FITS with the astrometric solution, ready for PixInsight.
       </p>
       <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

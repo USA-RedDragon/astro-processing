@@ -6,8 +6,9 @@
     <CardContent class="space-y-4">
       <div class="flex flex-wrap items-end gap-4 text-sm">
         <label class="flex flex-col gap-1">
-          <span class="text-muted-foreground">Palette</span>
+          <span class="text-muted-foreground">Channel map</span>
           <select v-model="preset" class="border rounded-md bg-background px-2 py-1" @change="applyPreset">
+            <option value="" disabled>Choose a channel map</option>
             <option
               v-for="p in presets"
               :key="p.name"
@@ -47,7 +48,11 @@
           Save PNG
         </button>
       </div>
+      <p v-if="coverNote" class="text-xs text-muted-foreground">{{ coverNote }}</p>
       <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+      <p v-else-if="!mapping.r && !mapping.g && !mapping.b" class="text-sm text-muted-foreground">
+        Choose a channel map or set the channels to preview a mix.
+      </p>
       <p v-else-if="loading" class="text-sm text-muted-foreground">Loading linear previews…</p>
       <canvas ref="canvas" class="w-full h-auto bg-black rounded-md" />
       <p class="text-xs text-muted-foreground">
@@ -105,6 +110,10 @@ export default {
       type: Array as PropType<Mixable[]>,
       required: true,
     },
+    coverPalette: {
+      type: String,
+      default: '',
+    },
   },
   data() {
     return {
@@ -129,6 +138,12 @@ export default {
     presets(): (Preset & { available: boolean })[] {
       return PRESETS.map((p) => ({ ...p, available: [p.r, p.g, p.b].every((f) => this.filters.includes(f)) }));
     },
+    coverNote(): string {
+      if (!this.coverPalette) return '';
+      return PRESETS.some((p) => p.name === this.coverPalette)
+        ? `Starts with ${this.coverPalette}, the palette of the mosaic's cover.`
+        : `The mosaic's cover is ${this.coverPalette}; this tool has no matching channel map.`;
+    },
     canBlendHa(): boolean {
       return this.filters.includes('H-a') && this.mapping.r !== '' && this.mapping.r !== 'H-a';
     },
@@ -141,12 +156,11 @@ export default {
     linked() { this.render(); },
   },
   mounted() {
-    const first = this.presets.find((p) => p.available);
-    if (first) {
-      this.preset = first.name;
+    const cover = this.presets.find((p) => p.available && p.name === this.coverPalette);
+    if (cover) {
+      this.preset = cover.name;
       this.applyPreset();
-    } else {
-      // A single filter: show it in all three channels, as mono.
+    } else if (this.filters.length === 1) {
       const f = this.filters[0] ?? '';
       this.preset = 'Custom';
       this.mapping = { r: f, g: f, b: f };
