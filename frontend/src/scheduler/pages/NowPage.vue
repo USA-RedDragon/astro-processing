@@ -964,8 +964,9 @@ const cross = (x: number, y: number, r: number) =>
         <div>
           <h2 id="hfr-h">Star size and guiding tonight</h2>
           <p class="small muted" style="margin: 0.125rem 0 0">
-            HFR of every sub since {{ subs ? clock(subs.since) : '…' }}. The line restarts at each
-            target change; the current target is drawn bold.
+            HFR of every sub since {{ subs ? clock(subs.since) : '…'
+            }}<template v-if="subs?.since_basis">, {{ subs.since_basis }}</template>. The line
+            restarts at each target change; the current target is drawn bold.
           </p>
         </div>
         <div class="row num" style="gap: 1.5rem; align-items: flex-start">

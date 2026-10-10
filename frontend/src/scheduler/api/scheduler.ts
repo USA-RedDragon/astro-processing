@@ -302,6 +302,7 @@ export interface GraderSummary {
 
 export interface TonightSubs {
   since: string
+  since_basis?: string
   subs: TonightSub[]
   latest?: TonightSub
   latest_preview?: TonightSub
