@@ -115,8 +115,14 @@ const nightLabel = computed(() => {
 })
 
 const summary = computed(() => planSummary(preview.value))
+const spanText = computed(() => {
+  const s = summary.value
+  if (isNaN(s.start) || isNaN(s.end)) return ''
+  return `from ${hm(s.start)} to ${hm(s.end)}`
+})
 const tiles = computed(() => {
   const s = summary.value
+  const from = isNaN(s.start) ? '' : ` from ${hm(s.start)}`
   return [
     {
       label: 'Astronomical dark',
@@ -125,15 +131,23 @@ const tiles = computed(() => {
       note: isNaN(s.darkSeconds) ? 'the sun never gets 18° down' : duration(s.darkSeconds),
     },
     {
-      label: 'Planned imaging',
+      label: 'Planned imaging' + from,
       value: duration(s.imagingSeconds),
       note: `${s.targets} ${s.targets === 1 ? 'target' : 'targets'}, ${s.projects} ${s.projects === 1 ? 'project' : 'projects'}`,
     },
-    { label: 'Subs planned', value: String(s.subs), note: 'merged per target and filter' },
+    {
+      label: 'Subs planned',
+      value: String(s.subs),
+      note: s.filters.map((f) => `${f.name} ${f.subs}`).join(' · '),
+    },
     {
       label: 'Waits',
       value: String(s.waits),
-      note: s.waits ? duration(s.waitSeconds) + ' with nothing up' : 'something is up all night',
+      note: s.waits
+        ? duration(s.waitSeconds) + ' in all'
+        : from
+          ? `No waits${from.replace(' from', ' after')}`
+          : 'No waits',
     },
   ]
 })
@@ -277,15 +291,9 @@ const filterBars = computed(() => {
     .filter((b) => !isNaN(b.x) && !isNaN(b.w))
 })
 
-const legend = [
-  { label: 'Luminance', fill: 'var(--lum)' },
-  { label: 'Red', fill: 'var(--red)' },
-  { label: 'Green', fill: 'var(--green)' },
-  { label: 'Blue', fill: 'var(--blue)' },
-  { label: 'H-a', fill: 'var(--ha)' },
-  { label: 'O-III', fill: 'var(--oiii)' },
-  { label: 'S-II', fill: 'var(--sii)' },
-]
+const legend = computed(() =>
+  summary.value.filters.map((f) => ({ label: f.name, fill: f.color })),
+)
 
 const timelineLabel = computed(() => {
   const r = runs(preview.value?.blocks).filter((x) => !x.wait)
@@ -303,10 +311,6 @@ const picks = computed(() => pickTable(preview.value?.blocks))
 const fmtScore = (v: number | undefined) => (v === undefined ? '—' : v.toFixed(2))
 const pct = (w: number) => Math.round(w * 100)
 
-const switchWeight = computed(() => picks.value.columns.find((c) => /switch/i.test(c.rule))?.weight)
-const priorityWeight = computed(
-  () => picks.value.columns.find((c) => /priority/i.test(c.rule))?.weight,
-)
 
 const leftOut = computed(() =>
   (preview.value?.left_out ?? []).map((l) => ({
@@ -492,8 +496,8 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
 <template>
   <main class="page wide">
     <PageHead :context="nightLabel" title="Tonight">
-      Which target and filter runs when, from dusk to dawn, and why the planner picked it. Try a
-      change in What if before you make it for real.
+      Which target and filter runs when{{ spanText ? ', ' + spanText : '' }}, and why the planner
+      picked it. Try a change in What if before you make it for real.
       <template #actions>
         <label for="night" class="small muted">Night</label>
         <select id="night" v-model="night" class="input">
@@ -737,7 +741,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             ><span class="key" :style="{ background: l.fill, borderRadius: 0 }"></span
             >{{ l.label }}</span
           >
-          <span>Twilight times are for the observatory site, rounded to the minute.</span>
+          <span>Twilight times come from the scheduler's preview.</span>
           <span v-if="moonError">The Moon is not drawn: {{ moonError }}</span>
         </div>
       </section>
@@ -748,23 +752,14 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
         <div>
           <h2 id="why-h">Why each target was picked</h2>
           <p class="small muted" style="margin: 0.25rem 0 0; max-width: 75ch">
-            Score = Σ rule weight × rule score, at the moment of each pick. A picked target then
-            earns
-            {{ switchWeight !== undefined ? '+' + switchWeight.toFixed(2) : 'a bonus' }} from Target
-            switch penalty at every re-plan, so it only gives way when it sets or its plans
-            complete. Normal priority adds
-            {{
-              priorityWeight !== undefined
-                ? (priorityWeight * 0.5).toFixed(2)
-                : 'half the priority weight'
-            }}, which can never beat that.
+            Score = Σ rule weight × rule score at each simulated pick.
           </p>
         </div>
         <div v-if="picks.rows.length" class="scroll-x framed">
           <table class="dgrid num">
             <thead>
               <tr>
-                <th scope="col">Picked</th>
+                <th scope="col">Simulated pick</th>
                 <th scope="col">Target</th>
                 <th v-for="c in picks.columns" :key="c.rule" scope="col" style="text-align: right">
                   {{ c.rule }} ×{{ pct(c.weight) }}
@@ -805,7 +800,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             </li>
           </ul>
           <p v-else class="empty" style="padding: 0">
-            {{ preview ? 'Every active project gets time.' : '' }}
+            {{ preview ? 'The preview leaves no project out.' : '' }}
           </p>
         </div>
       </section>

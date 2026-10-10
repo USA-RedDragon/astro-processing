@@ -311,6 +311,23 @@ export interface PlanSummary {
   subs: number
   waits: number
   waitSeconds: number
+  start: number
+  end: number
+  filters: { name: string; subs: number; color: string }[]
+}
+
+export function filterSubs(
+  blocks: PlanBlock[] | null | undefined,
+): { name: string; subs: number; color: string }[] {
+  const m = new Map<string, { name: string; subs: number; color: string }>()
+  for (const b of blocks ?? []) {
+    if (b.wait) continue
+    const name = filterName(b.filter)
+    const cur = m.get(name) ?? { name, subs: 0, color: filterColor(b.filter) }
+    cur.subs += b.count ?? 0
+    m.set(name, cur)
+  }
+  return [...m.values()]
 }
 
 export function planSummary(p: Preview | null | undefined): PlanSummary {
@@ -328,6 +345,9 @@ export function planSummary(p: Preview | null | undefined): PlanSummary {
     subs: 0,
     waits: 0,
     waitSeconds: 0,
+    start: ms(p?.start),
+    end: ms(p?.end),
+    filters: filterSubs(p?.blocks),
   }
   const targets = new Set<number>()
   const projects = new Set<number>()

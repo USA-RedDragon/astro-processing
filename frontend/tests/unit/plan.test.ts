@@ -145,6 +145,10 @@ describe('summary and pick table', () => {
     expect(s.subs).toBe(130)
     expect(s.waits).toBe(1)
     expect(s.waitSeconds).toBe(1800)
+    expect(s.start).toBe(Date.parse(t(0)))
+    expect(s.end).toBe(Date.parse(t(12)))
+    expect(s.filters.reduce((a, f) => a + f.subs, 0)).toBe(130)
+    expect(s.filters[0]).toEqual({ name: 'H-a', subs: 12, color: 'var(--ha)' })
   })
 
   it('builds rule columns from the scores present', () => {
