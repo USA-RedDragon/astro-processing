@@ -14,6 +14,9 @@ import {
   getOverview,
   hours,
   label,
+  linkEvidence,
+  methodText,
+  minAltitudeText,
   size,
   typeLabel,
   type CatalogueEntry,
@@ -35,6 +38,7 @@ const matches = ref<ReviewItem[]>([])
 const loading = ref(true)
 const listLoading = ref(false)
 const failed = ref('')
+const matchesFailed = ref('')
 const tab = ref(typeof route.query.list === 'string' ? route.query.list : 'messier')
 const tonightOnly = ref(false)
 const status = ref('All')
@@ -81,7 +85,9 @@ async function loadList() {
 async function loadMatches() {
   try {
     matches.value = await getMatches(true)
+    matchesFailed.value = ''
   } catch (e) {
+    matchesFailed.value = e instanceof Error ? e.message : String(e)
     errorToast(e, 'Could not load the name matches')
   }
 }
@@ -168,8 +174,9 @@ function window(e: CatalogueEntry): string {
       : t.peakAlt > 0
         ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
         : 'not up tonight'
-  const min = overview.value?.night?.minAltitude
-  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)}${min !== undefined && min !== null ? ` above ${min}°` : ''}`
+  const n = overview.value?.night
+  const min = n?.minAltitude
+  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)}${min !== undefined && min !== null ? ` above ${minAltitudeText(min, n?.minAltitudeSource)}` : ''}`
 }
 
 function pickStatus(e: CatalogueEntry): string {
@@ -191,7 +198,10 @@ const pickImaged = computed(() => imagedRoute(pick.value?.subjects))
 const pickLinks = computed(() =>
   (detail.value?.links ?? [])
     .filter((l) => l.status !== 'rejected')
-    .map((l) => `${l.subjectName} (${l.method}${l.status === 'suggested' ? ', unconfirmed' : ''})`)
+    .map(
+      (l) =>
+        `${l.subjectName} (${methodText(l.method)}${l.status === 'suggested' ? ', unconfirmed' : ''})`,
+    )
     .join(', '),
 )
 
@@ -199,7 +209,6 @@ function addFor(e: CatalogueEntry, subject?: string) {
   const fit = e.fit
   const mosaic = !!fit && fit.panels > 1
   return addLink(e.object, mosaic ? 'mosaic' : 'frame', {
-    rotation: e.object.pa || undefined,
     panels: mosaic ? fit.panels : undefined,
     cols: mosaic ? fit.columns : undefined,
     rows: mosaic ? fit.rows : undefined,
@@ -212,10 +221,6 @@ const shownMatches = computed(() => [
   ...openMatches.value,
   ...matches.value.filter((m) => m.decided),
 ])
-
-function confTone(c: number) {
-  return c >= 0.8 ? 'var(--ok)' : c >= 0.6 ? 'var(--warn)' : 'var(--bad)'
-}
 
 async function decide(m: ReviewItem, after: Decision) {
   const before: Decision = m.decided ? (m.status as Decision) : ''
@@ -330,7 +335,7 @@ async function decide(m: ReviewItem, after: Decision) {
           :fov="Math.max(0.25, Math.min(10, (pick.object.majorArcmin / 60) * 1.6))"
           :width="240"
           :height="160"
-          :alt="'Sky survey image around ' + label(pick.object)"
+          :alt="'DSS2 colour survey image around ' + label(pick.object)"
           style="max-width: 12rem"
         />
         <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1">
@@ -343,7 +348,7 @@ async function decide(m: ReviewItem, after: Decision) {
                   ? 'fit unknown until the rig is measured'
                   : pick.fit.panels > 1
                     ? pick.fit.panels + ' panels'
-                    : Math.round(pick.fit.fill * 100) + '% of the frame'
+                    : Math.round(pick.fit.fill * 100) + "% of the frame's long side"
               }}
             </span>
           </span>
@@ -416,8 +421,11 @@ async function decide(m: ReviewItem, after: Decision) {
           Your project names against the catalogues. Confirming links the project to the object for
           completion; the scheduler's names stay as they are, so the stacker still finds its frames.
         </p>
-        <p v-if="!shownMatches.length" class="empty">
-          Nothing to review. Every project matched a catalogue object with confidence.
+        <p v-if="matchesFailed" class="empty">
+          Could not load the name matches: {{ matchesFailed }}
+        </p>
+        <p v-else-if="!shownMatches.length" class="empty">
+          Nothing to review: no project has an unconfirmed match.
         </p>
         <ul class="list">
           <li v-for="m in shownMatches" :key="m.subject + m.object.id" class="match">
@@ -425,9 +433,7 @@ async function decide(m: ReviewItem, after: Decision) {
               <div>
                 <strong>{{ m.subjectName }}</strong>
                 <span class="muted"> → </span>{{ label(m.object) }}
-                <span class="num" :style="{ fontWeight: 600, color: confTone(m.confidence) }">
-                  {{ Math.round(m.confidence * 100) }}%</span
-                >
+                <span class="xsmall muted"> · {{ linkEvidence(m) }}</span>
               </div>
               <div class="xsmall muted">
                 {{ m.why
