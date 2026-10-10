@@ -409,9 +409,33 @@ export function setBalancing(d: MosaicDetail, on: boolean) {
   })
 }
 
-export function adopt(
-  decisions: { id: number; subject: string; title: string; before: string; after: string }[],
-) {
+export interface AdoptionDecision {
+  id: number
+  subject: string
+  title: string
+  before: Adoption['status']
+  after: Adoption['status']
+}
+
+export function adoptionDecision(a: Adoption, choice: 'accepted' | 'rejected'): AdoptionDecision {
+  return {
+    id: a.id,
+    subject: a.subject,
+    title: a.project,
+    before: a.status,
+    after: a.status === choice ? 'proposed' : choice,
+  }
+}
+
+export function keepOrder(before: Adoption[], after: Adoption[]): Adoption[] {
+  const at = new Map(before.map((a, i) => [a.id, i]))
+  return after
+    .map((a, i) => ({ a, k: at.get(a.id) ?? before.length + i }))
+    .sort((x, y) => x.k - y.k)
+    .map((x) => x.a)
+}
+
+export function adopt(decisions: AdoptionDecision[]) {
   return submitCommand('mosaic.adopt', { decisions })
 }
 

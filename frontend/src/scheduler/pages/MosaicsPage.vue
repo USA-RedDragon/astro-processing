@@ -4,6 +4,8 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   adopt,
+  adoptionDecision,
+  keepOrder,
   getHistory,
   getMosaic,
   getSeasons,
@@ -15,6 +17,7 @@ import {
   project,
   meanCentre,
   type Adoption,
+  type AdoptionDecision,
   type MosaicDetail,
   type MosaicHistory,
   type MosaicPanel,
@@ -92,10 +95,7 @@ async function loadDetail() {
 
 async function loadAdoptions() {
   try {
-    adoptions.value = await listAdoptions()
-    for (const a of adoptions.value) {
-      if (!(a.id in draft) && a.status === 'proposed' && a.clean) draft[a.id] = 'accepted'
-    }
+    adoptions.value = keepOrder(adoptions.value, await listAdoptions())
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
   }
@@ -680,51 +680,34 @@ async function applyStrategy() {
   }
 }
 
-const draft = reactive<Record<number, 'accepted' | 'rejected'>>({})
 const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed').length)
 const cleanOpen = computed(() => adoptions.value.filter((a) => a.status === 'proposed' && a.clean))
-const changes = computed(() =>
-  adoptions.value
-    .filter((a) => draft[a.id] && draft[a.id] !== a.status)
-    .map((a) => ({
-      id: a.id,
-      subject: a.subject,
-      title: a.project,
-      before: a.status as string,
-      after: draft[a.id] as string,
-    })),
-)
+const deciding = reactive(new Set<number>())
 
-function decision(a: Adoption): string {
-  return draft[a.id] ?? a.status
-}
-
-function setDraft(a: Adoption, v: 'accepted' | 'rejected') {
-  if (draft[a.id] === v) delete draft[a.id]
-  else draft[a.id] = v
-}
-
-async function applyAdoption(only?: Adoption[]) {
-  const ds = only
-    ? only.map((a) => ({
-      id: a.id,
-      subject: a.subject,
-      title: a.project,
-      before: a.status as string,
-      after: 'accepted',
-    }))
-    : changes.value
-  if (!ds.length) return
-  busy.value = true
+async function sendAdoption(ds: AdoptionDecision[]) {
+  if (!ds.length || ds.some((d) => deciding.has(d.id))) return
+  for (const d of ds) deciding.add(d.id)
   try {
     notifyCommand(await adopt(ds))
-    for (const d of ds) delete draft[d.id]
-    await loadAll()
+    for (const d of ds) {
+      const a = adoptions.value.find((x) => x.id === d.id)
+      if (a) a.status = d.after
+    }
+    await loadAdoptions()
   } catch (e) {
     errorToast(e)
+    await loadAdoptions()
   } finally {
-    busy.value = false
+    for (const d of ds) deciding.delete(d.id)
   }
+}
+
+function decide(a: Adoption, choice: 'accepted' | 'rejected') {
+  return sendAdoption([adoptionDecision(a, choice)])
+}
+
+function acceptAllClean() {
+  return sendAdoption(cleanOpen.value.map((a) => adoptionDecision(a, 'accepted')))
 }
 
 const adoptRunning = ref(false)
@@ -1255,16 +1238,25 @@ const tabs = computed<[Tab, string][]>(() => [
         <div style="max-width: 72ch">
           <h2 id="adopt-h">Adoption review</h2>
           <p class="small muted" style="margin: 0.25rem 0 0">
-            Mosaics and subs from before this page existed. The clean cases, panels named after
-            their project and numbered 1 to N, are ticked for you. Adoption only writes the app's
-            own tables; no scheduler row is changed or deleted, and every decision can be undone
-            from History.
+            Mosaics and subs from before this page existed. Accept or Reject saves that row at once;
+            press it again to make the row undecided. Clean cases are panels named after their
+            project and numbered 1 to N. Adoption only writes the app's own tables; no scheduler
+            row is changed or deleted, and every decision can be undone from the toast or History.
           </p>
         </div>
         <div class="row">
           <span class="badge warn"
             >{{ openAdoptions }} {{ openAdoptions === 1 ? 'decision' : 'decisions' }} open</span
           >
+          <button
+            v-if="cleanOpen.length"
+            type="button"
+            class="btn sm primary"
+            :disabled="cleanOpen.some((a) => deciding.has(a.id))"
+            @click="acceptAllClean"
+          >
+            Accept all clean · {{ cleanOpen.length }}
+          </button>
           <button type="button" class="btn sm" :disabled="adoptRunning" @click="rerunAdoption">
             {{ adoptRunning ? 'Checking…' : 'Check again' }}
           </button>
@@ -1295,20 +1287,24 @@ const tabs = computed<[Tab, string][]>(() => [
             <button
               type="button"
               class="btn"
-              :class="{ on: decision(a) === 'accepted' }"
-              :aria-pressed="decision(a) === 'accepted'"
-              @click="setDraft(a, 'accepted')"
+              :class="{ on: a.status === 'accepted' }"
+              :aria-pressed="a.status === 'accepted'"
+              :disabled="deciding.has(a.id)"
+              :title="a.status === 'accepted' ? 'Press again to make it undecided' : undefined"
+              @click="decide(a, 'accepted')"
             >
-              Accept
+              {{ a.status === 'accepted' ? 'Accepted' : 'Accept' }}
             </button>
             <button
               type="button"
               class="btn"
-              :class="{ on: decision(a) === 'rejected' }"
-              :aria-pressed="decision(a) === 'rejected'"
-              @click="setDraft(a, 'rejected')"
+              :class="{ on: a.status === 'rejected' }"
+              :aria-pressed="a.status === 'rejected'"
+              :disabled="deciding.has(a.id)"
+              :title="a.status === 'rejected' ? 'Press again to make it undecided' : undefined"
+              @click="decide(a, 'rejected')"
             >
-              Reject
+              {{ a.status === 'rejected' ? 'Rejected' : 'Reject' }}
             </button>
           </div>
         </li>
@@ -1316,33 +1312,6 @@ const tabs = computed<[Tab, string][]>(() => [
       <p v-if="!adoptions.length" class="empty">
         Nothing to review. Press Check again to look for mosaics and unmatched subs.
       </p>
-      <div
-        class="row"
-        style="
-          justify-content: flex-end;
-          border-top: 1px solid var(--border);
-          padding-top: 0.875rem;
-        "
-      >
-        <button
-          v-if="cleanOpen.length"
-          type="button"
-          class="btn"
-          :disabled="busy"
-          @click="applyAdoption(cleanOpen)"
-        >
-          Accept all clean · {{ cleanOpen.length }}
-        </button>
-        <span v-if="!changes.length" class="small muted">Choose Accept or Reject on any row.</span>
-        <button
-          type="button"
-          class="btn primary"
-          :disabled="busy || !changes.length"
-          @click="applyAdoption()"
-        >
-          Apply {{ changes.length }} {{ changes.length === 1 ? 'decision' : 'decisions' }}
-        </button>
-      </div>
     </section>
   </main>
 </template>
@@ -1543,6 +1512,11 @@ const tabs = computed<[Tab, string][]>(() => [
   align-items: center;
   padding: 0.875rem 0;
   border-top: 1px solid var(--border);
+}
+@media (max-width: 640px) {
+  .adopt li {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .adopt .btn.on {
   border-color: var(--foreground);
