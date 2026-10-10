@@ -27,6 +27,7 @@ const fits = [
 ]
 const types = [
   { key: 'em', label: 'Emission' },
+  { key: 'neb', label: 'Nebula, type unknown' },
   { key: 'snr', label: 'Remnant' },
   { key: 'dark', label: 'Dark' },
   { key: 'ref', label: 'Reflection' },
@@ -43,7 +44,7 @@ function defaultMonths(): Record<number, boolean> {
 
 const f = reactive({
   fit: { one: true, few: true, many: true } as Record<string, boolean>,
-  types: { em: true, snr: true, dark: true, ref: true, pn: true, gal: true } as Record<
+  types: { em: true, neb: true, snr: true, dark: true, ref: true, pn: true, gal: true } as Record<
     string,
     boolean
   >,
@@ -93,7 +94,7 @@ onMounted(load)
 
 function reset() {
   f.fit = { one: true, few: true, many: true }
-  f.types = { em: true, snr: true, dark: true, ref: true, pn: true, gal: true }
+  f.types = { em: true, neb: true, snr: true, dark: true, ref: true, pn: true, gal: true }
   f.months = {}
   f.minFill = 0
   f.imaged = 'show'
