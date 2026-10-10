@@ -1195,13 +1195,6 @@ function numInput(e: Event): number {
             />
           </label>
         </div>
-        <div class="warn xsmall">
-          <span
-            >A priority drop on the running target now takes effect at the end of the exposure, not
-            after its minimum-time window. On 7 October that window let Cygnis Loop hold the night
-            after it was set to Low.</span
-          >
-        </div>
         <div v-if="optDirty" class="row" style="justify-content: flex-end">
           <button type="button" class="btn" @click="resetOpts">Reset</button>
           <button type="button" class="btn primary" @click="saveOpts">Save options</button>
