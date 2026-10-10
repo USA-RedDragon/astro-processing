@@ -483,7 +483,7 @@ function moonText(t: Template): string {
               </td>
               <td style="text-align: right">{{ t.defaultExposure }} s</td>
               <td style="text-align: right">{{ t.gain ?? 'camera default' }}</td>
-              <td style="white-space: nowrap">{{ t.twilight }}</td>
+              <td style="white-space: nowrap">{{ t.twilight ?? 'not set' }}</td>
               <td style="white-space: nowrap">{{ moonText(t) }}</td>
               <td class="muted">{{ t.maximumHumidity ? t.maximumHumidity + '%' : 'No limit' }}</td>
               <td style="text-align: right; white-space: nowrap">

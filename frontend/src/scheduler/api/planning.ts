@@ -144,7 +144,7 @@ export interface Target {
   active: boolean
   raHours: number | null
   dec: number | null
-  rotation: number
+  rotation: number | null
   panel?: number
   plans: Plan[]
   goals: FilterGoal[]
@@ -202,7 +202,7 @@ export interface Template {
   gain: number | null
   offset: number | null
   bin: number | null
-  twilight: string
+  twilight: string | null
   moonEnabled: boolean
   moonSeparation: number
   moonWidth: number
