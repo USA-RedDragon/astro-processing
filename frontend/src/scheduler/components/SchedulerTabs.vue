@@ -783,7 +783,7 @@ function numInput(e: Event): number {
                   class="xsmall muted"
                   :title="
                     fg.progress.depthApprox
-                      ? 'Approximate: narrowband depth is estimated from Gaia XP spectra'
+                      ? 'Approximate: no Gaia XP photometry here, so this depth uses the Gaia G zero point'
                       : undefined
                   "
                   >{{ fg.progress.depthBand }}</span
