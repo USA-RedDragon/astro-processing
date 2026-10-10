@@ -468,7 +468,8 @@ function moonText(t: Template): string {
               <td style="white-space: nowrap">{{ moonText(t) }}</td>
               <td class="muted">{{ t.maximumHumidity ? t.maximumHumidity + '%' : '—' }}</td>
               <td style="text-align: right; white-space: nowrap">
-                {{ t.usedByPlans }} plans · {{ t.usedByTargets }} targets
+                {{ t.usedByPlans }} {{ t.usedByPlans === 1 ? 'plan' : 'plans' }} · {{ t.usedByTargets }}
+                {{ t.usedByTargets === 1 ? 'target' : 'targets' }}
               </td>
               <td style="text-align: right; white-space: nowrap">
                 <span
