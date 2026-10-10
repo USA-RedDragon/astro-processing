@@ -32,6 +32,8 @@ export interface Progress {
   gainPerHourPct: number
   plateau: boolean
   lowConfidence: boolean
+  lowReason?: string
+  unmeasured?: string
   region: boolean
   done: boolean
   measuredAt: string
@@ -40,14 +42,56 @@ export interface Progress {
   depthApprox?: boolean
 }
 
+export interface DrawPoint {
+  n: number
+  t: number
+  sigma: number
+}
+
+export interface Measurement {
+  object: string
+  filter: string
+  snr: number
+  signal: number
+  noise: number
+  noiseMask: string
+  pairs: number
+  levels: number
+  subs: number
+  subsTotal: number
+  effectiveHours: number
+  bandFraction: number
+  nebFraction: number
+  heldOutErrPct: number | null
+  gainPerHourPct: number | null
+  plateau: boolean
+  depth: number | null
+  depthBand?: string
+  depthApprox: boolean
+  depthReason?: string
+  zeroPointStars: number
+  lowConfidence: boolean
+  lowReason?: string
+  region: boolean
+  measuredAt: string
+  points: DrawPoint[]
+}
+
+export type MeasureStatus = 'measured' | 'failed' | 'no-master' | 'not-measured'
+
 export interface FilterGoal {
   filter: string
   stackFilter: string
-  goal: Goal
+  goal: Goal | null
   goalSet: boolean
+  defaultGoal: Goal
   measured: boolean
+  status: MeasureStatus
+  measurement?: Measurement
   progress?: Progress
   error?: string
+  percentComplete: number
+  completionBasis: string
   accepted: number
   desired: number
   acceptedHours: number
@@ -68,6 +112,8 @@ export interface Plan {
   gain: number | null
   moonSeparation: number
   moonWidth: number
+  percentComplete?: number
+  completionBasis?: string
 }
 
 export interface Season {
@@ -90,7 +136,10 @@ export interface Target {
   goals: FilterGoal[]
   weakest?: FilterGoal
   progress: number
+  percentComplete: number
   effectiveHours: number
+  effectiveHoursBasis: string
+  goalDriven: boolean
   season?: Season
   novelty: number
   rarity: number
@@ -126,6 +175,8 @@ export interface Project {
   lastSub?: string
   ruleWeights: RuleWeight[]
   goalDriven: boolean
+  grader: boolean
+  completion: { delayGrading: number; exposureThrottle: number; source: string }
 }
 
 export interface Template {
@@ -221,6 +272,15 @@ export interface ProjectDetail {
   rules: Rule[]
   sets: ExposureSet[]
   templates: Template[]
+  defaults?: {
+    goal: {
+      snr: number
+      depthSnr: number
+      plateauGainPct: number
+      bandLowPercentile: number
+      bandHighPercentile: number
+    }
+  }
 }
 
 export interface TargetEffect {
@@ -351,14 +411,42 @@ export function decText(d: number | null): string {
 export function seasonLabel(s?: Season): { label: string; cls: string } {
   if (!s) return { label: 'Season unknown', cls: '' }
   if (s.outOfSeason) return { label: 'Out of season', cls: 'muted' }
-  if (s.nightsLeft <= 60) return { label: `Closing · ≈ ${s.nightsLeft} nights`, cls: 'violet' }
-  return { label: `In season · ≈ ${s.nightsLeft} nights`, cls: 'muted' }
+  if (s.nightsLeft >= 365) return { label: 'In season · usable on every night scanned (365)', cls: 'muted' }
+  if (s.nightsLeft <= 60) return { label: `Closing · ${s.nightsLeft} usable nights`, cls: 'violet' }
+  return { label: `In season · ${s.nightsLeft} usable nights`, cls: 'muted' }
+}
+
+export function measureText(fg: FilterGoal): string {
+  switch (fg.status) {
+    case 'failed':
+      return 'measurement failed: ' + (fg.error || 'no reason recorded')
+    case 'no-master':
+      return 'no stacked master yet'
+    case 'not-measured':
+      return 'master stacked, not measured yet'
+  }
+  return ''
+}
+
+export function basisText(basis: string): string {
+  switch (basis) {
+    case 'goal':
+      return 'of its goal'
+    case 'accepted':
+      return 'accepted of desired'
+    case 'acquired, grading delayed':
+      return 'acquired of desired, grading delayed'
+    case 'acquired, no grading':
+      return 'acquired of desired × throttle'
+  }
+  return basis
 }
 
 export function goalTiming(fg: FilterGoal): string {
   const p = fg.progress
-  if (!p) return fg.error ? fg.error : 'No master yet'
+  if (!p) return measureText(fg) || 'finishes on counts'
+  if (p.unmeasured) return p.unmeasured
   if (p.done) return p.progress >= 1 ? 'goal met' : 'plateau reached'
   if (p.hoursNeeded < 0) return 'time needed unknown'
-  return `≈ ${r1(p.hoursNeeded)} h more`
+  return `≈ ${r1(p.hoursNeeded)} h more at √t`
 }

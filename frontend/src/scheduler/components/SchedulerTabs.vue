@@ -3,10 +3,12 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import {
+  basisText,
   filterColor,
   getProject,
   getStacks,
   goalTiming,
+  measureText,
   pct,
   r1,
   r2,
@@ -23,6 +25,15 @@ import {
 import { submitCommand } from '../api/commands'
 import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
 import { onEvent } from '../api/events'
+import { api, query } from '../api/client'
+
+interface GoalMaskInfo {
+  band_lo: number | null
+  band_hi: number | null
+  band_pct: number
+  sky: number
+  measured_at: string
+}
 
 const props = defineProps<{
   projectId: string | number
@@ -114,8 +125,8 @@ const applyNote = computed(() => {
 })
 
 const mode = computed<GoalKind>(() => {
-  const set = p.value?.targets.flatMap((t) => t.goals).find((g) => g.goalSet)
-  return set ? set.goal.kind : 'snr'
+  const set = p.value?.targets.flatMap((t) => t.goals).find((g) => g.goalSet && g.goal)
+  return set?.goal?.kind ?? 'snr'
 })
 
 const goalDraft = reactive<Record<string, number>>({})
@@ -125,32 +136,29 @@ watch([mode, panelIdx], () => {
   plateauDraft.value = null
 })
 
+function goalOf(fg: FilterGoal) {
+  return fg.goalSet && fg.goal ? fg.goal : fg.defaultGoal
+}
+
 function goalValue(fg: FilterGoal, m: GoalKind): number {
-  if (m === 'depth')
-    return fg.goal.depth || (['H-a', 'O-III', 'S-II'].includes(fg.stackFilter) ? 25.5 : 25.8)
-  return fg.goal.snr || 10
+  return m === 'depth' ? goalOf(fg).depth : goalOf(fg).snr
 }
 
 const goals = computed(() => target.value?.goals ?? [])
 const weakest = computed(() => {
   let w: FilterGoal | undefined
-  for (const g of goals.value) {
-    const pr = g.progress?.progress ?? 0
-    if (!w || pr < (w.progress?.progress ?? 0)) w = g
-  }
+  for (const g of goals.value) if (!w || g.percentComplete < w.percentComplete) w = g
   return w
 })
-const lowConf = computed(() => goals.value.some((g) => g.progress?.lowConfidence))
-const plateauStop = computed(
-  () =>
-    plateauDraft.value ??
-    (goals.value.length ? goals.value.every((g) => g.goal.plateauStop) : true),
+const lowConf = computed(() =>
+  goals.value.filter((g) => g.measurement?.lowConfidence),
 )
+const plateauSaved = computed(() => goals.value.every((g) => goalOf(g).plateauStop))
+const plateauStop = computed(() => plateauDraft.value ?? plateauSaved.value)
 const dirtyGoals = computed(
   () =>
     Object.keys(goalDraft).length > 0 ||
-    (plateauDraft.value !== null &&
-      plateauDraft.value !== goals.value.every((g) => g.goal.plateauStop)),
+    (plateauDraft.value !== null && plateauDraft.value !== plateauSaved.value),
 )
 
 function regionString(pts?: Point[]): string {
@@ -169,10 +177,10 @@ interface Setting {
 }
 
 function currentSetting(fg: FilterGoal): Setting | null {
-  if (!fg.goalSet) return null
+  if (!fg.goalSet || !fg.goal) return null
   const s: Setting = {
     kind: fg.goal.kind === 'depth' ? 1 : 0,
-    snr_goal: fg.goal.snr || 10,
+    snr_goal: fg.goal.snr || fg.defaultGoal.snr,
     plateau_stop: fg.goal.plateauStop,
   }
   if (fg.goal.kind === 'depth') s.depth_goal = fg.goal.depth
@@ -189,8 +197,8 @@ function baseSetting(fg: FilterGoal): Setting {
   return (
     currentSetting(fg) ?? {
       kind: mode.value === 'depth' ? 1 : 0,
-      snr_goal: 10,
-      plateau_stop: true,
+      snr_goal: fg.defaultGoal.snr,
+      plateau_stop: fg.defaultGoal.plateauStop,
       ...(mode.value === 'depth' ? { depth_goal: goalValue(fg, 'depth') } : {}),
     }
   )
@@ -282,6 +290,78 @@ function stopGoals() {
 }
 
 const goalDriven = computed(() => goals.value.some((g) => g.goalSet))
+const maskInfo = reactive<Record<string, GoalMaskInfo | string>>({})
+watch(
+  () => goals.value.map((g) => (g.measurement ? g.measurement.object + '|' + g.measurement.filter : '')),
+  async () => {
+    Object.keys(maskInfo).forEach((k) => delete maskInfo[k])
+    for (const g of goals.value) {
+      const m = g.measurement
+      if (!m) continue
+      try {
+        maskInfo[g.filter] = await api.get<GoalMaskInfo>(
+          '/goals/mask/info' + query({ object: m.object, filter: m.filter }),
+        )
+      } catch (e) {
+        maskInfo[g.filter] = e instanceof Error ? e.message : String(e)
+      }
+    }
+  },
+  { immediate: true },
+)
+
+function sig(v: number): string {
+  if (!Number.isFinite(v)) return 'not finite'
+  return Math.abs(v) < 1e-3 && v !== 0 ? v.toExponential(2) : v.toPrecision(3)
+}
+
+function bandText(fg: FilterGoal): string {
+  const m = fg.measurement
+  if (!m) return ''
+  const pctBand = (m.bandFraction * 100).toFixed(1) + '% of covered pixels'
+  const info = maskInfo[fg.filter]
+  if (m.region) return 'drawn region · ' + pctBand
+  if (info && typeof info !== 'string' && info.band_lo != null && info.band_hi != null)
+    return `${sig(info.band_lo)} to ${sig(info.band_hi)}, sky ${sig(info.sky)} · ${pctBand}`
+  if (typeof info === 'string') return pctBand + ' · band thresholds not recorded: ' + info
+  return pctBand
+}
+
+function noiseFrom(mask: string): string {
+  if (mask === 'faint') return 'from the faint band'
+  if (mask === 'region') return 'from the drawn region'
+  if (mask === 'background') return 'from the background'
+  return mask || 'source not recorded'
+}
+
+function noiseTitle(mask: string): string {
+  return mask === 'background'
+    ? 'The faint band had too few pixels for its own noise, so σ comes from the background pixels'
+    : ''
+}
+
+const autoBand = computed(() => {
+  const g = detail.value?.defaults?.goal
+  return g
+    ? `Automatic · ${g.bandLowPercentile}–${g.bandHighPercentile}th percentile of nebula pixels`
+    : 'Automatic'
+})
+
+const PLATEAU_GAIN_PCT = computed(() => detail.value?.defaults?.goal.plateauGainPct ?? '…')
+
+function measuredValue(fg: FilterGoal): string {
+  const m = fg.measurement
+  if (!m) return 'not measured'
+  if (mode.value === 'depth') return m.depth == null ? 'no depth' : (m.depthApprox ? '≈ ' : '') + r1(m.depth)
+  return 'SNR ' + r1(m.snr)
+}
+
+function measuredTitle(fg: FilterGoal): string {
+  const m = fg.measurement
+  if (!m) return measureText(fg)
+  if (mode.value === 'depth' && m.depth == null) return m.depthReason ?? ''
+  return 'Measured ' + new Date(m.measuredAt).toLocaleString()
+}
 
 const masters = ref<StackMaster[]>([])
 watch(
@@ -307,7 +387,7 @@ const aspect = computed(() =>
 const viewH = computed(() => Math.round(1000 * aspect.value))
 
 const region = computed<Point[] | undefined>(
-  () => goals.value.find((g) => g.goal.region && g.goal.region.length >= 3)?.goal.region,
+  () => goals.value.find((g) => (g.goal?.region?.length ?? 0) >= 3)?.goal?.region,
 )
 const drawing = ref(false)
 const pts = ref<Point[]>([])
@@ -340,7 +420,7 @@ function clearRegion() {
   const t = target.value
   if (!t) return
   const changes = t.goals
-    .filter((fg) => fg.goalSet && fg.goal.region?.length)
+    .filter((fg) => fg.goalSet && fg.goal?.region?.length)
     .map((fg) => {
       const s = baseSetting(fg)
       delete s.region
@@ -406,7 +486,7 @@ function ruleScore(name: string): number | null {
     case 'Project Priority':
       return { High: 1, Normal: 0.5, Low: 0 }[pr.priority] ?? 0.5
     case 'Percent Complete':
-      return Math.min(1, t.progress)
+      return t.percentComplete
     case 'Novelty':
       return t.novelty
     case 'Rarity':
@@ -693,15 +773,8 @@ function numInput(e: Event): number {
                 {{ mode === 'snr' ? 'Faint-signal SNR per filter' : 'Depth per filter' }}
               </h2>
               <p class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
-                <template v-if="mode === 'snr'">
-                  SNR of the faint band: signal between the 20th and 40th percentile of star-masked
-                  pixels above the sky, divided by the half-stack noise (A−B)/√2 at 4× binning.
-                  Hours needed = T·((goal/SNR)² − 1).
-                </template>
-                <template v-else
-                  >Depth: the surface brightness reached at SNR 3, calibrated from star photometry
-                  against Gaia. Use it to compare targets with each other.</template
-                >
+                Bars show completion the way Target Scheduler counts it: against the goal where
+                one is in force, otherwise against the desired count.
               </p>
             </div>
             <div role="group" aria-label="Goal type" class="seg">
@@ -725,16 +798,14 @@ function numInput(e: Event): number {
           </div>
           <div v-if="!goalDriven" class="note small">
             <span
-              >This target still finishes on the scheduler's desired counts. Saving a goal here
-              makes the goal decide when each filter is done, and the counts become a
-              fallback.</span
+              >No goal is set on this target, so the scheduler finishes each filter on its desired
+              count. Saving a goal here makes the goal decide when each filter is done.</span
             >
           </div>
-          <div v-if="lowConf" class="warn small">
+          <div v-for="g in lowConf" :key="'low-' + g.filter" class="warn small">
             <span
-              >Low confidence: the nebula fills the frame, so there is little clean sky to set the
-              percentile band against. The half-stack noise is still sound; draw a region if the
-              band looks wrong.</span
+              >{{ g.filter }} is low confidence: {{ g.measurement?.lowReason || 'no reason recorded' }}.
+              Draw a region if the band looks wrong.</span
             >
           </div>
           <div style="display: flex; flex-direction: column; gap: 0.875rem">
@@ -745,50 +816,45 @@ function numInput(e: Event): number {
                 }}</span
               >
               <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
-                <div class="bar tall">
+                <div class="bar tall" :title="pct(fg.percentComplete / 100) + ' ' + basisText(fg.completionBasis)">
                   <div
                     :style="{
-                      width: pct(fg.progress?.progress ?? 0),
+                      width: pct(fg.percentComplete / 100),
                       background: filterColor(fg.stackFilter),
                     }"
                   />
                 </div>
                 <div class="spread xsmall muted num">
                   <span
-                    >{{
-                      fg.progress
-                        ? r1(fg.progress.effectiveHours) + ' h effective'
+                    >{{ pct(fg.percentComplete / 100) }} {{ basisText(fg.completionBasis) }} ·
+                    {{
+                      fg.measurement
+                        ? r1(fg.measurement.effectiveHours) + ' h effective'
                         : r1(fg.acceptedHours) + ' h accepted'
                     }}
                     · {{ goalTiming(fg)
-                    }}<span v-if="fg.progress?.plateau">
-                      · +1 h gives {{ r1(fg.progress.gainPerHourPct) }}%</span
+                    }}<span v-if="fg.measurement?.gainPerHourPct != null">
+                      · +1 h gives {{ r1(fg.measurement.gainPerHourPct) }}%</span
                     ></span
                   >
                   <span>Scheduler count {{ fg.accepted }}/{{ fg.desired }}</span>
                 </div>
               </div>
               <span class="row num" style="justify-content: flex-end; flex-wrap: nowrap">
-                <strong>{{
-                  fg.progress
-                    ? mode === 'depth'
-                      ? fg.progress.depth
-                        ? (fg.progress.depthApprox ? '≈ ' : '') + r1(fg.progress.depth)
-                        : '—'
-                      : r1(fg.progress.snr)
-                    : '—'
-                }}</strong>
+                <strong :title="measuredTitle(fg)">{{ measuredValue(fg) }}</strong>
                 <span
-                  v-if="mode === 'depth' && fg.progress?.depthBand"
+                  v-if="mode === 'depth' && fg.measurement?.depth != null && fg.measurement.depthBand"
                   class="xsmall muted"
                   :title="
-                    fg.progress.depthApprox
+                    fg.measurement.depthApprox
                       ? 'Approximate: no Gaia XP photometry here, so this depth uses the Gaia G zero point'
                       : undefined
                   "
-                  >{{ fg.progress.depthBand }}</span
+                  >{{ fg.measurement.depthBand }}</span
                 >
-                <span class="muted">of</span>
+                <span class="muted" style="white-space: nowrap">{{
+                  fg.goalSet ? 'of' : fg.goal ? 'of default' : 'no goal · default'
+                }}</span>
                 <label :for="'goal-' + fg.filter" class="sr-only"
                   >{{ fg.filter }} {{ mode === 'depth' ? 'depth goal' : 'faint SNR goal' }}</label
                 >
@@ -797,8 +863,9 @@ function numInput(e: Event): number {
                   class="input num"
                   type="number"
                   :step="mode === 'depth' ? 0.1 : 1"
-                  :value="goalDraft[fg.filter] ?? goalValue(fg, mode)"
-                  style="width: 4.5rem; height: 1.875rem; text-align: right"
+                  :value="goalDraft[fg.filter] ?? (fg.goalSet ? goalValue(fg, mode) : '')"
+                  :placeholder="String(goalValue(fg, mode))"
+                  style="width: 5.5rem; height: 1.875rem; text-align: right"
                   @change="goalDraft[fg.filter] = numInput($event)"
                 />
               </span>
@@ -812,19 +879,19 @@ function numInput(e: Event): number {
               @change="plateauDraft = ($event.target as HTMLInputElement).checked"
             />
             Also stop a filter at its plateau, when one more hour improves the noise by less than
-            1.5%
+            {{ PLATEAU_GAIN_PCT }}%
           </label>
           <div
             class="spread"
             style="border-top: 1px solid var(--border); padding-top: 0.875rem; align-items: center"
           >
             <span class="small" style="max-width: 60ch">
-              <template v-if="weakest && (weakest.progress?.progress ?? 0) >= 1"
-                >Every filter has met its goal.</template
+              <template v-if="weakest && weakest.percentComplete >= 100"
+                >Every filter is complete.</template
               >
               <template v-else-if="weakest"
-                >Weakest: {{ weakest.filter }} at {{ pct(weakest.progress?.progress ?? 0) }} of its
-                time. It decides when this target is done.</template
+                >Least complete: {{ weakest.filter }} at {{ pct(weakest.percentComplete / 100) }}
+                {{ basisText(weakest.completionBasis) }}.</template
               >
             </span>
             <div class="row">
@@ -852,7 +919,7 @@ function numInput(e: Event): number {
           </div>
           <div v-if="isMosaic" class="note small" style="background: var(--secondary); border: 0">
             Each panel is measured on its own, and goals apply to every panel. The mosaic is done
-            when its weakest panel is: now {{ p.weakestTarget ?? '—' }}.
+            when its weakest panel is: now {{ p.weakestTarget ?? 'no panel with enabled plans' }}.
           </div>
         </section>
 
@@ -862,7 +929,7 @@ function numInput(e: Event): number {
             <span class="xsmall muted">{{
               region
                 ? 'Hand-drawn region · ' + region.length + ' points'
-                : 'Automatic · 20–40th percentile'
+                : autoBand
             }}</span>
           </div>
           <svg
@@ -939,28 +1006,56 @@ function numInput(e: Event): number {
               Back to the automatic band
             </button>
           </div>
-          <dl class="facts small">
-            <div>
-              <dt>Signal</dt>
-              <dd>{{ region ? 'Inside the drawn region' : '20–40th percentile above sky' }}</dd>
-            </div>
-            <div>
-              <dt>Noise</dt>
-              <dd>Half-stacks, (A−B)/√2, 4× binned</dd>
-            </div>
-            <div>
-              <dt>Why half-stacks</dt>
-              <dd style="font-weight: 400">
-                Static gradients and structure cancel, so only real noise is left.
-              </dd>
-            </div>
-            <div>
-              <dt>Depth</dt>
-              <dd style="font-weight: 400">Shown alongside, calibrated from star photometry</dd>
-            </div>
-          </dl>
         </section>
       </div>
+      <section v-if="tab === 'goal'" class="card" aria-labelledby="meas-h">
+        <h2 id="meas-h">What the stacker measured</h2>
+        <div class="scroll-x">
+          <table class="dgrid num xsmall">
+            <thead>
+              <tr>
+                <th>Filter</th>
+                <th>Faint band</th>
+                <th>Noise σ</th>
+                <th>Half-stack pairs</th>
+                <th>Subs</th>
+                <th>Depth</th>
+                <th>Measured</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="fg in goals" :key="'m-' + fg.filter">
+                <td style="font-weight: 600">{{ fg.filter }}</td>
+                <template v-if="fg.measurement">
+                  <td>{{ bandText(fg) }}</td>
+                  <td :title="noiseTitle(fg.measurement.noiseMask)">
+                    {{ sig(fg.measurement.noise) }} · {{ noiseFrom(fg.measurement.noiseMask) }}
+                  </td>
+                  <td>{{ fg.measurement.pairs }} over {{ fg.measurement.levels }} levels</td>
+                  <td>{{ fg.measurement.subs }} of {{ fg.measurement.subsTotal }}</td>
+                  <td :title="fg.measurement.depthReason">
+                    {{
+                      fg.measurement.depth != null
+                        ? (fg.measurement.depthApprox ? '≈ ' : '') +
+                          r1(fg.measurement.depth) +
+                          ' mag/arcsec² ' +
+                          (fg.measurement.depthBand ?? '')
+                        : fg.measurement.depthReason
+                    }}
+                  </td>
+                  <td>{{ new Date(fg.measurement.measuredAt).toLocaleString() }}</td>
+                </template>
+                <td v-else colspan="6" class="muted">Not measured yet: {{ measureText(fg) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="xsmall muted" style="margin: 0">
+          Values are 4×4-binned rates in full-scale units per second. σ is the stack's noise at
+          its current hours from the fit σ² = a²/t + b² to the half-stack differences (A−B)/√2;
+          SNR is the band's median above the sky over σ.
+        </p>
+      </section>
 
       <section v-if="tab === 'plans'" class="card" aria-labelledby="plans-h">
         <div class="spread" style="align-items: center">
@@ -1026,7 +1121,7 @@ function numInput(e: Event): number {
                 <td style="text-align: right">{{ pl.acquired }}</td>
                 <td style="text-align: right">{{ pl.accepted }}</td>
                 <td class="muted" style="white-space: nowrap">
-                  gain {{ pl.gain ?? '—' }} · moon {{ pl.moonSeparation }}° / {{ pl.moonWidth }} d
+                  gain {{ pl.gain ?? 'camera default' }} · moon {{ pl.moonSeparation }}° / {{ pl.moonWidth }} d
                 </td>
               </tr>
             </tbody>
@@ -1046,9 +1141,9 @@ function numInput(e: Event): number {
           <div style="max-width: 72ch">
             <h2 id="score-h">How the planner scores this target</h2>
             <p class="small muted" style="margin: 0.25rem 0 0">
-              Score = Σ weight × rule score, worked out at every re-plan. Rules that depend on the
-              time of night (setting, meridian, switch penalty) are scored when the planner runs, so
-              only part of the total is known here.
+              Score = Σ weight × rule score at every re-plan. The four rules below that don't depend
+              on the time of night are worked out here with Target Scheduler's formulas; the rest
+              are scored by the planner when it runs.
             </p>
           </div>
           <div style="text-align: right">
@@ -1082,7 +1177,7 @@ function numInput(e: Event): number {
               >× {{ r.score === null ? 'at plan' : r2(r.score) }}</span
             >
             <div class="row" style="flex-wrap: nowrap">
-              <div class="bar"><div :style="{ width: pct((r.contrib ?? 0) / 1.2) }" /></div>
+              <div class="bar"><div :style="{ width: pct(r.contrib ?? 0) }" /></div>
               <span style="width: 2.5rem; text-align: right; font-weight: 600">{{
                 r.contrib === null ? '—' : r2(r.contrib)
               }}</span>
@@ -1093,8 +1188,9 @@ function numInput(e: Event): number {
           <div class="tile small">
             <div style="font-weight: 600">Novelty for this target</div>
             <div class="muted">
-              Weakest filter at {{ pct(target?.progress ?? 0) }} of its goal, so Novelty scores
-              {{ r2(target?.novelty ?? 0) }}.
+              Least complete plan at {{ pct(target?.progress ?? 0) }}, with
+              {{ r1(target?.effectiveHours ?? 0) }} h ({{ target?.effectiveHoursBasis }}), so
+              Novelty scores {{ r2(target?.novelty ?? 0) }}.
             </div>
           </div>
           <div class="tile small">
@@ -1107,8 +1203,12 @@ function numInput(e: Event): number {
                 >Out of season, so Rarity scores 0 until it rises again.</template
               >
               <template v-else
-                >≈ {{ target.season.nightsLeft }} usable nights left this season, so Rarity scores
-                {{ r2(target.rarity) }}.</template
+                >{{
+                  target.season.nightsLeft >= 365
+                    ? 'Usable on every night the scheduler scanned (365)'
+                    : target.season.nightsLeft + ' usable nights left this season'
+                }}
+                as of {{ target.season.computedFor }}, so Rarity scores {{ r2(target.rarity) }}.</template
               >
             </div>
           </div>
