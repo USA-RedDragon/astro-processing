@@ -442,7 +442,7 @@ export function mosaicBalance(
     if (top < 3600 || top / total < 0.6 || zero < panels.length / 2 || top <= topBefore) continue
     let text = `One ${p.name} panel would get ${(top / 3600).toFixed(1)} h while ${zero} of its ${panels.length} panels get none.`
     if (balancingOff) text += ' Panel balancing is off for this mosaic (its rule weight is 0).'
-    out.push({ project: p.name, projectGuid: p.guid, text, balancingOff })
+    out.push({ project: p.name, projectGuid: p.guid ?? '', text, balancingOff })
   }
   return out
 }

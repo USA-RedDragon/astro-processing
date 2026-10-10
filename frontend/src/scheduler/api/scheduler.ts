@@ -167,35 +167,37 @@ export interface Override {
 
 export interface SchedPlan {
   id: number
-  guid: string
-  filter: string
-  template: string
-  exposure: number
-  defaultExposure: number
-  desired: number
-  acquired: number
-  accepted: number
-  enabled: boolean
+  guid: string | null
+  filter: string | null
+  template: string | null
+  exposure: number | null
+  exposureSource?: 'plan' | 'template'
+  planExposure: number | null
+  defaultExposure: number | null
+  desired: number | null
+  acquired: number | null
+  accepted: number | null
+  enabled: boolean | null
 }
 
 export interface SchedTarget {
   id: number
-  guid: string
+  guid: string | null
   name: string
   active: boolean
   ra: number | null
   dec: number | null
-  rotation: number
+  rotation: number | null
   plans: SchedPlan[]
 }
 
 export interface SchedProject {
   id: number
-  guid: string
+  guid: string | null
   name: string
-  state: number
-  priority: number
-  minimumtime: number
+  state: number | null
+  priority: number | null
+  minimumtime: number | null
   isMosaic: boolean
   targets: SchedTarget[]
   lastImage?: string

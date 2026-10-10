@@ -441,17 +441,18 @@ export const FIELD_LABELS: Record<OverrideField, string> = {
   minimumtime: 'Minimum time',
 }
 
-export function fieldValue(p: SchedProject, f: OverrideField): number {
+export function fieldValue(p: SchedProject, f: OverrideField): number | null {
   return f === 'priority' ? p.priority : f === 'state' ? p.state : p.minimumtime
 }
 
-export function valueLabel(f: OverrideField, v: number): string {
+export function valueLabel(f: OverrideField, v: number | null): string {
+  if (v === null) return 'not set'
   if (f === 'priority') return priorityName(v)
   if (f === 'state') return stateName(v)
   return `${v} min`
 }
 
-export function valueChoices(f: OverrideField, current: number): number[] {
+export function valueChoices(f: OverrideField, current: number | null): number[] {
   const all = f === 'priority' ? [2, 1, 0] : f === 'state' ? [1, 2, 0, 3] : MINUTE_CHOICES
   return all.filter((v) => v !== current)
 }
@@ -473,7 +474,7 @@ export function editsFor(list: WhatIfChange[], projects: SchedProject[]): EditPa
     if (before === c.value) continue
     let e = out.find((x) => x.id === p.id)
     if (!e) {
-      e = { entity: 'project', id: p.id, guid: p.guid, name: p.name, changes: [] }
+      e = { entity: 'project', id: p.id, guid: p.guid ?? undefined, name: p.name, changes: [] }
       out.push(e)
     }
     e.changes.push({ field: c.field, before, after: c.value })
