@@ -240,7 +240,7 @@ export interface WeatherReport extends SourceState {
   dew_point?: number
   temperature?: number
   sky_temperature?: number
-  sky_brightness?: number
+  sky_brightness_lux?: number
   pressure?: number
 }
 

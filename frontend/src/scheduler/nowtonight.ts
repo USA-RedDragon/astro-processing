@@ -50,13 +50,6 @@ export function hasData(s: { source: string } | undefined): boolean {
   return !!s && s.source !== 'none' && s.source !== 'error'
 }
 
-export function skyLabel(cloud?: number): string {
-  if (cloud === undefined) return '—'
-  if (cloud < 20) return 'Clear'
-  if (cloud < 70) return 'Cloudy'
-  return 'Overcast'
-}
-
 const kmh = (mps: number) => Math.round(mps * 3.6)
 
 export function weatherRows(w: WeatherReport | undefined): Row[] {
@@ -65,8 +58,8 @@ export function weatherRows(w: WeatherReport | undefined): Row[] {
   const rows: Row[] = []
   if (w.cloud_cover !== undefined)
     rows.push({
-      label: 'Sky',
-      value: `${skyLabel(w.cloud_cover)} · ${Math.round(w.cloud_cover)}% cloud`,
+      label: 'Cloud cover',
+      value: `${Math.round(w.cloud_cover)}%`,
     })
   if (w.rain_rate !== undefined)
     rows.push({ label: 'Rain', value: w.rain_rate > 0 ? 'Raining' : 'Dry' })
@@ -89,6 +82,10 @@ export function weatherRows(w: WeatherReport | undefined): Row[] {
     rows.push({ label: 'Air', value: `${w.temperature.toFixed(1)} °C` })
   if (w.sky_temperature !== undefined)
     rows.push({ label: 'Sky temperature', value: `${w.sky_temperature.toFixed(1)} °C` })
+  if (w.sky_brightness_lux !== undefined)
+    rows.push({ label: 'Sky brightness', value: `${w.sky_brightness_lux} lux` })
+  if (w.pressure !== undefined)
+    rows.push({ label: 'Pressure', value: `${Math.round(w.pressure)} hPa` })
   return rows
 }
 
@@ -104,7 +101,6 @@ export function weatherNote(w: WeatherReport | undefined, moonLine: string): str
   const parts: string[] = []
   if (w && hasData(w) && w.connected === false)
     parts.push('The weather device is not connected in NINA.')
-  else if (w && hasData(w)) parts.push('The weather device does not report sky quality.')
   if (moonLine) parts.push(moonLine)
   return parts.join(' ')
 }

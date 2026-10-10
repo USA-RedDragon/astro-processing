@@ -33,16 +33,22 @@ describe('conditions', () => {
       humidity: 58,
       temperature: 15,
       dew_point: 6,
+      sky_brightness_lux: 0.02,
+      pressure: 960.04,
     })
     expect(rows.map((r) => r.label)).toEqual([
-      'Sky',
+      'Cloud cover',
       'Rain',
       'Wind',
       'Humidity',
       'Dew point gap',
       'Air',
+      'Sky brightness',
+      'Pressure',
     ])
-    expect(rows[0].value).toBe('Clear · 0% cloud')
+    expect(rows[0].value).toBe('0%')
+    expect(rows[6].value).toBe('0.02 lux')
+    expect(rows[7].value).toBe('960 hPa')
     expect(rows[2].value).toBe('7 km/h')
     expect(rows[4].value).toBe('9 °C')
     expect(weatherRows({ source: 'prometheus', connected: false, humidity: 50 })).toEqual([])
