@@ -124,6 +124,29 @@ export interface Seam {
   ok: boolean
   problems: string
   measuredAt: string
+  starMatches?: number | null
+  registrationMedianPx?: number | null
+  registrationP90Px?: number | null
+  starFluxRatio?: number | null
+  colourMismatch?: number | null
+  colourReference?: string | null
+}
+
+export interface FilterNoise {
+  filter: string
+  median: number | null
+  p90: number | null
+  max: number | null
+  maxPanel: number | null
+  tiles: number
+  measuredAt: string | null
+}
+
+export interface SeamStatus {
+  filter: string
+  measured: boolean
+  measuredAt: string | null
+  pairs: number
 }
 
 export interface PanelHealth {
@@ -133,6 +156,7 @@ export interface PanelHealth {
   gapFraction: number
   gapDeg2: number
   gapWhere: string
+  fluxScale?: number | null
 }
 
 export interface MosaicBuild {
@@ -169,6 +193,8 @@ export interface MosaicDetail {
   seams: Seam[]
   health: PanelHealth[]
   needs: string[]
+  noise?: FilterNoise[] | null
+  seamStatus?: SeamStatus[] | null
 }
 
 export interface MosaicSummary {
@@ -193,11 +219,25 @@ export interface SeasonPace {
   seasonEnd: string
 }
 
+export interface SeasonBasis {
+  hoursPerClearNight: number | null
+  clearNightsPerSeason: number | null
+  clearNightsPerMonth: { month: number; name: string; nights: number | null; years: number }[]
+  usableMonths: number | null
+  historyFrom: string | null
+  historyTo: string | null
+  historyNights: number
+  projectNights: number
+  insufficientHistory: boolean
+  reason: string | null
+}
+
 export interface SeasonPlan {
   project: string
   strategy: string
   pace: string
-  hoursPerSeason: number
+  hoursPerSeason: number | null
+  basis?: SeasonBasis | null
   lastSeason?: SeasonPace
   currentSeason?: SeasonPace
   inSeason: boolean

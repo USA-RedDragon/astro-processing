@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { submitCommand, type CommandRecord } from '../api/commands'
+import { getProject, type Project as PlanningProject } from '../api/planning'
 import { onEvent } from '../api/events'
 import {
   getConditions,
@@ -37,10 +38,12 @@ import {
 } from '../plan'
 import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../shell'
 import { activityLine } from '../activity'
+import PageHead from '../components/PageHead.vue'
 import {
   conditionPills,
   hasData,
   hfrLimitFor,
+  hmDuration,
   moonLine,
   noSourceText,
   powerView,
@@ -222,30 +225,52 @@ const systems = computed(() => {
   const s = st.value
   const conn =
     s.reachable === 'online'
-      ? 'reachable'
+      ? s.live
+        ? 'reachable · live'
+        : 'reachable · polling'
       : s.reachable === 'offline'
         ? 'unreachable'
         : s.reachable === 'unconfigured'
           ? 'not set up'
           : 'checking'
+  const nina =
+    s.reachable === 'online'
+      ? state.value || 'running'
+      : s.reachable === 'offline'
+        ? 'no answer'
+        : s.reachable === 'unconfigured'
+          ? 'unknown'
+          : 'checking'
   const queued = shell.waiting.filter((c) => c.status === 'queued').length
   const pend = (s.pending?.length ?? 0) + queued
   const items: { label: string; value: string; dot: string; title?: string }[] = [
     {
+      label: 'NINA',
+      value: nina,
+      dot:
+        s.reachable !== 'online'
+          ? s.reachable === 'offline'
+            ? 'var(--bad)'
+            : 'var(--muted-foreground)'
+          : state.value === 'imaging' || state.value === 'waiting'
+            ? 'var(--ok)'
+            : state.value === 'paused'
+              ? 'var(--warn)'
+              : 'var(--muted-foreground)',
+      title: s.last_answer ? 'Last answered ' + clock(s.last_answer) : undefined,
+    },
+    {
       label: 'Scheduler API',
       value: conn,
       dot: s.reachable === 'online' ? 'var(--ok)' : 'var(--bad)',
+      title: s.version ? 'Target Scheduler plugin ' + s.version : undefined,
     },
     {
-      label: 'Link',
-      value: s.reachable === 'online' ? (s.live ? 'live' : 'polling') : '—',
-      dot: s.live ? 'var(--ok)' : 'var(--muted-foreground)',
+      label: 'Last plan',
+      value: s.last_plan_at ? hm(s.last_plan_at) : '—',
+      dot: s.last_plan_at ? 'var(--ok)' : 'var(--muted-foreground)',
     },
-    {
-      label: 'State',
-      value: state.value || '—',
-      dot: state.value === 'imaging' ? 'var(--ok)' : 'var(--muted-foreground)',
-    },
+    ...conditionPills(conditions.value),
     {
       label: 'Web editing',
       value: s.web_editing === undefined ? '—' : s.web_editing ? 'on' : 'off',
@@ -256,15 +281,8 @@ const systems = computed(() => {
             ? 'var(--ok)'
             : 'var(--muted-foreground)',
     },
-    {
-      label: 'Last plan',
-      value: s.last_plan_at ? hm(s.last_plan_at) : '—',
-      dot: s.last_plan_at ? 'var(--ok)' : 'var(--muted-foreground)',
-    },
-    ...conditionPills(conditions.value),
-    { label: 'Pending', value: String(pend), dot: pend > 0 ? 'var(--warn)' : 'var(--ok)' },
   ]
-  if (s.version) items.push({ label: 'Plugin', value: s.version, dot: 'var(--ok)' })
+  if (pend > 0) items.push({ label: 'Pending', value: String(pend), dot: 'var(--warn)' })
   return items
 })
 
@@ -300,48 +318,139 @@ const expProgress = computed(() => {
 const facts = computed(() => {
   const t = target.value
   const e = exposure.value
+  const c = conditions.value
   const out: { label: string; value: string; note: string }[] = []
   if (e) {
     out.push({
       label: 'Filter',
       value: filterName(e.filter),
-      note: e.number ? 'exposure ' + e.number : '',
+      note: c?.camera?.gain !== undefined ? 'gain ' + Math.round(c.camera.gain) : '',
     })
     out.push({
       label: 'Exposure',
       value: Math.round(e.seconds) + ' s',
-      note: e.started_at ? 'started ' + hm(e.started_at) : '',
+      note: [
+        e.number ? 'number ' + e.number : '',
+        e.started_at ? 'started ' + hm(e.started_at) : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
     })
   }
-  if (t) {
+  const m = c?.mount
+  if (m && hasData(m) && m.connected !== false && m.altitude !== undefined)
     out.push({
-      label: 'Minimum time',
-      value: t.minimum_time_end ? hm(t.minimum_time_end) : '—',
-      note: 'window ends',
+      label: 'Altitude',
+      value: Math.round(m.altitude) + '°',
+      note:
+        m.flip_hours !== undefined && m.flip_hours > 0
+          ? 'meridian flip in ' + hmDuration(m.flip_hours * 3600)
+          : m.parked
+            ? 'parked'
+            : '',
     })
+  const r = c?.rotator
+  if (r && hasData(r) && r.connected !== false && r.position !== undefined)
     out.push({
-      label: 'Hard stop',
-      value: t.hard_stop ? hm(t.hard_stop) : '—',
-      note: 'must end by',
+      label: 'Rotator',
+      value: r.position.toFixed(1) + '°',
+      note:
+        t?.rotation !== undefined && t.rotation !== null
+          ? 'target asks ' + t.rotation.toFixed(1) + '°'
+          : '',
     })
-    if (t.picked_at) {
-      const total = st.value.score_total
-      out.push({
-        label: 'Picked',
-        value: hm(t.picked_at),
-        note: total !== null && total !== undefined ? 'score ' + total.toFixed(2) : '',
-      })
-    }
+  else if (t?.rotation !== undefined && t.rotation !== null)
+    out.push({ label: 'Rotation', value: t.rotation.toFixed(1) + '°', note: 'from the target' })
+  const cam = c?.camera
+  if (cam && hasData(cam) && cam.connected !== false && cam.temperature !== undefined)
+    out.push({
+      label: 'Camera',
+      value: cam.temperature.toFixed(1) + ' °C',
+      note: [
+        cam.target_temperature !== undefined
+          ? 'set ' + cam.target_temperature.toFixed(1) + ' °C'
+          : '',
+        cam.cooler_power !== undefined ? 'cooler ' + Math.round(cam.cooler_power) + '%' : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+    })
+  return out
+})
+
+const planner = ref<PlanningProject | null>(null)
+const plannerError = ref('')
+
+async function loadPlanner(id: number | undefined) {
+  if (id === undefined) {
+    planner.value = null
+    return
+  }
+  try {
+    planner.value = (await getProject(id)).project
+    plannerError.value = ''
+  } catch (e) {
+    planner.value = null
+    plannerError.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+watch(
+  () => target.value?.project_id,
+  (id) => loadPlanner(id),
+  { immediate: true },
+)
+
+const plannerRules = computed(() => {
+  const p = planner.value
+  const t = target.value
+  if (!p || !t) return []
+  const pt = p.targets.find((x) => x.id === t.target_id)
+  const have = new Set((st.value.scores ?? []).map((s) => s.rule))
+  const out: { name: string; score: number; title: string }[] = []
+  for (const rule of ['Novelty', 'Rarity'] as const) {
+    if (have.has(rule)) continue
+    const raw = rule === 'Novelty' ? (pt?.novelty ?? p.novelty) : (pt?.rarity ?? p.rarity)
+    const rw = p.ruleWeights.find((w) => w.name === rule)
+    const weight = rw && !rw.missing ? rw.weight : 0
+    const why =
+      rule === 'Novelty'
+        ? `weakest filter at ${Math.round((pt?.progress ?? p.progress) * 100)}% of its goal`
+        : pt?.season?.outOfSeason
+          ? 'out of season'
+          : pt?.season
+            ? `about ${pt.season.nightsLeft} usable nights left`
+            : 'season unknown'
+    out.push({
+      name:
+        weight > 0 ? `${rule} (weight ${weight})` : `${rule} (off)`,
+      score: (weight / 100) * raw,
+      title:
+        (weight > 0
+          ? `Planner score ${raw.toFixed(2)} × weight ${weight}; the scheduler did not report this rule`
+          : `This project has no ${rule} weight, so the scheduler leaves the rule out. Its planner score is ${raw.toFixed(2)}`) +
+        ` (${why}).`,
+    })
   }
   return out
 })
 
 const rules = computed(() => {
+  const t = target.value
   const out = (st.value.scores ?? []).map((s) => ({
-    name: s.rule,
+    name:
+      /priority/i.test(s.rule) &&
+      !/meridian/i.test(s.rule) &&
+      t?.priority !== undefined &&
+      t.priority !== null
+        ? `${s.rule} (${priorityName(t.priority)})`
+        : s.weight === 0
+          ? `${s.rule} (weight 0)`
+          : s.rule,
     score: contribution(s),
     title: `weight ${s.weight} × score ${s.score}`,
   }))
+  out.push(...plannerRules.value)
   const total = st.value.score_total
   if (total !== null && total !== undefined)
     out.push({ name: 'Total now', score: total, title: '' })
@@ -569,18 +678,13 @@ const cross = (x: number, y: number, r: number) =>
 
 <template>
   <main id="now" class="page wide">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow-line">{{ tonightLine }}</p>
-        <h1>
-          Now <span class="clock num">{{ clock(shell.now) }}</span>
-        </h1>
-        <p class="lede">
-          What the observatory is doing right now. Edits and skips apply when the current exposure
-          finishes, then the scheduler re-plans.
-        </p>
-      </div>
-      <div class="row">
+    <PageHead :context="tonightLine" title="Now">
+      <template #title>
+        <span class="clock num ml-2">{{ clock(shell.now) }}</span>
+      </template>
+      What the observatory is doing right now. Edits and skips apply when the current exposure
+      finishes, then the scheduler re-plans.
+      <template #actions>
         <span v-if="pausedChip" role="status" class="badge warn">
           {{ pausedChip }} ·
           <button type="button" class="inline-link" :disabled="busy" @click="resume">resume</button>
@@ -635,8 +739,8 @@ const cross = (x: number, y: number, r: number) =>
           </svg>
           Skip this target
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHead>
     <p v-if="blockedLine" class="muted small blocked">{{ blockedLine }}</p>
 
     <section aria-label="System status" class="row">
@@ -843,6 +947,8 @@ const cross = (x: number, y: number, r: number) =>
                   · {{ latest.ccd_temp.toFixed(1) }} °C</template
                 ><template v-if="latest.hfr !== undefined">
                   · HFR {{ latest.hfr.toFixed(2) }}</template
+                ><template v-if="latest.width && latest.height">
+                  · {{ latest.width }} × {{ latest.height }}</template
                 >
               </div>
               <RouterLink
@@ -1400,11 +1506,6 @@ const cross = (x: number, y: number, r: number) =>
 </template>
 
 <style scoped>
-.eyebrow-line {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-}
 .clock {
   font-weight: 400;
   color: var(--muted-foreground);
@@ -1415,7 +1516,7 @@ const cross = (x: number, y: number, r: number) =>
   text-align: right;
 }
 .pause-btn {
-  background: oklch(0.274 0.006 286.033 / 0.3);
+  background: color-mix(in oklch, var(--input) 30%, transparent);
 }
 .skip-btn {
   height: 2.5rem;

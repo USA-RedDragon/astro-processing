@@ -129,6 +129,52 @@ export interface ObjectDetail extends CatalogueEntry {
   lists: { key: string; name: string; total: number }[] | null
 }
 
+export interface RigBasis {
+  source: 'fits-headers' | 'none'
+  frames: number
+  from: string | null
+  to: string | null
+  camera: string | null
+  telescope: string | null
+  guideFrames: number
+  hfrFrames: number
+}
+
+export interface Rig {
+  focalLength: number | null
+  pixelSize: number | null
+  widthPx: number | null
+  heightPx: number | null
+  scale: number | null
+  widthDeg: number | null
+  heightDeg: number | null
+  colour: boolean | null
+  filters: string[]
+  typicalHfr: number | null
+  typicalGuideRms: number | null
+  exposures: Record<string, number>
+  basis: RigBasis
+}
+
+export interface SkyBasis {
+  source: 'measured' | 'none'
+  method: string | null
+  filter: string | null
+  nights: number
+  frames: number
+  from: string | null
+  to: string | null
+  perNight: { night: string; mag: number; frames: number }[]
+  reason: string | null
+}
+
+export interface HalphaMap {
+  state: 'ready' | 'loading' | 'failed' | 'off'
+  source: string | null
+  fetchedAt: string | null
+  error: string | null
+}
+
 export interface FinderRow {
   object: CatalogObject
   group: string
@@ -136,6 +182,7 @@ export interface FinderRow {
   brightness: string
   brightScore: number
   narrowband: string
+  halpha?: { rayleigh: number; peak: number; radiusDeg: number } | null
   months: number[]
   bestMonths: number[] | null
   tonightHours: number
@@ -150,8 +197,12 @@ export interface FinderResult {
   total: number
   rows: FinderRow[]
   siteError?: string
-  frame: { widthDeg: number; heightDeg: number; scale: number }
-  skyBrightness: number
+  frame?: { widthDeg: number | null; heightDeg: number | null; scale: number | null } | null
+  rig?: Rig | null
+  rigError?: string | null
+  skyBrightness: number | null
+  skyBrightnessBasis?: SkyBasis | null
+  halphaMap?: HalphaMap | null
 }
 
 export interface FinderQuery {
@@ -226,14 +277,10 @@ export interface CollabsView {
   open: Collab[]
   closed: Collab[]
   closedTotal: number
-  rig: {
-    focalLength: number
-    scale: number
-    widthDeg: number
-    heightDeg: number
-    colour: boolean
-    filters: string[] | null
-  }
+  rig: Rig | null
+  rigError?: string | null
+  skyBrightness?: number | null
+  skyBrightnessBasis?: SkyBasis | null
   night?: NightInfo
   siteError?: string
 }
@@ -392,4 +439,45 @@ export function decText(deg: number): string {
   const d = Math.floor(a)
   const m = Math.round((a - d) * 60)
   return `${s}${String(d).padStart(2, '0')}° ${String(m % 60).padStart(2, '0')}′`
+}
+
+export function rigFrame(r: Rig | null | undefined): { w: number; h: number } | null {
+  if (!r || r.widthDeg === null || r.heightDeg === null) return null
+  return { w: r.widthDeg, h: r.heightDeg }
+}
+
+function monthYear(v: string | null): string {
+  if (!v) return ''
+  return new Date(v).toLocaleString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+export function rigSource(r: Rig | null | undefined): string {
+  const b = r?.basis
+  if (!r || !b || b.source === 'none' || !b.frames)
+    return 'Rig unknown: no light frames with FITS headers yet.'
+  const kit = [b.camera, b.telescope].filter(Boolean).join(' on ')
+  const span = b.from && b.to ? `, ${monthYear(b.from)} to ${monthYear(b.to)}` : ''
+  return `From the FITS headers of ${b.frames} light ${b.frames === 1 ? 'frame' : 'frames'}${span}${kit ? ' (' + kit + ')' : ''}.`
+}
+
+export function skySource(mag: number | null | undefined, b: SkyBasis | null | undefined): string {
+  if (mag === null || mag === undefined || !b || b.source === 'none')
+    return 'Brightness unknown: sky not measured yet' + (b?.reason ? ` (${b.reason})` : '') + '.'
+  const how = [b.method, b.filter ? 'in ' + b.filter : ''].filter(Boolean).join(' ')
+  const span = b.from && b.to ? `, ${monthYear(b.from)} to ${monthYear(b.to)}` : ''
+  return `Sky ${mag.toFixed(2)} mag/arcsec², measured${how ? ' ' + how : ''} from ${b.frames} ${b.frames === 1 ? 'frame' : 'frames'} over ${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${span}.`
+}
+
+export function halphaSource(m: HalphaMap | null | undefined): string {
+  if (!m) return 'H-α unknown: no H-α map.'
+  switch (m.state) {
+    case 'ready':
+      return `H-α from ${m.source ?? 'an all-sky H-α map'}${m.fetchedAt ? ', fetched ' + new Date(m.fetchedAt).toLocaleDateString('en-GB') : ''}.`
+    case 'loading':
+      return 'H-α map still loading, so H-α shows unknown for now.'
+    case 'failed':
+      return `H-α map failed to load${m.error ? ': ' + m.error : ''}, so H-α shows unknown.`
+    default:
+      return 'H-α lookup is off, so H-α shows unknown.'
+  }
 }

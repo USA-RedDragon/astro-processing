@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
+import SkyCutout from '../components/SkyCutout.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -164,7 +166,8 @@ function window(e: CatalogueEntry): string {
     return t.peakAlt > 0
       ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
       : 'not up tonight'
-  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)} above ${overview.value?.night?.minAltitude ?? 30}°`
+  const min = overview.value?.night?.minAltitude
+  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)}${min !== undefined && min !== null ? ` above ${min}°` : ''}`
 }
 
 function pickStatus(e: CatalogueEntry): string {
@@ -229,21 +232,19 @@ async function decide(m: ReviewItem, after: Decision) {
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Discover</p>
-        <h1>Catalogue completion</h1>
-        <p class="lede">
-          Your stacks matched to catalogue objects. Done means every filter has met its faint-SNR
-          goal. Matches come from coordinates first, then names; the uncertain ones wait for you
-          below.
-        </p>
-      </div>
-      <div v-if="overview?.night" class="xsmall muted num" style="text-align: right">
-        Tonight: dark {{ hm(overview.night.dusk) }} – {{ hm(overview.night.dawn) }} · Moon
-        {{ Math.round(overview.night.moonIllumination * 100) }}% lit
-      </div>
-    </div>
+    <PageHead context="Discover" title="Catalogue completion">
+      <span>
+        Your stacks matched to catalogue objects. Done means every filter has met its faint-SNR
+        goal. Matches come from coordinates first, then names; the uncertain ones wait for you
+        below.
+      </span>
+      <template #actions>
+        <div v-if="overview?.night" class="xsmall muted num" style="text-align: right">
+          Tonight: dark {{ hm(overview.night.dusk) }} – {{ hm(overview.night.dawn) }} · Moon
+          {{ Math.round(overview.night.moonIllumination * 100) }}% lit
+        </div>
+      </template>
+    </PageHead>
 
     <p v-if="failed" class="empty">The catalogues could not be loaded: {{ failed }}</p>
     <p v-if="overview?.siteError" class="badge warn" style="align-self: flex-start">
@@ -320,7 +321,16 @@ async function decide(m: ReviewItem, after: Decision) {
       </div>
 
       <div v-if="pick" role="status" class="strip">
-        <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
+        <SkyCutout
+          :ra="pick.object.ra"
+          :dec="pick.object.dec"
+          :fov="Math.max(0.25, Math.min(10, (pick.object.majorArcmin / 60) * 1.6))"
+          :width="240"
+          :height="160"
+          :alt="'Sky survey image around ' + label(pick.object)"
+          style="max-width: 12rem"
+        />
+        <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1">
           <span>
             <strong>{{ pick.label }}</strong> {{ pick.object.name }}
             <span class="muted">

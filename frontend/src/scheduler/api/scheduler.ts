@@ -202,6 +202,8 @@ export interface TonightSub {
   ccd_temp?: number
   processed_at?: string
   preview_url?: string
+  width?: number | null
+  height?: number | null
 }
 
 export interface HFRLimit {
@@ -257,6 +259,26 @@ export interface MountReport extends SourceState {
   flip_hours?: number
 }
 
+export interface CameraReport extends SourceState {
+  connected?: boolean
+  temperature?: number
+  target_temperature?: number
+  cooler_on?: boolean
+  cooler_power?: number
+  sensor_width?: number
+  sensor_height?: number
+  bin_x?: number
+  bin_y?: number
+  gain?: number
+  pixel_size?: number
+}
+
+export interface RotatorReport extends SourceState {
+  connected?: boolean
+  position?: number
+  mechanical_position?: number
+}
+
 export interface PowerReport extends SourceState {
   model?: string
   charge?: number
@@ -281,6 +303,8 @@ export interface Conditions {
   weather: WeatherReport
   safety: SafetyReport
   mount: MountReport
+  camera?: CameraReport
+  rotator?: RotatorReport
   power: PowerReport
   sync: SyncReport
 }

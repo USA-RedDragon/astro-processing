@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
@@ -282,61 +283,54 @@ interface SeamRow {
 const seamRows = computed<SeamRow[]>(() => {
   const d = detail.value
   if (!d) return []
-  if (d.seams.length) {
-    return d.seams
-      .map((s) => ({
-        pair: `Panel ${s.panelA} ↔ Panel ${s.panelB} · ${s.filter}`,
-        severity: Math.max(
-          s.noiseRatio / 1.5,
-          s.level / 0.2,
-          s.step / 0.3,
-          s.samples < 400 ? 1.5 : 0,
-        ),
-        value: s.noiseRatio ? r1(s.noiseRatio) + '×' : '—',
-        detail: `level ${s.level.toFixed(2)}σ · step ${s.step.toFixed(2)}σ · ${s.samples} blocks`,
-        note: s.ok ? 'Within limits. The seam should blend.' : s.problems,
-        ok: s.ok,
-      }))
-      .sort((a, b) => b.severity - a.severity)
-  }
-  const out: SeamRow[] = []
-  const at = (r: number, c: number) => panels.value.find((p) => p.row === r && p.col === c)
-  for (const p of panels.value) {
-    for (const q of [at(p.row, p.col + 1), at(p.row + 1, p.col)]) {
-      if (!q) continue
-      let best: { f: string; ratio: number; noisier: number } | null = null
-      for (const f of filters.value) {
-        const a = pf(p, f)?.effectiveHours ?? 0
-        const b = pf(q, f)?.effectiveHours ?? 0
-        const lo = Math.min(a, b)
-        const hi = Math.max(a, b)
-        if (hi <= 0) continue
-        const ratio = lo > 0 ? Math.sqrt(hi / lo) : Infinity
-        if (!best || ratio > best.ratio) best = { f, ratio, noisier: a < b ? p.number : q.number }
-      }
-      if (!best) continue
-      const inf = best.ratio === Infinity
-      out.push({
-        pair: `Panel ${p.number} ↔ Panel ${q.number} · ${best.f}`,
-        severity: inf ? 99 : best.ratio / 1.5,
-        value: inf ? 'no data' : r1(best.ratio) + '×',
-        detail: 'estimated from effective hours',
-        note: inf
-          ? `One side has no ${best.f} yet. The seam can't be judged.`
-          : best.ratio > 1.5
-            ? `Panel ${best.noisier} is noisier. Expect a texture step down the seam.`
-            : 'Within 1.5×. The seam should blend.',
-        ok: !inf && best.ratio <= 1.5,
-      })
-    }
-  }
-  return out.sort((a, b) => b.severity - a.severity)
+  const fx = (v: number | null | undefined, digits: number, unit = '') =>
+    v === null || v === undefined ? '' : v.toFixed(digits) + unit
+  return (d.seams ?? [])
+    .map((s) => ({
+      pair: `Panel ${s.panelA} ↔ Panel ${s.panelB} · ${s.filter}`,
+      severity: Math.max(
+        s.noiseRatio / 1.5,
+        s.level / 0.2,
+        s.step / 0.3,
+        s.samples < 400 ? 1.5 : 0,
+      ),
+      value: s.noiseRatio ? r1(s.noiseRatio) + '×' : '—',
+      detail: [
+        `level ${s.level.toFixed(2)}σ`,
+        `step ${s.step.toFixed(2)}σ`,
+        `${s.samples} blocks`,
+        s.starMatches !== null && s.starMatches !== undefined
+          ? `${s.starMatches} star matches`
+          : '',
+        s.registrationMedianPx !== null && s.registrationMedianPx !== undefined
+          ? `registration ${fx(s.registrationMedianPx, 2, ' px')} median, ${fx(s.registrationP90Px, 2, ' px')} p90`
+          : '',
+        s.starFluxRatio !== null && s.starFluxRatio !== undefined
+          ? `star flux ratio ${fx(s.starFluxRatio, 2)}`
+          : '',
+        s.colourMismatch !== null && s.colourMismatch !== undefined
+          ? `colour mismatch ${fx(s.colourMismatch, 3)}${s.colourReference ? ' against ' + s.colourReference : ''}`
+          : '',
+        s.measuredAt ? 'measured ' + new Date(s.measuredAt).toLocaleDateString('en-GB') : '',
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      note: s.ok ? 'Within limits. The seam should blend.' : s.problems,
+      ok: s.ok,
+    }))
+    .sort((a, b) => b.severity - a.severity)
 })
-const seamNote = computed(() =>
-  detail.value?.seams.length
-    ? "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, and the two panels' noise ratio. Warnings above 0.2σ level, 0.3σ step or 1.5× noise."
-    : 'Not measured yet, so the noise ratio across each overlap is estimated from effective hours (noise ∝ 1/√hours). The stacker measures level, gradient step and noise the next time it builds or checks this mosaic.',
-)
+const unmeasured = computed(() => {
+  const d = detail.value
+  if (!d) return []
+  const st = d.seamStatus ?? []
+  if (st.length) return st.filter((x) => !x.measured).map((x) => x.filter)
+  const measured = new Set((d.seams ?? []).map((x) => x.filter))
+  return (d.filters ?? []).filter((f) => !measured.has(f))
+})
+const noiseRows = computed(() => (detail.value?.noise ?? []).filter((n) => n.median !== null))
+const seamNote =
+  "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, and the two panels' noise ratio. Warnings above 0.2σ level, 0.3σ step or 1.5× noise."
 const seamWarnings = computed(() => seamRows.value.filter((s) => !s.ok).length)
 const showAllSeams = ref(false)
 const seamsShown = computed(() =>
@@ -345,7 +339,7 @@ const seamsShown = computed(() =>
 const gaps = computed(() => (detail.value?.health ?? []).filter((h) => h.gapFraction > 0.02))
 
 const strategy = ref('weakest')
-const pace = ref('last')
+const pace = ref('measured')
 const seasons = ref<SeasonPlan | null>(null)
 
 async function loadSeasons() {
@@ -368,6 +362,7 @@ const strategyText: Record<string, string> = {
 const finishLabel = computed(() => {
   const s = seasons.value
   if (!s) return '…'
+  if (s.hoursPerSeason === null) return 'Unknown'
   if (!s.finishSeason) return `> ${s.rows.length} seasons`
   return `≈ ${s.finishSeason} ${s.finishSeason === 1 ? 'season' : 'seasons'}`
 })
@@ -375,6 +370,7 @@ const finishLabel = computed(() => {
 const finishNote = computed(() => {
   const s = seasons.value
   if (!s) return ''
+  if (s.hoursPerSeason === null) return 'not enough imaging history to project'
   const how =
     strategy.value === 'weakest'
       ? 'weakest first'
@@ -385,7 +381,7 @@ const finishNote = computed(() => {
 })
 
 function finishIn(n?: number): string {
-  if (!n) return `after more than ${seasons.value?.rows.length ?? 8} seasons`
+  if (!n) return `after more than ${seasons.value?.rows.length ?? 0} seasons`
   return n === 1 ? 'this season' : `in season ${n}`
 }
 
@@ -399,12 +395,46 @@ const paceText = computed(() => {
   return `${Math.round(l.hours)} h over ${l.nights} nights${l.from && l.to ? `, ${monthYear(l.from)} to ${monthYear(l.to)}` : ''}`
 })
 
+const basisText = computed(() => {
+  const s = seasons.value
+  const b = s?.basis
+  if (!s) return ''
+  if (s.hoursPerSeason === null || !b)
+    return (
+      'Not enough history to project seasons' +
+      (b?.reason ? `: ${b.reason}` : '.') +
+      (b && b.historyNights ? ` ${b.historyNights} imaging nights on record so far.` : '')
+    )
+  const parts: string[] = []
+  if (b.hoursPerClearNight !== null && b.clearNightsPerSeason !== null)
+    parts.push(
+      `${r1(b.hoursPerClearNight)} h per clear night × ${Math.round(b.clearNightsPerSeason)} clear nights a season`,
+    )
+  if (b.historyFrom && b.historyTo)
+    parts.push(
+      `from ${b.historyNights} imaging nights, ${monthYear(b.historyFrom)} to ${monthYear(b.historyTo)}`,
+    )
+  if (b.projectNights) parts.push(`${b.projectNights} of them on this mosaic`)
+  if (b.usableMonths !== null) parts.push(`${b.usableMonths} usable months`)
+  return (
+    'Based on ' +
+    parts.join(', ') +
+    '.' +
+    (b.insufficientHistory ? ' History is thin, so treat this as rough.' : '') +
+    (b.reason && b.insufficientHistory ? ' ' + b.reason : '')
+  )
+})
+
 const seasonText = computed(() => {
   const s = seasons.value
   if (!s) return ''
   if (!s.siteKnown) return 'Site unknown, so visibility is not modelled'
   return s.inSeason ? `In season · ≈ ${s.nightsLeft} nights left` : 'Out of season'
 })
+
+const clearNights = computed(() =>
+  (seasons.value?.basis?.clearNightsPerMonth ?? []).filter((m) => m.nights !== null),
+)
 
 const monthCells = computed(() =>
   (seasons.value?.months ?? []).map((m) => ({
@@ -523,44 +553,39 @@ const tabs = computed<[Tab, string][]>(() => [
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div style="min-width: 0">
-        <p class="eyebrow">Mosaics</p>
-        <h1>{{ detail?.project ?? 'Mosaics' }}</h1>
-        <p v-if="detail" class="lede">
-          {{ panels.length }} panels, {{ detail.layout }}.
-          {{ PRIORITY[detail.ts.priority] ?? 'Normal' }} priority, minimum time
-          {{ detail.ts.minimumTime }} min.
-          {{
-            detail.adopted ? 'Linked by scheduler guid.' : 'Grouped by panel names until adopted.'
-          }}
-          <RouterLink
-            v-if="detail.ts.id"
-            :to="{ name: 'ProjectDetails', params: { id: String(detail.ts.id) } }"
-            class="lnk"
-            style="text-decoration: underline; text-underline-offset: 3px"
-            >Project details and mosaic images</RouterLink
-          >
-        </p>
-        <p v-else-if="!list.length && !loadError" class="lede">
-          No mosaics yet. Add one from Add target, or adopt your existing ones under Adoption
-          review.
-        </p>
-      </div>
-      <label v-if="list.length" class="field" style="min-width: 14rem">
-        <span>Mosaic</span>
-        <select
-          class="input"
-          :value="key"
-          @change="pick(($event.target as HTMLSelectElement).value)"
+    <PageHead context="Plan" :title="detail?.project ?? 'Mosaics'">
+      <span v-if="detail">
+        {{ panels.length }} panels, {{ detail.layout }}.
+        {{ PRIORITY[detail.ts.priority] ?? 'Unknown' }} priority, minimum time
+        {{ detail.ts.minimumTime }} min.
+        {{ detail.adopted ? 'Linked by scheduler guid.' : 'Grouped by panel names until adopted.' }}
+        <RouterLink
+          v-if="detail.ts.id"
+          :to="{ name: 'ProjectDetails', params: { id: String(detail.ts.id) } }"
+          class="lnk"
+          style="text-decoration: underline; text-underline-offset: 3px"
+          >Project details and mosaic images</RouterLink
         >
-          <option v-for="m in list" :key="m.projectGuid" :value="m.projectGuid">
-            {{ m.project }} · {{ m.panels }} panels · {{ pct(m.complete)
-            }}{{ m.seamWarnings ? ' · ' + m.seamWarnings + ' seam warnings' : '' }}
-          </option>
-        </select>
-      </label>
-    </div>
+      </span>
+      <span v-else-if="!list.length && !loadError">
+        No mosaics yet. Add one from Add target, or adopt your existing ones under Adoption review.
+      </span>
+      <template #actions>
+        <label v-if="list.length" class="field" style="min-width: 14rem">
+          <span>Mosaic</span>
+          <select
+            class="input"
+            :value="key"
+            @change="pick(($event.target as HTMLSelectElement).value)"
+          >
+            <option v-for="m in list" :key="m.projectGuid" :value="m.projectGuid">
+              {{ m.project }} · {{ m.panels }} panels · {{ pct(m.complete)
+              }}{{ m.seamWarnings ? ' · ' + m.seamWarnings + ' seam warnings' : '' }}
+            </option>
+          </select>
+        </label>
+      </template>
+    </PageHead>
 
     <p v-if="loadError" class="small" style="margin: 0; color: var(--bad)">{{ loadError }}</p>
 
@@ -764,13 +789,15 @@ const tabs = computed<[Tab, string][]>(() => [
         <h2 id="seam-h">
           Seam health · {{ showAllSeams ? 'every overlap' : 'worst five overlaps' }}
         </h2>
-        <span class="badge" :class="seamWarnings ? 'warn' : 'ok'">{{
-          seamWarnings
-            ? seamWarnings + (seamWarnings === 1 ? ' warning' : ' warnings')
-            : 'No warnings'
+        <span class="badge" :class="!seamRows.length ? '' : seamWarnings ? 'warn' : 'ok'">{{
+          !seamRows.length
+            ? 'Not measured yet'
+            : seamWarnings
+              ? seamWarnings + (seamWarnings === 1 ? ' warning' : ' warnings')
+              : 'No warnings'
         }}</span>
       </div>
-      <ul class="seams">
+      <ul v-if="seamRows.length" class="seams">
         <li v-for="s in seamsShown" :key="s.pair">
           <span style="font-weight: 600">{{ s.pair }}</span>
           <span
@@ -782,7 +809,10 @@ const tabs = computed<[Tab, string][]>(() => [
           <span class="muted" style="grid-column: 1 / -1">{{ s.note }} · {{ s.detail }}</span>
         </li>
       </ul>
-      <p v-if="!seamRows.length" class="empty">No neighbouring panels have data yet.</p>
+      <p v-if="!seamRows.length" class="empty">Not measured yet.</p>
+      <p v-else-if="unmeasured.length" class="small muted" style="margin: 0">
+        Not measured yet: {{ unmeasured.join(', ') }}.
+      </p>
       <button
         v-if="seamRows.length > 5"
         type="button"
@@ -792,6 +822,38 @@ const tabs = computed<[Tab, string][]>(() => [
       >
         {{ showAllSeams ? 'Show the worst five' : `Show all ${seamRows.length}` }}
       </button>
+      <div v-if="noiseRows.length">
+        <h2 style="font-size: 0.875rem; margin: 0 0 0.375rem">Background noise by filter</h2>
+        <div class="scroll-x">
+          <table class="dgrid num small">
+            <thead>
+              <tr>
+                <th scope="col">Filter</th>
+                <th scope="col" style="text-align: right">Median</th>
+                <th scope="col" style="text-align: right">p90</th>
+                <th scope="col" style="text-align: right">Worst</th>
+                <th scope="col" style="text-align: right">Tiles</th>
+                <th scope="col">Measured</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="n in noiseRows" :key="n.filter">
+                <td>{{ n.filter }}</td>
+                <td style="text-align: right">{{ n.median?.toFixed(4) ?? '—' }}</td>
+                <td style="text-align: right">{{ n.p90?.toFixed(4) ?? '—' }}</td>
+                <td style="text-align: right">
+                  {{ n.max?.toFixed(4) ?? '—'
+                  }}<template v-if="n.maxPanel !== null"> · Panel {{ n.maxPanel }}</template>
+                </td>
+                <td style="text-align: right">{{ n.tiles }}</td>
+                <td class="muted">
+                  {{ n.measuredAt ? new Date(n.measuredAt).toLocaleDateString('en-GB') : '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
       <div v-if="gaps.length">
         <h2 style="font-size: 0.875rem; margin: 0 0 0.375rem">Coverage gaps</h2>
         <ul class="small" style="margin: 0; padding-left: 1.125rem">
@@ -831,9 +893,10 @@ const tabs = computed<[Tab, string][]>(() => [
           <label class="field"
             ><span>Hours a season</span>
             <select v-model="pace" class="input">
+              <option value="measured">Measured from history</option>
               <option value="last">Like last season</option>
-              <option value="good">A good season, 60 h</option>
-              <option value="poor">A poor season, 20 h</option>
+              <option value="best">Like the best season</option>
+              <option value="worst">Like the worst season</option>
             </select>
           </label>
           <button
@@ -846,7 +909,8 @@ const tabs = computed<[Tab, string][]>(() => [
           </button>
         </div>
         <p class="small" style="margin: 0">{{ strategyText[strategy] }}</p>
-        <p v-if="seasons" class="xsmall muted" style="margin: 0">
+        <p v-if="seasons" class="xsmall muted" style="margin: 0">{{ basisText }}</p>
+        <p v-if="seasons && seasons.hoursPerSeason !== null" class="xsmall muted" style="margin: 0">
           At {{ Math.round(seasons.hoursPerSeason) }} h a season it finishes
           {{ finishIn(seasons.compare.weakest) }} weakest first,
           {{ finishIn(seasons.compare.even) }} even, and {{ finishIn(seasons.compare.off) }} with
@@ -887,6 +951,17 @@ const tabs = computed<[Tab, string][]>(() => [
         <p v-else class="empty">
           The observatory site isn't known yet; it is read from a light's FITS header.
         </p>
+        <template v-if="clearNights.length">
+          <h2 style="font-size: 0.875rem; margin: 0">Clear nights a month, from history</h2>
+          <div class="months num">
+            <div v-for="m in clearNights" :key="m.month" class="month">
+              <span style="font-weight: 500">{{ m.name }}</span>
+              <span :title="m.years + (m.years === 1 ? ' year' : ' years') + ' of records'">{{
+                m.nights !== null ? r1(m.nights) : '–'
+              }}</span>
+            </div>
+          </div>
+        </template>
         <template v-if="pushPanels.length">
           <h2 style="font-size: 0.875rem; margin: 0">Panels to push this season</h2>
           <ul class="small" style="margin: 0; padding-left: 1.125rem">

@@ -37,6 +37,7 @@ import {
   type WhatIfChange,
 } from '../plan'
 import { errorToast, notifyCommand, shell, showToast } from '../shell'
+import PageHead from '../components/PageHead.vue'
 import { moonLine, moonPhaseText, mosaicBalance, nightSpan, noMoonAvoidance } from '../nowtonight'
 
 const night = ref<Night>('tonight')
@@ -226,6 +227,10 @@ interface Bar {
   name: string
   sub: string
   title: string
+  targetId?: number
+  start: number
+  end: number
+  reason: string
 }
 
 function bars(p: Preview | null, order: Map<number, number>): Bar[] {
@@ -247,6 +252,10 @@ function bars(p: Preview | null, order: Map<number, number>): Bar[] {
       title: r.wait
         ? `Wait ${hm(r.start)}–${hm(r.end)}`
         : `${r.target_name} ${hm(r.start)}–${hm(r.end)}${r.reason ? ' · ' + r.reason : ''}`,
+      targetId: r.wait ? undefined : r.target_id,
+      start: r.start,
+      end: r.end,
+      reason: r.reason ?? '',
     }
   })
 }
@@ -424,26 +433,71 @@ async function apply() {
 }
 
 const diff = computed(() => (whatIf.value ? planDiff(preview.value, whatIf.value) : []))
-const compareOrder = computed(() => new Map<number, number>())
-const compareCurrent = computed(() => bars(preview.value, compareOrder.value))
-const compareWhatIf = computed(() => bars(whatIf.value, compareOrder.value))
+const compareOrder = computed(() => {
+  void whatIf.value
+  return new Map<number, number>()
+})
+
+function overlap(b: Bar, list: Bar[]): number {
+  let o = 0
+  for (const x of list) {
+    if (x.wait !== b.wait || x.targetId !== b.targetId) continue
+    o += Math.max(0, Math.min(b.end, x.end) - Math.max(b.start, x.start))
+  }
+  return o / Math.max(1, b.end - b.start)
+}
+
+interface CompareBar extends Bar {
+  changed: boolean
+  label: string
+}
+
+function fitLabel(text: string, w: number, size: number): string {
+  const room = Math.floor((w - 16) / (size * 0.62))
+  if (room < 4) return ''
+  return text.length <= room ? text : text.slice(0, room - 1) + '…'
+}
+
+const compare = computed(() => {
+  const order = compareOrder.value
+  const cur = bars(preview.value, order)
+  const wi = bars(whatIf.value, order)
+  const mark = (list: Bar[], other: Bar[], after: boolean): CompareBar[] =>
+    list.map((b) => {
+      const changed = overlap(b, other) < 0.9
+      const why = after && changed && b.reason ? ' · ' + b.reason : ''
+      return { ...b, changed, label: b.wait ? '' : fitLabel(b.name + why, b.w, 20) }
+    })
+  return { current: mark(cur, wi, false), whatIf: mark(wi, cur, true) }
+})
 const compareTicks = computed(() => ticks.value.filter((_, i) => i % 4 === 1))
+const compareLabel = computed(() => {
+  const say = (list: CompareBar[]) =>
+    list
+      .filter((b) => !b.wait)
+      .map((b) => `${b.name} ${hm(b.start)} to ${hm(b.end)}`)
+      .join(', ') || 'nothing'
+  const moved = diff.value.filter((d) => d.change !== 'no change')
+  return (
+    `Current plan: ${say(compare.value.current)}. What-if plan: ${say(compare.value.whatIf)}.` +
+    (moved.length
+      ? ' Changes: ' + moved.map((d) => `${d.name} ${d.change}`).join(', ') + '.'
+      : ' No target gains or loses time.')
+  )
+})
+const sameAsNow = computed(
+  () => !!whatIf.value && diff.value.every((d) => d.change === 'no change'),
+)
 const unreachable = computed(() => !!error.value)
 const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projects.value))
 </script>
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow-line">{{ nightLabel }}</p>
-        <h1>Tonight</h1>
-        <p class="lede" style="max-width: 72ch">
-          Which target and filter runs when, from dusk to dawn, and why the planner picked it. Try a
-          change in What if before you make it for real.
-        </p>
-      </div>
-      <div class="row">
+    <PageHead :context="nightLabel" title="Tonight">
+      Which target and filter runs when, from dusk to dawn, and why the planner picked it. Try a
+      change in What if before you make it for real.
+      <template #actions>
         <label for="night" class="small muted">Night</label>
         <select id="night" v-model="night" class="input">
           <option value="tonight">Tonight, {{ nightSpan(nightOf(shell.now)) }}</option>
@@ -467,8 +521,8 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
           </svg>
           Re-run simulation
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHead>
 
     <section v-if="unreachable" class="card" role="status">
       <h2>The plan is not available</h2>
@@ -847,7 +901,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               :viewBox="`0 0 ${W} 150`"
               style="width: 100%; min-width: 34rem; display: block"
               role="img"
-              aria-label="Current plan compared with the what-if plan"
+              :aria-label="compareLabel"
             >
               <g font-size="22" fill="var(--muted-foreground)" text-anchor="middle">
                 <text v-for="t in compareTicks" :key="'ct' + t.x" :x="t.x" y="20">
@@ -858,7 +912,8 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               <text x="0" y="122" font-size="22" fill="var(--foreground)" font-weight="600">
                 What if
               </text>
-              <g v-for="(b, i) in compareCurrent" :key="'cc' + i">
+              <g v-for="(b, i) in compare.current" :key="'cc' + i">
+                <title>{{ b.title }}</title>
                 <rect
                   :x="b.x"
                   y="34"
@@ -866,21 +921,16 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                   height="44"
                   rx="6"
                   :fill="b.wait ? 'none' : b.colour"
-                  :fill-opacity="b.wait ? undefined : 0.3"
+                  :fill-opacity="b.wait ? undefined : b.changed ? 0.14 : 0.3"
                   :stroke="b.colour"
-                  :stroke-dasharray="b.wait ? '3 3' : undefined"
+                  :stroke-dasharray="b.wait || b.changed ? '4 3' : undefined"
                 />
-                <text
-                  v-if="b.w > 110 && !b.wait"
-                  :x="b.x + 8"
-                  y="63"
-                  font-size="20"
-                  fill="var(--foreground)"
-                >
-                  {{ b.name }}
+                <text v-if="b.label" :x="b.x + 8" y="63" font-size="20" fill="var(--foreground)">
+                  {{ b.label }}
                 </text>
               </g>
-              <g v-for="(b, i) in compareWhatIf" :key="'cw' + i">
+              <g v-for="(b, i) in compare.whatIf" :key="'cw' + i">
+                <title>{{ b.title }}</title>
                 <rect
                   :x="b.x"
                   y="94"
@@ -890,20 +940,40 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                   :fill="b.wait ? 'none' : b.colour"
                   :fill-opacity="b.wait ? undefined : 0.3"
                   :stroke="b.colour"
-                  stroke-width="2"
+                  :stroke-width="b.changed ? 3 : 1"
                   :stroke-dasharray="b.wait ? '3 3' : undefined"
                 />
                 <text
-                  v-if="b.w > 110 && !b.wait"
+                  v-if="b.label"
                   :x="b.x + 8"
                   y="123"
                   font-size="20"
+                  :font-weight="b.changed ? 600 : 400"
                   fill="var(--foreground)"
                 >
-                  {{ b.name }}
+                  {{ b.label }}
                 </text>
               </g>
             </svg>
+          </div>
+          <p v-if="sameAsNow" class="xsmall muted" style="margin: 0">
+            The what-if plan gives every target the same time as tonight's plan.
+          </p>
+          <div v-if="whatIf && sc" class="row xsmall muted" style="gap: 0.875rem">
+            <span
+              ><span
+                class="key"
+                style="border: 2px solid var(--foreground); background: none"
+              ></span
+              >Changed in the what-if</span
+            >
+            <span
+              ><span
+                class="key"
+                style="border: 1px dashed var(--foreground); background: none"
+              ></span
+              >Gives way in the what-if</span
+            >
           </div>
           <ul v-if="diff.length" class="diff num">
             <li v-for="(d, i) in diff" :key="i">
@@ -961,11 +1031,6 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
 </template>
 
 <style scoped>
-.eyebrow-line {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--muted-foreground);
-}
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));

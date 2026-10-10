@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   MONTHS,
@@ -6,6 +7,10 @@ import {
   getFinder,
   size,
   typeLabel,
+  halphaSource,
+  rigFrame,
+  rigSource,
+  skySource,
   type FinderResult,
   type FinderRow,
 } from '../api/discover'
@@ -109,9 +114,21 @@ const countText = computed(() => {
   return pickedMonths.value.length ? `${base} · best in ${pickedMonths.value.join(', ')}` : base
 })
 
+const frame = computed(() => {
+  const r = result.value
+  if (!r) return null
+  const f = rigFrame(r.rig)
+  if (f) return f
+  if (r.frame && r.frame.widthDeg && r.frame.heightDeg)
+    return { w: r.frame.widthDeg, h: r.frame.heightDeg }
+  return null
+})
+
 function framing(r: FinderRow) {
-  const w = result.value?.frame.widthDeg || 3.32
-  const h = result.value?.frame.heightDeg || 2.22
+  const fr = frame.value
+  if (!fr) return null
+  const w = fr.w
+  const h = fr.h
   const maj = r.object.majorArcmin / 60
   const min = (r.object.minorArcmin || r.object.majorArcmin) / 60
   const scale = 64 / Math.max(w, maj, (min * w) / h)
@@ -163,18 +180,22 @@ function imaged(r: FinderRow) {
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Discover</p>
-        <h1>Target finder</h1>
-        <p class="lede">
-          Objects that suit a {{ (result?.frame.widthDeg ?? 3.32).toFixed(2) }}° ×
-          {{ (result?.frame.heightDeg ?? 2.22).toFixed(2) }}° frame from your site, ranked by how
-          well they fill it, how bright they are against your sky and when they are well placed.
-        </p>
-      </div>
-      <span v-if="result?.siteError" class="badge warn">{{ result.siteError }}</span>
-    </div>
+    <PageHead context="Discover" title="Target finder">
+      <template v-if="frame">
+        Objects that suit your {{ frame.w.toFixed(2) }}° × {{ frame.h.toFixed(2) }}° frame from your
+        site, ranked by how well they fill it, how bright they are against your sky and when they
+        are well placed.
+      </template>
+      <template v-else>
+        Objects ranked by how well they fill your frame, how bright they are against your sky and
+        when they are well placed.
+      </template>
+      <span v-if="result" class="block xsmall mt-1">{{ rigSource(result.rig) }}</span>
+      <template #actions>
+        <span v-if="result?.siteError" class="badge warn">{{ result.siteError }}</span>
+        <span v-if="result?.rigError" class="badge warn">{{ result.rigError }}</span>
+      </template>
+    </PageHead>
 
     <div class="row" style="gap: 1.5rem; align-items: flex-start">
       <form aria-labelledby="filters-h" class="card filters" @submit.prevent>
@@ -234,8 +255,9 @@ function imaged(r: FinderRow) {
           </div>
           <p class="xsmall muted" style="margin: 0">
             A best month has 4+ hours above your minimum altitude in astronomical darkness.
-            Brightness is scored against a
-            {{ result?.skyBrightness ?? 21.4 }} mag/arcsec² sky.
+            <template v-if="result">{{
+              skySource(result.skyBrightness, result.skyBrightnessBasis)
+            }}</template>
           </p>
         </fieldset>
         <fieldset class="fs">
@@ -281,17 +303,21 @@ function imaged(r: FinderRow) {
               <tr v-for="(r, i) in result?.rows ?? []" :key="r.object.id">
                 <td class="muted">{{ i + 1 }}</td>
                 <td>
-                  <div aria-hidden="true" class="thumb">
+                  <div v-if="framing(r)" aria-hidden="true" class="thumb">
                     <span
                       class="neb"
                       :style="{
-                        width: framing(r).ew,
-                        height: framing(r).eh,
-                        transform: framing(r).rot,
+                        width: framing(r)!.ew,
+                        height: framing(r)!.eh,
+                        transform: framing(r)!.rot,
                       }"
                     />
-                    <span class="frame" :style="{ width: framing(r).fw, height: framing(r).fh }" />
+                    <span
+                      class="frame"
+                      :style="{ width: framing(r)!.fw, height: framing(r)!.fh }"
+                    />
                   </div>
+                  <span v-else class="xsmall muted">Frame unknown</span>
                 </td>
                 <td style="white-space: nowrap">
                   <div style="font-weight: 600">
@@ -313,8 +339,10 @@ function imaged(r: FinderRow) {
                   <div class="xsmall muted">{{ fillText(r) }}</div>
                 </td>
                 <td style="min-width: 12rem">
-                  <div class="small">{{ r.brightness }}</div>
-                  <div class="xsmall muted">{{ r.narrowband }}</div>
+                  <div class="small">{{ r.brightness || 'Brightness unknown' }}</div>
+                  <div class="xsmall muted">
+                    {{ r.halpha && r.narrowband ? r.narrowband : 'H-α unknown' }}
+                  </div>
                 </td>
                 <td>
                   <div role="img" :aria-label="monthsAria(r)" class="mbars">
@@ -343,13 +371,17 @@ function imaged(r: FinderRow) {
             </tbody>
           </table>
         </div>
-        <p v-if="noFits || (result && !result.rows.length && !loading)" class="empty">
+        <p v-if="result?.rigError && !result.rows.length" class="empty">
+          No ranking until the rig is known: {{ result.rigError }}
+        </p>
+        <p v-else-if="noFits || (result && !result.rows.length && !loading)" class="empty">
           Nothing fits all of these. Loosen a filter, or show everything.
         </p>
         <p class="xsmall muted" style="margin: 0">
           Score weighs frame fill (best between 30 and 90%), catalogued brightness against your sky,
           the darkest month's hours above your minimum altitude, and a bonus for catalogue gaps.
           Frame it opens the wizard at the framing step; Plan mosaic opens it at the mosaic step.
+          <template v-if="result">{{ halphaSource(result.halphaMap) }}</template>
         </p>
       </section>
     </div>

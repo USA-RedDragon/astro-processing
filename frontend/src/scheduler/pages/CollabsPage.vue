@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import {
   MONTHS,
@@ -7,6 +8,9 @@ import {
   getCollabs,
   hours,
   raText,
+  rigFrame,
+  rigSource,
+  skySource,
   type Collab,
   type CollabsView,
   type Criterion,
@@ -37,9 +41,26 @@ const hiddenOpen = computed(() => (view.value?.open.length ?? 0) - open.value.le
 
 const rigLine = computed(() => {
   const r = view.value?.rig
-  if (!r) return ''
-  return `${r.focalLength} mm · ${r.scale.toFixed(3)}″/px · ${r.widthDeg.toFixed(2)}° × ${r.heightDeg.toFixed(2)}° · ${r.colour ? 'colour' : 'mono'} · ${(r.filters ?? []).join(' ')}`
+  if (!r) return view.value?.rigError || 'Rig unknown.'
+  const parts = [
+    r.focalLength !== null ? `${Math.round(r.focalLength)} mm` : 'focal length unknown',
+    r.scale !== null ? `${r.scale.toFixed(3)}″/px` : 'scale unknown',
+    r.widthDeg !== null && r.heightDeg !== null
+      ? `${r.widthDeg.toFixed(2)}° × ${r.heightDeg.toFixed(2)}°`
+      : 'field unknown',
+    r.colour === null ? 'sensor type unknown' : r.colour ? 'colour' : 'mono',
+  ]
+  if (r.filters?.length) parts.push(r.filters.join(' '))
+  if (r.typicalHfr !== null) parts.push(`typical HFR ${r.typicalHfr.toFixed(2)}″`)
+  if (r.typicalGuideRms !== null) parts.push(`guiding ${r.typicalGuideRms.toFixed(2)}″ RMS`)
+  return parts.join(' · ')
 })
+const rigFrom = computed(() => (view.value ? rigSource(view.value.rig) : ''))
+const skyFrom = computed(() =>
+  view.value && 'skyBrightness' in view.value
+    ? skySource(view.value.skyBrightness, view.value.skyBrightnessBasis)
+    : '',
+)
 
 function icon(c: Criterion) {
   return c.result === 'pass'
@@ -96,9 +117,9 @@ function have(c: Collab) {
 
 function region(c: Collab) {
   const r = c.region
-  const rig = view.value?.rig
-  const fw = rig?.widthDeg ?? 3.32
-  const fh = rig?.heightDeg ?? 2.22
+  const fr = rigFrame(view.value?.rig)
+  const fw = fr?.w ?? 0
+  const fh = fr?.h ?? 0
   const diag = Math.hypot(fw, fh)
   const s = Math.min(360 / Math.max(r.width, diag), 240 / Math.max(r.height, diag))
   return { rw: r.width * s, rh: r.height * s, fw: fw * s, fh: fh * s, rot: r.rotation || 0 }
@@ -133,8 +154,8 @@ function chart(c: Collab) {
     .join(' ')
   const peak = pts.reduce((a, b) => (b.alt > a.alt ? b : a))
   const n = view.value?.night
-  const dusk = n?.dusk ? x(new Date(n.dusk).getTime()) : 40
-  const dawn = n?.dawn ? x(new Date(n.dawn).getTime()) : 580
+  const dusk = n?.dusk ? x(new Date(n.dusk).getTime()) : null
+  const dawn = n?.dawn ? x(new Date(n.dawn).getTime()) : null
   const ticks: { x: number; label: string }[] = []
   const first = Math.ceil(t0 / 7200000) * 7200000
   for (let t = first; t <= t1; t += 7200000) ticks.push({ x: x(t), label: hm(t) })
@@ -146,7 +167,7 @@ function chart(c: Collab) {
     dusk,
     dawn,
     ticks,
-    minY: y(n?.minAltitude ?? 30),
+    minY: n && n.minAltitude !== undefined && n.minAltitude !== null ? y(n.minAltitude) : null,
   }
 }
 
@@ -177,25 +198,26 @@ function bestMonths(c: Collab) {
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Discover</p>
-        <h1>Collabs</h1>
-        <p class="lede">
-          Starfront collaborations, read from collab.starfront.space by the server. Read only:
-          nothing here talks to Starfront on your behalf.
-        </p>
-      </div>
-      <span v-if="view" class="xsmall muted num">
-        <template v-if="view.fetchedAt">Last fetched {{ ago(view.fetchedAt, shell.now) }}</template>
-        <template v-else-if="view.enabled">Not fetched yet</template>
-        <template v-else>Starfront reading is off</template>
-        · {{ view.open.length }} open · {{ view.closedTotal }} closed
-        <template v-if="view.sky">
-          · {{ view.sky.online }} of {{ view.sky.telescopes }} Starfront telescopes online</template
-        >
+    <PageHead context="Discover" title="Collabs">
+      <span>
+        Starfront collaborations, read from collab.starfront.space by the server. Read only: nothing
+        here talks to Starfront on your behalf.
       </span>
-    </div>
+      <template #actions>
+        <span v-if="view" class="xsmall muted num">
+          <template v-if="view.fetchedAt"
+            >Last fetched {{ ago(view.fetchedAt, shell.now) }}</template
+          >
+          <template v-else-if="view.enabled">Not fetched yet</template>
+          <template v-else>Starfront reading is off</template>
+          · {{ view.open.length }} open · {{ view.closedTotal }} closed
+          <template v-if="view.sky">
+            · {{ view.sky.online }} of {{ view.sky.telescopes }} Starfront telescopes
+            online</template
+          >
+        </span>
+      </template>
+    </PageHead>
 
     <p v-if="loading" class="empty">Loading collaborations…</p>
     <p v-if="view?.error" class="badge warn" style="align-self: flex-start">
@@ -301,6 +323,7 @@ function bestMonths(c: Collab) {
               collab region {{ c.region.width.toFixed(2) }}° × {{ c.region.height.toFixed(2) }}°
             </text>
             <rect
+              v-if="region(c).fw > 0"
               :x="200 - region(c).fw / 2"
               :y="140 - region(c).fh / 2"
               :width="region(c).fw"
@@ -312,7 +335,11 @@ function bestMonths(c: Collab) {
               :transform="`rotate(${region(c).rot} 200 140)`"
             />
             <text x="12" y="268" font-size="11" fill="#f4f4f8">
-              your frame at {{ c.region.rotation.toFixed(1) }}°
+              {{
+                region(c).fw > 0
+                  ? `your frame at ${c.region.rotation.toFixed(1)}°`
+                  : 'your frame is unknown'
+              }}
             </text>
             <text v-if="c.near" x="206" y="136" font-size="11" fill="#f4f4f8">{{ c.near }}</text>
           </svg>
@@ -383,6 +410,8 @@ function bestMonths(c: Collab) {
         <section class="sub">
           <h3 class="h3">Criteria against your rig</h3>
           <p class="xsmall muted" style="margin: 0">{{ rigLine }}</p>
+          <p class="xsmall muted" style="margin: 0">{{ rigFrom }}</p>
+          <p v-if="skyFrom" class="xsmall muted" style="margin: 0">{{ skyFrom }}</p>
           <ul class="crit">
             <li v-for="x in c.criteria" :key="x.name">
               <svg
@@ -411,8 +440,13 @@ function bestMonths(c: Collab) {
           <div class="spread">
             <h3 class="h3">Tonight from your site</h3>
             <span v-if="c.tonight" class="xsmall muted"
-              >≈ {{ hours(c.tonight.hours) }} above {{ view?.night?.minAltitude ?? 30 }}° in the
-              dark</span
+              >≈ {{ hours(c.tonight.hours) }}
+              {{
+                view?.night?.minAltitude !== undefined && view?.night?.minAltitude !== null
+                  ? `above ${view.night.minAltitude}°`
+                  : 'up'
+              }}
+              in the dark</span
             >
           </div>
           <p v-if="!chart(c)" class="empty">{{ view?.siteError || 'No altitude curve yet.' }}</p>
@@ -426,15 +460,15 @@ function bestMonths(c: Collab) {
             <rect
               x="40"
               y="10"
-              :width="Math.max(0, chart(c)!.dusk - 40)"
+              :width="chart(c)!.dusk === null ? 0 : Math.max(0, chart(c)!.dusk! - 40)"
               height="140"
               fill="var(--day)"
               opacity="0.18"
             />
             <rect
-              :x="chart(c)!.dawn"
+              :x="chart(c)!.dawn ?? 580"
               y="10"
-              :width="Math.max(0, 580 - chart(c)!.dawn)"
+              :width="chart(c)!.dawn === null ? 0 : Math.max(0, 580 - chart(c)!.dawn!)"
               height="140"
               fill="var(--day)"
               opacity="0.18"
@@ -442,10 +476,11 @@ function bestMonths(c: Collab) {
             <g stroke="var(--border)" stroke-width="1">
               <line x1="40" y1="150" x2="580" y2="150" />
               <line
+                v-if="chart(c)!.minY !== null"
                 x1="40"
-                :y1="chart(c)!.minY"
+                :y1="chart(c)!.minY!"
                 x2="580"
-                :y2="chart(c)!.minY"
+                :y2="chart(c)!.minY!"
                 stroke-dasharray="3 4"
               />
               <line x1="40" y1="56.7" x2="580" y2="56.7" stroke-dasharray="3 4" />
@@ -453,7 +488,9 @@ function bestMonths(c: Collab) {
             </g>
             <g font-size="11" fill="var(--muted-foreground)" text-anchor="end">
               <text x="34" y="154">0°</text>
-              <text x="34" :y="chart(c)!.minY + 4">{{ view?.night?.minAltitude ?? 30 }}°</text>
+              <text v-if="chart(c)!.minY !== null" x="34" :y="chart(c)!.minY! + 4">
+                {{ view?.night?.minAltitude }}°
+              </text>
               <text x="34" y="61">60°</text>
               <text x="34" y="14">90°</text>
             </g>
