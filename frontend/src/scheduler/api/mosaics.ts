@@ -97,11 +97,13 @@ export interface PanelFilter {
   progress: number
   effectiveHours: number
   hoursNeeded: number
+  hoursBasis?: 'effective' | 'raw'
   plannedHours?: number
   desired?: number
   accepted?: number
   plateau?: boolean
   done?: boolean
+  doneReason?: 'goal' | 'plateau' | 'plan'
   lowConfidence?: boolean
 }
 
@@ -111,8 +113,8 @@ export interface MosaicPanel {
   targetGuid: string
   target: string
   objects: string[]
-  row: number
-  col: number
+  row: number | null
+  col: number | null
   ra: number
   dec: number
   rotation: number
@@ -183,6 +185,25 @@ export interface MosaicBuild {
   UpdatedAt: string
 }
 
+export interface SeamLimits {
+  levelSigma: number
+  stepSigma: number
+  noiseRatio: number
+  minBlocks: number
+  registrationP90Px: number
+  minStarMatches: number
+  colourMismatch: number
+  gapFraction: number
+}
+
+export interface HoursLeft {
+  effective: number
+  effectiveFilters: number
+  raw: number
+  rawFilters: number
+  unknownFilters: number
+}
+
 export interface MosaicDetail {
   project: string
   projectGuid: string
@@ -191,7 +212,8 @@ export interface MosaicDetail {
   rows: number
   cols: number
   rotation: number
-  layout: string
+  layout: string | null
+  rigKnown: boolean
   filters: string[] | null
   panels: MosaicPanel[] | null
   complete: number
@@ -199,17 +221,19 @@ export interface MosaicDetail {
   weakestPanel: number
   weakestFilter: string
   effectiveHours: number
-  hoursLeft: number
-  hoursUnknown: boolean
+  hoursLeft: HoursLeft
   balancing: {
     panelDeficit: number
     panelDeficitSet: boolean
     mosaicCompletion: number
     on: boolean
+    onWeight: number
   }
   seams: Seam[]
   health: PanelHealth[]
   needs: string[]
+  seamLimits: SeamLimits
+  mosaics?: MosaicBuild[] | null
   noise?: FilterNoise[] | null
   seamStatus?: SeamStatus[] | null
 }
@@ -237,9 +261,15 @@ export interface SeasonPace {
 }
 
 export interface SeasonBasis {
-  hoursPerClearNight: number | null
-  clearNightsPerSeason: number | null
-  clearNightsPerMonth: { month: number; name: string; nights: number | null; years: number }[]
+  hoursPerImagingNight: number | null
+  imagingNightsPerSeason: number | null
+  imagingNightsPerMonth: {
+    month: number
+    name: string
+    nights: number | null
+    years: number
+    spanYears: number
+  }[]
   usableMonths: number[] | null
   historyFrom: string | null
   historyTo: string | null
@@ -249,25 +279,46 @@ export interface SeasonBasis {
   reason: string | null
 }
 
+export interface EffectiveRatio {
+  value: number
+  subs: number
+  scope: 'project' | 'all'
+}
+
+export interface ProjectionInputs {
+  hoursPerSeason: number
+  pace: string
+  items: number
+  stepHours: number
+  maxSeasons: number
+  goalHoursSource: string
+  effectivePerRaw: EffectiveRatio | null
+}
+
 export interface SeasonPlan {
   project: string
   strategy: string
-  pace: string
+  strategyInForce: string
+  projection: ProjectionInputs | null
+  pace: string | null
   hoursPerSeason: number | null
   basis?: SeasonBasis | null
   lastSeason?: SeasonPace
   currentSeason?: SeasonPace
   inSeason: boolean
   nightsLeft: number
+  darkHoursThreshold: number
   rows: { index: number; name: string; weakest: number; average: number; done: boolean }[]
   finishSeason: number
   compare: Record<string, number>
   months: { month: number; name: string; hours: number }[]
   siteKnown: boolean
   goalHoursSource: string
+  effectivePerRaw: EffectiveRatio | null
   panelPriority: {
     panel: number
     hoursLeft: number
+    rawHoursLeft: number
     monthsLeft: number
     priority: number
     lastUsableMonth?: string
@@ -295,14 +346,26 @@ export interface Adoption {
   project: string
   kind: 'mosaic' | 'not_mosaic' | 'frames'
   confidence: string
+  rule: string
   issue: string
   suggestion: string
   status: 'proposed' | 'auto' | 'accepted' | 'rejected'
   clean: boolean
   decidedBy?: string
   decidedAt?: string
+  foundAt?: string
+  wordedAt?: string
   panels?: AdoptedPanel[] | null
-  frames?: { object: string; count: number; target?: string; separationDeg: number }
+  frames?: {
+    object: string
+    count: number
+    target?: string
+    separationDeg: number | null
+    nearest?: string
+    coords?: boolean
+    nameMatch?: boolean
+    projectNamed?: string
+  }
 }
 
 export interface AdoptionReport {
@@ -316,7 +379,6 @@ export interface AdoptionReport {
 }
 
 export const RULE_PANEL_DEFICIT = 'Panel Deficit'
-export const BALANCING_WEIGHT = 75
 
 export const listMosaics = () => api.get<MosaicSummary[]>('/mosaics/projects')
 export const getMosaic = (key: string) =>
@@ -343,7 +405,7 @@ export function setBalancing(d: MosaicDetail, on: boolean) {
     project_id: d.ts.id,
     project_guid: d.projectGuid,
     project_name: d.project,
-    changes: [{ rule: RULE_PANEL_DEFICIT, before, after: on ? BALANCING_WEIGHT : 0 }],
+    changes: [{ rule: RULE_PANEL_DEFICIT, before, after: on ? d.balancing.onWeight : 0 }],
   })
 }
 

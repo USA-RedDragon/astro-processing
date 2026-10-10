@@ -12,14 +12,18 @@ import {
   mosaicPreviews,
   runAdoption,
   setBalancing,
-  BALANCING_WEIGHT,
+  project,
+  meanCentre,
   type Adoption,
   type MosaicDetail,
   type MosaicHistory,
   type MosaicPanel,
   type MosaicSummary,
   type PanelFilter,
+  type Seam,
+  type SeamLimits,
   type SeasonPlan,
+  type SkyPoint,
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
 import { errorToast, notifyCommand } from '../shell'
@@ -46,6 +50,7 @@ const adoptions = ref<Adoption[]>([])
 const loadError = ref('')
 const filter = ref('weakest')
 const night = ref(-1)
+let skipReload = false
 
 const key = computed(() => props.projectId || list.value[0]?.projectGuid || '')
 
@@ -116,6 +121,10 @@ onUnmounted(() => {
 })
 watch(key, () => {
   loadDetail()
+  if (strategy.value) {
+    skipReload = true
+    strategy.value = ''
+  }
   loadSeasons()
 })
 
@@ -136,12 +145,64 @@ function shown(p: MosaicPanel): PanelFilter | undefined {
   return pf(p, filter.value)
 }
 
+function placeholder(x?: PanelFilter): boolean {
+  return !!x && x.source === 'ts' && (x.desired ?? 0) <= 1
+}
+
 function metric(x?: PanelFilter): string {
   if (!x) return 'no data'
   if (x.source === 'goal' && x.snr) return 'SNR ' + r1(x.snr)
-  if (x.source === 'ts') return `${x.accepted ?? 0}/${x.desired ?? 0}`
+  if (x.source === 'ts') return `${x.accepted ?? 0}/${x.desired ?? 0}${placeholder(x) ? '*' : ''}`
   return r1(x.effectiveHours) + ' h'
 }
+
+const EPS = 1e-9
+
+const weakestPairs = computed(() => {
+  const d = detail.value
+  if (!d) return []
+  const out: { panel: number; filter: string }[] = []
+  for (const p of panels.value)
+    for (const f of p.filters ?? [])
+      if (Math.abs(Math.min(1, f.progress) - d.complete) < EPS)
+        out.push({ panel: p.number, filter: f.filter })
+  return out
+})
+
+const pairCount = computed(() =>
+  panels.value.reduce((n, p) => n + (p.filters ?? []).length, 0),
+)
+
+const weakestPanels = computed(() => {
+  const d = detail.value
+  if (!d) return new Set<number>()
+  const set = new Set(
+    panels.value.filter((p) => Math.abs(p.progress - d.complete) < EPS).map((p) => p.number),
+  )
+  return set.size < panels.value.length ? set : new Set<number>()
+})
+
+function joinList(xs: string[], max = 6): string {
+  if (xs.length > max) return xs.slice(0, max).join(', ') + `, and ${xs.length - max} more`
+  if (xs.length <= 1) return xs[0] ?? ''
+  return xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]
+}
+
+const placeholders = computed(() =>
+  panels.value.flatMap((p) =>
+    (p.filters ?? [])
+      .filter((f) => placeholder(f))
+      .map((f) => `Panel ${p.number} ${f.filter}`),
+  ),
+)
+
+const plateaus = computed(() =>
+  panels.value.flatMap((p) =>
+    (p.filters ?? [])
+      .filter((f) => f.doneReason === 'plateau')
+      .map((f) => `Panel ${p.number} ${f.filter} at ${pct(f.progress)}`),
+  ),
+)
 
 function shade(v: number): string {
   return `oklch(${(0.32 + 0.45 * Math.max(0, Math.min(1, v))).toFixed(2)} 0.09 250)`
@@ -155,13 +216,13 @@ const tiles = computed(() => {
     const x = shown(p)
     const v = Math.min(1, x?.progress ?? 0)
     const rel = v / maxP
-    const weakest = p.number === d.weakestPanel
+    const weakest = weakestPanels.value.has(p.number)
     return {
       p,
       x,
       style: {
-        gridRow: String(p.row + 1),
-        gridColumn: String(p.col + 1),
+        gridRow: p.row === null ? 'auto' : String(p.row + 1),
+        gridColumn: p.col === null ? 'auto' : String(p.col + 1),
         background: shade(rel),
         color: rel > 0.55 ? 'var(--ink-dark)' : 'var(--ink-light)',
         outline: weakest ? '2px solid var(--warn)' : 'none',
@@ -179,7 +240,11 @@ const tiles = computed(() => {
   })
 })
 
-const gridCols = computed(() => `repeat(${Math.max(1, detail.value?.cols ?? 1)}, minmax(0, 1fr))`)
+const gridCols = computed(() =>
+  detail.value?.rigKnown
+    ? `repeat(${Math.max(1, detail.value?.cols ?? 1)}, minmax(0, 1fr))`
+    : 'repeat(auto-fill, minmax(12rem, 1fr))',
+)
 
 function openPanel(p: MosaicPanel) {
   const d = detail.value
@@ -191,19 +256,58 @@ function openPanel(p: MosaicPanel) {
   })
 }
 
+function plural(n: number, one: string, many = one + 's'): string {
+  return `${n} ${n === 1 ? one : many}`
+}
+
+function hoursText(h: number): string {
+  return h >= 10 ? String(Math.round(h)) : r1(h)
+}
+
+const leftParts = computed(() => {
+  const h = detail.value?.hoursLeft
+  if (!h) return null
+  const parts: { value: string; note: string }[] = []
+  if (h.effectiveFilters)
+    parts.push({
+      value: `${hoursText(h.effective)} h effective`,
+      note: `from the goal model for ${plural(h.effectiveFilters, 'panel filter')}`,
+    })
+  if (h.rawFilters)
+    parts.push({
+      value: `${hoursText(h.raw)} h raw`,
+      note: `of exposure left in the scheduler plans of ${plural(h.rawFilters, 'panel filter')} with no goal measurement`,
+    })
+  const unknown = h.unknownFilters
+    ? `${plural(h.unknownFilters, 'panel filter')} with no estimate`
+    : ''
+  if (!parts.length)
+    return { big: unknown ? 'Unknown' : '0 h', note: unknown || 'every panel and filter is done' }
+  const rest = parts.slice(1).map((p) => 'plus ' + p.value + ', ' + p.note)
+  return {
+    big: parts[0]!.value,
+    note: [parts[0]!.note, ...rest, unknown ? 'plus ' + unknown : ''].filter(Boolean).join('; '),
+  }
+})
+
 const stats = computed(() => {
   const d = detail.value
   if (!d) return null
-  const w = panels.value.find((p) => p.number === d.weakestPanel)
-  const wf = w ? pf(w, d.weakestFilter) : undefined
+  const pairs = weakestPairs.value
+  let completeNote = 'No panel has data yet'
+  if (pairs.length && pairs.length === pairCount.value && pairCount.value > 1)
+    completeNote = `Every panel and filter is at ${pct(d.complete)}`
+  else if (pairs.length === 1) {
+    const w = panels.value.find((p) => p.number === pairs[0]!.panel)
+    const wf = w ? pf(w, pairs[0]!.filter) : undefined
+    completeNote = `Set by the weakest panel: Panel ${pairs[0]!.panel} ${pairs[0]!.filter}${wf ? ', ' + metric(wf) : ''}`
+  } else if (pairs.length > 1)
+    completeNote = `Tied at ${pct(d.complete)}: ${joinList(pairs.map((x) => `Panel ${x.panel} ${x.filter}`))}`
   return {
     complete: pct(d.complete),
-    completeNote: w
-      ? `Set by the weakest panel: Panel ${w.number} ${d.weakestFilter || ''}${wf ? ', ' + metric(wf) : ''}`
-      : 'No panel has data yet',
+    completeNote,
     average: pct(d.average),
     effective: r1(d.effectiveHours) + ' h effective so far',
-    left: (d.hoursUnknown ? '≥ ' : '≈ ') + Math.round(d.hoursLeft) + ' h',
   }
 })
 
@@ -227,36 +331,58 @@ const schematic = computed(() => {
   const d = detail.value
   const h = history.value
   if (!d) return []
-  const cols = Math.max(1, d.cols)
-  const rows = Math.max(1, d.rows)
-  const pw = 460 / cols
-  const ph = 300 / rows
+  const withFp = panels.value.filter((p) => p.footprint)
+  if (!withFp.length) return []
+  const all: SkyPoint[] = withFp.flatMap((p) => p.footprint!)
+  const c = meanCentre(all)
+  const xy = (pt: SkyPoint): [number, number] => {
+    const [xi, eta] = project(c, pt)
+    return [-xi, -eta]
+  }
+  const pts = all.map(xy)
+  const minX = Math.min(...pts.map((p) => p[0]))
+  const maxX = Math.max(...pts.map((p) => p[0]))
+  const minY = Math.min(...pts.map((p) => p[1]))
+  const maxY = Math.max(...pts.map((p) => p[1]))
+  const scale = Math.min(456 / Math.max(1e-6, maxX - minX), 296 / Math.max(1e-6, maxY - minY))
+  const ox = 240 - ((minX + maxX) / 2) * scale
+  const oy = 160 - ((minY + maxY) / 2) * scale
   const at = (n: number) => {
     const hp = h?.panels.find((x) => x.number === n)
     if (!hp || !hp.hours.length) return 0
     return hp.hours[Math.max(0, Math.min(hp.hours.length - 1, night.value))] ?? 0
   }
   const max = Math.max(0.0001, ...panels.value.map((p) => at(p.number)))
-  return panels.value.map((p) => ({
-    n: p.number,
-    x: (10 + p.col * pw).toFixed(1),
-    y: (10 + p.row * ph).toFixed(1),
-    w: (pw - 4).toFixed(1),
-    h: (ph - 4).toFixed(1),
-    op: (0.08 + 0.75 * (at(p.number) / max)).toFixed(2),
-    lx: (16 + p.col * pw).toFixed(1),
-    ly: (26 + p.row * ph).toFixed(1),
-    label: `${p.number} · ${r1(at(p.number))} h`,
-    weakest: p.number === d.weakestPanel,
-  }))
+  return withFp.map((p) => {
+    const corners = p.footprint!.map(xy).map(([x, y]) => [x * scale + ox, y * scale + oy])
+    const cx = corners.reduce((a, q) => a + q[0]!, 0) / corners.length
+    const cy = corners.reduce((a, q) => a + q[1]!, 0) / corners.length
+    return {
+      n: p.number,
+      points: corners.map((q) => `${q[0]!.toFixed(1)},${q[1]!.toFixed(1)}`).join(' '),
+      op: (0.08 + 0.75 * (at(p.number) / max)).toFixed(2),
+      lx: cx.toFixed(1),
+      ly: cy.toFixed(1),
+      label: `${p.number} · ${r1(at(p.number))} h`,
+      weakest: weakestPanels.value.has(p.number),
+    }
+  })
 })
 
 const balancing = computed(() => detail.value?.balancing)
-const balancingText = computed(() =>
-  balancing.value?.on
-    ? `The scheduler steers time to the panel that is furthest behind and gives panels past their goal no priority, so Panel ${detail.value?.weakestPanel} gets the next clear nights.`
-    : `Panel Deficit is weighted 0, so the scheduler never steers time to the panel that is behind. Turning it on sets it to ${BALANCING_WEIGHT}; Mosaic Completion stays at ${balancing.value?.mosaicCompletion ?? 0}.`,
-)
+const behindText = computed(() => {
+  const set = weakestPanels.value
+  if (!set.size) return 'No single panel is behind the others now.'
+  const names = [...set].sort((a, b) => a - b).map((n) => 'Panel ' + n)
+  return `${joinList(names)} ${set.size === 1 ? 'is' : 'are'} furthest behind now.`
+})
+const balancingText = computed(() => {
+  const b = balancing.value
+  if (!b) return ''
+  return b.on
+    ? `Panel Deficit is weighted ${b.panelDeficit}, so the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behindText.value}`
+    : `Panel Deficit is ${b.panelDeficitSet ? 'weighted 0' : 'not set'}, so the scheduler does not steer time to the panel that is behind. Turning it on sets it to ${b.onWeight}; Mosaic Completion stays at ${b.mosaicCompletion}.`
+})
 const busy = ref(false)
 
 async function toggleBalancing() {
@@ -282,20 +408,32 @@ interface SeamRow {
   ok: boolean
 }
 
+const limits = computed<SeamLimits | null>(() => detail.value?.seamLimits ?? null)
+
+function severity(s: Seam, L: SeamLimits | null): number {
+  if (!L) return s.ok ? 0 : 1
+  const parts = [
+    s.noiseRatio / L.noiseRatio,
+    s.level / L.levelSigma,
+    s.step / L.stepSigma,
+    s.samples < L.minBlocks ? L.minBlocks / Math.max(1, s.samples) : 0,
+  ]
+  if ((s.starMatches ?? 0) >= L.minStarMatches && s.registrationP90Px != null)
+    parts.push(s.registrationP90Px / L.registrationP90Px)
+  if (s.colourMismatch != null) parts.push(Math.abs(s.colourMismatch) / L.colourMismatch)
+  return Math.max(...parts)
+}
+
 const seamRows = computed<SeamRow[]>(() => {
   const d = detail.value
   if (!d) return []
+  const L = limits.value
   const fx = (v: number | null | undefined, digits: number, unit = '') =>
     v === null || v === undefined ? '' : v.toFixed(digits) + unit
   return (d.seams ?? [])
     .map((s) => ({
       pair: `Panel ${s.panelA} ↔ Panel ${s.panelB} · ${s.filter}`,
-      severity: Math.max(
-        s.noiseRatio / 1.5,
-        s.level / 0.2,
-        s.step / 0.3,
-        s.samples < 400 ? 1.5 : 0,
-      ),
+      severity: severity(s, L),
       value: s.noiseRatio ? r1(s.noiseRatio) + '×' : '—',
       detail: [
         `level ${s.level.toFixed(2)}σ`,
@@ -322,14 +460,31 @@ const seamRows = computed<SeamRow[]>(() => {
     }))
     .sort((a, b) => b.severity - a.severity)
 })
+const builds = computed(() => detail.value?.mosaics ?? [])
 const unmeasured = computed(() => {
   const d = detail.value
   if (!d) return []
   const st = d.seamStatus ?? []
-  if (st.length) return st.filter((x) => !x.measured).map((x) => x.filter)
-  const measured = new Set((d.seams ?? []).map((x) => x.filter))
-  return (d.filters ?? []).filter((f) => !measured.has(f))
+  const missing = st.length
+    ? st.filter((x) => !x.measured).map((x) => x.filter)
+    : (d.filters ?? []).filter((f) => !new Set((d.seams ?? []).map((x) => x.filter)).has(f))
+  return missing.map((f) => {
+    const b = builds.value.find((x) => x.Filter === f)
+    if (!b) return `${f} (no stacker build yet)`
+    if (b.Panels < 2) return `${f} (only ${b.Panels} of ${b.PanelsTotal} panels built)`
+    return `${f} (built ${shortDate(b.UpdatedAt)}, seams not measured yet)`
+  })
 })
+const seamEmpty = computed(() => {
+  if (!builds.value.length)
+    return "The stacker hasn't built a mosaic of this project yet, so there are no seams to measure."
+  const names = builds.value.map((b) => `${b.Filter} (${b.Panels} of ${b.PanelsTotal} panels)`)
+  return `The stacker has built ${joinList(names)}, but no seam has been measured yet.`
+})
+function sig(v: number | null | undefined): string {
+  if (v === null || v === undefined) return 'not measured'
+  return v.toPrecision(3)
+}
 const noiseRows = computed(() => (detail.value?.noise ?? []).filter((n) => n.median !== null))
 function fluxScales(f: string): string {
   return (detail.value?.health ?? [])
@@ -338,59 +493,101 @@ function fluxScales(f: string): string {
     .map((h) => `P${h.panel} ${h.fluxScale!.toFixed(2)}`)
     .join(' · ')
 }
-const seamNote =
-  "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, and the two panels' noise ratio. Warnings above 0.2σ level, 0.3σ step or 1.5× noise."
+const seamNote = computed(() => {
+  const L = limits.value
+  const base =
+    "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, the two panels' noise ratio, star registration and star colour."
+  if (!L) return base
+  return `${base} A seam warns when the level differs by more than ${L.levelSigma}σ, the gradient step is over ${L.stepSigma}σ, one panel is over ${L.noiseRatio}× noisier, the overlap is under ${L.minBlocks} blocks, stars are misregistered by more than ${L.registrationP90Px} px at p90 (checked with ${L.minStarMatches} or more star matches), or star colour differs by more than ${Math.round(L.colourMismatch * 100)}% from the other filters. A coverage gap warns above ${Math.round(L.gapFraction * 100)}% of a panel's planned frame.`
+})
 const seamWarnings = computed(() => seamRows.value.filter((s) => !s.ok).length)
 const showAllSeams = ref(false)
 const seamsShown = computed(() =>
   showAllSeams.value ? seamRows.value : seamRows.value.slice(0, 5),
 )
-const gaps = computed(() => (detail.value?.health ?? []).filter((h) => h.gapFraction > 0.02))
+const gaps = computed(() => {
+  const L = limits.value
+  if (!L) return []
+  return (detail.value?.health ?? []).filter((h) => h.gapFraction > L.gapFraction)
+})
 
-const strategy = ref('weakest')
+const strategy = ref('')
 const pace = ref('measured')
 const seasons = ref<SeasonPlan | null>(null)
 
 async function loadSeasons() {
   if (!key.value) return
   try {
-    seasons.value = await getSeasons(key.value, strategy.value, pace.value)
+    const s = await getSeasons(key.value, strategy.value, pace.value)
+    seasons.value = s
+    if (!strategy.value) {
+      skipReload = true
+      strategy.value = s.strategy
+    }
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
   }
 }
-watch([strategy, pace], loadSeasons)
+watch([strategy, pace], () => {
+  if (skipReload) {
+    skipReload = false
+    return
+  }
+  loadSeasons()
+})
 
-const strategyText: Record<string, string> = {
-  weakest:
-    'Weakest panel first: each night goes to the panel and filter furthest behind, so seams stay matched. This is the Panel Deficit rule.',
-  even: 'Even: every panel gets the same time. Panels that start behind stay behind. A projection only; the scheduler has no even-split rule.',
-  off: 'Balancing off, as today: the scheduler ignores panels, so the weakest panel barely moves.',
+const STRATEGY_NAME: Record<string, string> = {
+  weakest: 'Weakest panel first',
+  even: 'Even across panels',
+  off: 'Balancing off',
 }
+
+const STRATEGY_METHOD: Record<string, string> = {
+  weakest: 'each step of the season goes to the panel and filter furthest behind its goal, as Panel Deficit steers it',
+  even: 'steps go round the unfinished panels and filters in turn; the scheduler has no rule for this',
+  off: 'each season is split in proportion to the hours each panel and filter already has, the split seen so far; ones with no hours yet get time only after the others finish',
+}
+
+const PACE_NAME: Record<string, string> = {
+  measured: 'measured from history',
+  last: 'like last season',
+  best: 'like the best season',
+  worst: 'like the worst season',
+}
+
+function strategyLabel(st: string): string {
+  return STRATEGY_NAME[st] ?? st
+}
+
+const strategyText = computed(() => {
+  const s = seasons.value
+  const st = strategy.value
+  if (!s || !st) return ''
+  const method = `${strategyLabel(st)}: ${STRATEGY_METHOD[st] ?? ''}.`
+  if (s.hoursPerSeason === null || !s.projection) return method
+  return `${method} Projected to finish ${finishIn(s.compare[st])}.`
+})
 
 const finishLabel = computed(() => {
   const s = seasons.value
   if (!s) return '…'
-  if (s.hoursPerSeason === null) return 'Unknown'
-  if (!s.finishSeason) return `> ${s.rows.length} seasons`
-  return `≈ ${s.finishSeason} ${s.finishSeason === 1 ? 'season' : 'seasons'}`
+  if (s.hoursPerSeason === null || !s.projection) return 'Unknown'
+  const f = s.compare[s.strategyInForce]
+  if (!f) return `> ${s.projection.maxSeasons} seasons`
+  return `≈ ${f} ${f === 1 ? 'season' : 'seasons'}`
 })
 
 const finishNote = computed(() => {
   const s = seasons.value
   if (!s) return ''
-  if (s.hoursPerSeason === null) return 'not enough imaging history to project'
-  const how =
-    strategy.value === 'weakest'
-      ? 'weakest first'
-      : strategy.value === 'even'
-        ? 'even split'
-        : 'balancing off'
-  return `At ${Math.round(s.hoursPerSeason)} h a season, ${how}`
+  if (s.hoursPerSeason === null || !s.projection)
+    return s.basis?.reason ? 'No projection: ' + s.basis.reason : 'No projection yet'
+  const pr = s.projection
+  return `Projection at ${r1(pr.hoursPerSeason)} h effective a season (${PACE_NAME[pr.pace] ?? pr.pace}), with ${strategyLabel(s.strategyInForce).toLowerCase()} as set now`
 })
 
 function finishIn(n?: number): string {
-  if (!n) return `after more than ${seasons.value?.rows.length ?? 0} seasons`
+  if (!n) return `after more than ${seasons.value?.projection?.maxSeasons ?? 0} seasons`
   return n === 1 ? 'this season' : `in season ${n}`
 }
 
@@ -399,52 +596,57 @@ function monthYear(s: string): string {
 }
 
 const paceText = computed(() => {
-  const l = seasons.value?.lastSeason
-  if (!l) return 'no full season yet'
-  return `${Math.round(l.hours)} h over ${l.nights} nights${l.from && l.to ? `, ${monthYear(l.from)} to ${monthYear(l.to)}` : ''}`
+  const s = seasons.value
+  const l = s?.lastSeason
+  if (l)
+    return `${r1(l.hours)} h effective over ${plural(l.nights, 'night')}${l.from && l.to ? `, ${monthYear(l.from)} to ${monthYear(l.to)}` : ''}`
+  if (!s?.basis?.projectNights) return 'none, no nights of this project on record yet'
+  const c = s.currentSeason
+  return `none finished yet${c?.nights ? `; this season has ${plural(c.nights, 'night')} so far` : ''}`
 })
 
 const basisText = computed(() => {
   const s = seasons.value
   const b = s?.basis
-  if (!s) return ''
-  if (s.hoursPerSeason !== null && !b) return ''
-  if (s.hoursPerSeason === null || !b)
+  if (!s || !b) return ''
+  if (s.hoursPerSeason === null)
     return (
       'Not enough history to project seasons' +
-      (b?.reason ? `: ${b.reason}` : '.') +
-      (b && b.historyNights ? ` ${b.historyNights} imaging nights on record so far.` : '')
+      (b.reason ? `: ${b.reason}.` : '.') +
+      (b.historyNights ? ` ${plural(b.historyNights, 'imaging night')} on record so far.` : '')
     )
   const parts: string[] = []
-  if (b.hoursPerClearNight !== null && b.clearNightsPerSeason !== null)
+  if (s.pace === 'measured' && b.hoursPerImagingNight !== null && b.imagingNightsPerSeason !== null)
     parts.push(
-      `${b.hoursPerClearNight < 1 ? b.hoursPerClearNight.toFixed(2) : r1(b.hoursPerClearNight)} h per clear night × ${Math.round(b.clearNightsPerSeason)} clear nights a season`,
+      `${b.hoursPerImagingNight < 1 ? b.hoursPerImagingNight.toFixed(2) : r1(b.hoursPerImagingNight)} h of this project per imaging night × ${r1(b.imagingNightsPerSeason)} imaging nights a season`,
     )
+  else if (s.pace) parts.push(`${r1(s.hoursPerSeason)} h a season, ${PACE_NAME[s.pace] ?? s.pace}`)
   if (b.historyFrom && b.historyTo)
     parts.push(
-      `from ${b.historyNights} imaging nights, ${monthYear(b.historyFrom)} to ${monthYear(b.historyTo)}`,
+      `from ${plural(b.historyNights, 'imaging night')}, ${monthYear(b.historyFrom)} to ${monthYear(b.historyTo)}`,
     )
   if (b.projectNights) parts.push(`${b.projectNights} of them on this mosaic`)
   if (b.usableMonths?.length)
     parts.push(`usable in ${b.usableMonths.map((m) => MONTHS[m - 1] ?? String(m)).join(', ')}`)
-  return (
-    'Based on ' +
-    parts.join(', ') +
-    '.' +
-    (b.insufficientHistory ? ' History is thin, so treat this as rough.' : '') +
-    (b.reason && b.insufficientHistory ? ' ' + b.reason : '')
-  )
+  const ratio = s.effectivePerRaw
+  const conv =
+    s.goalHoursSource === 'ts' && ratio
+      ? ` Where a panel filter has no goal measurement, its scheduler plan in raw hours is converted at ${ratio.value} effective hours per raw hour, measured over ${plural(ratio.subs, 'accepted sub')} ${ratio.scope === 'project' ? 'of this mosaic' : 'of all targets'}.`
+      : ''
+  return 'Projection based on ' + parts.join(', ') + '.' + conv
 })
 
 const seasonText = computed(() => {
   const s = seasons.value
   if (!s) return ''
   if (!s.siteKnown) return 'Site unknown, so visibility is not modelled'
-  return s.inSeason ? `In season · ≈ ${s.nightsLeft} nights left` : 'Out of season'
+  return s.inSeason
+    ? `In season · ${plural(s.nightsLeft, 'night')} left with at least ${s.darkHoursThreshold} h of usable dark time, before weather`
+    : `Out of season · tonight has under ${s.darkHoursThreshold} h of usable dark time`
 })
 
-const clearNights = computed(() =>
-  (seasons.value?.basis?.clearNightsPerMonth ?? []).filter((m) => m.nights !== null),
+const imagingNights = computed(() =>
+  (seasons.value?.basis?.imagingNightsPerMonth ?? []).filter((m) => m.nights !== null),
 )
 
 const monthCells = computed(() =>
@@ -461,7 +663,7 @@ const pushPanels = computed(() =>
 
 async function applyStrategy() {
   const d = detail.value
-  if (!d || strategy.value === 'even') return
+  if (!d || strategy.value === 'even' || !strategy.value) return
   const want = strategy.value === 'weakest'
   if (d.balancing.on === want) {
     errorToast(new Error('Balancing already matches this plan.'), 'Already set')
@@ -538,6 +740,15 @@ async function rerunAdoption() {
   }
 }
 
+function adoptionTimes(a: Adoption): string {
+  const parts: string[] = []
+  if (a.foundAt) parts.push('found ' + shortDate(a.foundAt))
+  if (a.wordedAt && a.wordedAt !== a.foundAt) parts.push('wording last changed ' + shortDate(a.wordedAt))
+  if (a.decidedAt)
+    parts.push(`decided ${shortDate(a.decidedAt)}${a.decidedBy ? ' by ' + a.decidedBy : ''}`)
+  return parts.join(' · ')
+}
+
 function adoptionTitle(a: Adoption): string {
   return a.kind === 'frames' ? a.project + ' · unmatched subs' : a.project
 }
@@ -566,7 +777,8 @@ const tabs = computed<[Tab, string][]>(() => [
   <main class="page wide">
     <PageHead context="Plan" :title="detail?.project ?? 'Mosaics'">
       <span v-if="detail">
-        {{ panels.length }} panels, {{ detail.layout }}.
+        {{ panels.length }} panels,
+        {{ detail.layout ?? "rig unknown, so the panels can't be placed on a grid" }}.
         {{ PRIORITY[detail.ts.priority] ?? 'Unknown' }} priority, minimum time
         {{ detail.ts.minimumTime }} min.
         {{ detail.adopted ? 'Linked by scheduler guid.' : 'Grouped by panel names until adopted.' }}
@@ -633,8 +845,8 @@ const tabs = computed<[Tab, string][]>(() => [
         </div>
         <div class="stat">
           <div class="xsmall muted">Left to do</div>
-          <div class="big num">{{ stats.left }}</div>
-          <div class="xsmall muted">effective, to bring every panel and filter to its goal</div>
+          <div class="big num">{{ leftParts?.big }}</div>
+          <div class="xsmall muted">{{ leftParts?.note }}</div>
         </div>
         <div class="stat">
           <div class="xsmall muted">To finish</div>
@@ -650,8 +862,12 @@ const tabs = computed<[Tab, string][]>(() => [
             <div>
               <h2 id="grid-h">Progress per panel</h2>
               <p class="small muted" style="margin: 0.125rem 0 0">
-                North up, east left, as framed. Each panel is measured on its own. Click one for its
-                Goal tab.
+                {{
+                  detail.rigKnown
+                    ? `By grid row and column in the mosaic's own frame, rotated ${Math.round(detail.rotation)}°.`
+                    : "The rig is unknown, so panels are listed by number, not placed on a grid."
+                }}
+                Each panel is measured on its own. Click one for its Goal tab.
               </p>
             </div>
             <div role="group" aria-label="Filter shown" class="seg">
@@ -706,10 +922,18 @@ const tabs = computed<[Tab, string][]>(() => [
               >Progress is the goal model's value where the stacker has measured the panel,
               otherwise accepted ÷ desired from the scheduler.</span
             >
-            <span class="row" style="gap: 0.375rem"
+            <span v-if="weakestPanels.size" class="row" style="gap: 0.375rem"
               ><span class="swatch" /> Holds the mosaic back</span
             >
           </div>
+          <p v-if="placeholders.length" class="xsmall muted" style="margin: 0">
+            * The scheduler plan for {{ joinList(placeholders) }} asks for only 1 sub, which looks
+            like a placeholder plan, so its 100% means one accepted sub.
+          </p>
+          <p v-if="plateaus.length" class="xsmall muted" style="margin: 0">
+            Stopped at a plateau, where more time barely improves the result:
+            {{ joinList(plateaus) }} of the goal.
+          </p>
         </section>
         <div class="side">
           <section class="card" aria-labelledby="prev-h">
@@ -718,7 +942,9 @@ const tabs = computed<[Tab, string][]>(() => [
               <span class="xsmall muted">{{
                 latestNight && previewUrl
                   ? "the stacker's latest build"
-                  : 'brighter = more effective hours'
+                  : !previews.length
+                    ? 'No stacker build yet'
+                    : 'Effective hours to the chosen night'
               }}</span>
             </div>
             <img
@@ -727,28 +953,40 @@ const tabs = computed<[Tab, string][]>(() => [
               alt="The latest mosaic preview from the stacker"
               class="preview"
             />
-            <svg
-              v-else
-              viewBox="0 0 480 320"
-              role="img"
-              aria-label="Panels shaded by effective hours up to the chosen night; the weakest is outlined"
-              class="preview"
-            >
-              <rect x="0" y="0" width="480" height="320" fill="var(--sky)" />
-              <g v-for="r in schematic" :key="r.n">
-                <rect
-                  :x="r.x"
-                  :y="r.y"
-                  :width="r.w"
-                  :height="r.h"
-                  fill="oklch(0.75 0.06 260)"
-                  :fill-opacity="r.op"
-                  :stroke="r.weakest ? 'var(--warn)' : 'oklch(1 0 0 / 0.35)'"
-                  :stroke-width="r.weakest ? 2 : 1"
-                />
-                <text :x="r.lx" :y="r.ly" font-size="11" fill="#ecebf3">{{ r.label }}</text>
-              </g>
-            </svg>
+            <template v-else>
+              <svg
+                v-if="schematic.length"
+                viewBox="0 0 480 320"
+                role="img"
+                aria-label="Panel footprints, north up and east left, shaded by effective hours up to the chosen night"
+                class="preview"
+              >
+                <rect x="0" y="0" width="480" height="320" fill="var(--sky)" />
+                <g v-for="r in schematic" :key="r.n">
+                  <polygon
+                    :points="r.points"
+                    fill="oklch(0.75 0.06 260)"
+                    :fill-opacity="r.op"
+                    :stroke="r.weakest ? 'var(--warn)' : 'oklch(1 0 0 / 0.35)'"
+                    :stroke-width="r.weakest ? 2 : 1"
+                  />
+                  <text :x="r.lx" :y="r.ly" font-size="11" fill="#ecebf3" text-anchor="middle">
+                    {{ r.label }}
+                  </text>
+                </g>
+              </svg>
+              <p v-else class="empty">
+                {{
+                  previews.length
+                    ? 'No panel footprints to draw: the rig is unknown and no panel has a planned footprint.'
+                    : "The stacker hasn't built this mosaic yet, and no panel footprint is known to draw."
+                }}
+              </p>
+              <p v-if="schematic.length" class="xsmall muted" style="margin: 0">
+                Panel footprints, north up and east left, shaded by effective hours up to the
+                chosen night.
+              </p>
+            </template>
             <div class="row" style="gap: 0.75rem; flex-wrap: nowrap">
               <label for="mo-night" class="xsmall muted" style="white-space: nowrap"
                 >Progress over nights</label
@@ -803,7 +1041,13 @@ const tabs = computed<[Tab, string][]>(() => [
     >
       <div class="spread" style="align-items: center">
         <h2 id="seam-h">
-          Seam health · {{ showAllSeams ? 'every overlap' : 'worst five overlaps' }}
+          Seam health{{
+            !seamRows.length
+              ? ''
+              : showAllSeams || seamRows.length <= 5
+                ? ' · every overlap'
+                : ' · worst five overlaps'
+          }}
         </h2>
         <span class="badge" :class="!seamRows.length ? '' : seamWarnings ? 'warn' : 'ok'">{{
           !seamRows.length
@@ -825,7 +1069,7 @@ const tabs = computed<[Tab, string][]>(() => [
           <span class="muted" style="grid-column: 1 / -1">{{ s.note }} · {{ s.detail }}</span>
         </li>
       </ul>
-      <p v-if="!seamRows.length" class="empty">Not measured yet.</p>
+      <p v-if="!seamRows.length" class="empty">{{ seamEmpty }}</p>
       <p v-else-if="unmeasured.length" class="small muted" style="margin: 0">
         Not measured yet: {{ unmeasured.join(', ') }}.
       </p>
@@ -856,16 +1100,16 @@ const tabs = computed<[Tab, string][]>(() => [
             <tbody>
               <tr v-for="n in noiseRows" :key="n.filter">
                 <td>{{ n.filter }}</td>
-                <td style="text-align: right">{{ n.median?.toFixed(4) ?? '—' }}</td>
-                <td style="text-align: right">{{ n.p90?.toFixed(4) ?? '—' }}</td>
+                <td style="text-align: right">{{ sig(n.median) }}</td>
+                <td style="text-align: right">{{ sig(n.p90) }}</td>
                 <td style="text-align: right">
-                  {{ n.max?.toFixed(4) ?? '—'
+                  {{ sig(n.max)
                   }}<template v-if="n.maxPanel !== null"> · Panel {{ n.maxPanel }}</template>
                 </td>
                 <td style="text-align: right">{{ n.tiles }}</td>
-                <td>{{ fluxScales(n.filter) || '—' }}</td>
+                <td>{{ fluxScales(n.filter) || 'not measured' }}</td>
                 <td class="muted">
-                  {{ n.measuredAt ? shortDate(n.measuredAt) : '—' }}
+                  {{ n.measuredAt ? shortDate(n.measuredAt) : 'not recorded' }}
                 </td>
               </tr>
             </tbody>
@@ -877,13 +1121,13 @@ const tabs = computed<[Tab, string][]>(() => [
         <ul class="small" style="margin: 0; padding-left: 1.125rem">
           <li v-for="g in gaps" :key="g.filter + g.panel">
             Panel {{ g.panel }} ({{ g.filter }}): {{ Math.round(g.gapFraction * 100) }}% of its
-            planned frame, {{ g.gapDeg2.toFixed(2) }} deg², at the {{ g.gapWhere || 'edge' }}
+            planned frame, {{ g.gapDeg2.toFixed(2) }} deg²,
+            {{ g.gapWhere ? 'at the ' + g.gapWhere : 'location not measured' }}
           </li>
         </ul>
       </div>
       <p class="xsmall muted" style="margin: 0">
         {{ seamNote }}
-        Balancing fixes noise mismatches over time: switch it on under Panels and goal.
       </p>
     </section>
 
@@ -903,9 +1147,10 @@ const tabs = computed<[Tab, string][]>(() => [
           <label class="field"
             ><span>How nights are shared</span>
             <select v-model="strategy" class="input">
-              <option value="weakest">Weakest panel first</option>
-              <option value="even">Even across panels</option>
-              <option value="off">Balancing off, as today</option>
+              <option v-for="st in ['weakest', 'even', 'off']" :key="st" :value="st">
+                {{ strategyLabel(st)
+                }}{{ seasons?.strategyInForce === st ? ' (set now)' : '' }}
+              </option>
             </select>
           </label>
           <label class="field"
@@ -920,27 +1165,25 @@ const tabs = computed<[Tab, string][]>(() => [
           <button
             type="button"
             class="btn primary"
-            :disabled="busy || strategy === 'even'"
+            :disabled="busy || strategy === 'even' || strategy === seasons?.strategyInForce"
             @click="applyStrategy"
           >
             Use this plan
           </button>
         </div>
-        <p class="small" style="margin: 0">{{ strategyText[strategy] }}</p>
+        <p class="small" style="margin: 0">{{ strategyText }}</p>
         <p v-if="seasons" class="xsmall muted" style="margin: 0">{{ basisText }}</p>
-        <p v-if="seasons && seasons.hoursPerSeason !== null" class="xsmall muted" style="margin: 0">
-          At {{ Math.round(seasons.hoursPerSeason) }} h a season it finishes
-          {{ finishIn(seasons.compare.weakest) }} weakest first,
-          {{ finishIn(seasons.compare.even) }} even, and {{ finishIn(seasons.compare.off) }} with
-          balancing off.
-          {{
-            seasons.goalHoursSource === 'ts'
-              ? 'Where the stacker has no goal yet, the goal is the scheduler plan in hours.'
-              : ''
-          }}
+        <p v-if="seasons?.projection" class="xsmall muted" style="margin: 0">
+          Projected at {{ r1(seasons.projection.hoursPerSeason) }} h effective a season, in
+          {{ seasons.projection.stepHours }} h steps over
+          {{ plural(seasons.projection.items, 'panel filter') }}, up to
+          {{ seasons.projection.maxSeasons }} seasons: it finishes
+          {{ finishIn(seasons.compare.weakest) }} weakest panel first,
+          {{ finishIn(seasons.compare.even) }} even across panels, and
+          {{ finishIn(seasons.compare.off) }} with balancing off.
         </p>
         <div class="seasons">
-          <div class="srow xsmall muted">
+          <div v-if="seasons?.rows.length" class="srow xsmall muted">
             <span>Season</span><span>Weakest panel (bold) and average panel (thin)</span><span />
           </div>
           <div v-for="r in seasons?.rows ?? []" :key="r.index" class="srow num small">
@@ -962,20 +1205,24 @@ const tabs = computed<[Tab, string][]>(() => [
           <div v-for="m in monthCells" :key="m.month" class="month">
             <span style="font-weight: 500">{{ m.name }}</span>
             <span :style="{ background: m.bg, color: m.ink }">{{
-              m.hours ? '≈' + r1(m.hours) : '–'
+              m.hours ? '≈' + r1(m.hours) : '0'
             }}</span>
           </div>
         </div>
         <p v-else class="empty">
           The observatory site isn't known yet; it is read from a light's FITS header.
         </p>
-        <template v-if="clearNights.length">
-          <h2 style="font-size: 0.875rem; margin: 0">Clear nights a month, from history</h2>
+        <template v-if="imagingNights.length">
+          <h2 style="font-size: 0.875rem; margin: 0">Imaging nights a month, from history</h2>
+          <p class="xsmall muted" style="margin: 0">
+            Nights with at least one accepted sub on any target, averaged over the years with
+            imaging. Weather history isn't kept long enough to count clear nights.
+          </p>
           <div class="months num">
-            <div v-for="m in clearNights" :key="m.month" class="month">
+            <div v-for="m in imagingNights" :key="m.month" class="month">
               <span style="font-weight: 500">{{ m.name }}</span>
-              <span :title="m.years + (m.years === 1 ? ' year' : ' years') + ' of records'">{{
-                m.nights !== null ? r1(m.nights) : '–'
+              <span :title="`over ${m.years} of ${m.spanYears} years on record that had imaging`">{{
+                m.nights !== null ? r1(m.nights) : 'no data'
               }}</span>
             </div>
           </div>
@@ -984,7 +1231,16 @@ const tabs = computed<[Tab, string][]>(() => [
           <h2 style="font-size: 0.875rem; margin: 0">Panels to push this season</h2>
           <ul class="small" style="margin: 0; padding-left: 1.125rem">
             <li v-for="p in pushPanels" :key="p.panel">
-              Panel {{ p.panel }}: {{ r1(p.hoursLeft) }} h left, {{ p.monthsLeft }}
+              Panel {{ p.panel }}:
+              {{
+                [
+                  p.hoursLeft ? r1(p.hoursLeft) + ' h effective' : '',
+                  p.rawHoursLeft ? r1(p.rawHoursLeft) + ' h raw planned' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' and ')
+              }}
+              left, {{ p.monthsLeft }}
               {{ p.monthsLeft === 1 ? 'month' : 'months' }} of window{{
                 p.lastUsableMonth ? ' (to ' + p.lastUsableMonth + ')' : ''
               }}
@@ -1032,6 +1288,8 @@ const tabs = computed<[Tab, string][]>(() => [
             <span v-if="a.panels?.length" class="xsmall muted"
               >Panels: {{ a.panels.map((p) => p.target).join(', ') }}</span
             >
+            <span v-if="a.rule" class="xsmall muted">Why: {{ a.rule }}</span>
+            <span v-if="adoptionTimes(a)" class="xsmall muted">{{ adoptionTimes(a) }}</span>
           </div>
           <div role="group" :aria-label="'Decision for ' + a.project" class="row">
             <button
