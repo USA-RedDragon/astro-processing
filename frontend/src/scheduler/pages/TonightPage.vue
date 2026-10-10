@@ -333,7 +333,7 @@ const projectOpts = computed(() =>
 const wiProj = computed(() => projects.value.find((p) => p.id === wiProject.value) ?? null)
 const currentValue = computed(() => (wiProj.value ? fieldValue(wiProj.value, wiField.value) : null))
 const choices = computed(() =>
-  currentValue.value === null ? [] : valueChoices(wiField.value, currentValue.value),
+  wiProj.value ? valueChoices(wiField.value, currentValue.value) : [],
 )
 
 watch(
@@ -355,7 +355,9 @@ watch(
 const chips = computed(() =>
   changes.value.map((c) => {
     const p = projects.value.find((x) => x.id === c.projectId)
-    const from = p ? valueLabel(c.field, fieldValue(p, c.field)) : '?'
+    const from = p
+      ? valueLabel(c.field, fieldValue(p, c.field))
+      : 'unknown (project not in the list)'
     return {
       key: `${c.projectId}:${c.field}`,
       label: `${p?.name ?? 'Project ' + c.projectId} · ${FIELD_LABELS[c.field].toLowerCase()} ${from} → ${valueLabel(c.field, c.value)}`,
@@ -842,7 +844,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             </label>
             <label for="wi-value" class="field">
               <span
-                >From {{ currentValue === null ? '?' : valueLabel(wiField, currentValue) }} to</span
+                >From {{ wiProj ? valueLabel(wiField, currentValue) : 'no project picked' }} to</span
               >
               <select id="wi-value" v-model="wiValue" class="input">
                 <option v-for="v in choices" :key="v" :value="v">

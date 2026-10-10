@@ -26,6 +26,8 @@ import {
   twilightBands,
   undoState,
   valueChoices,
+  valueLabel,
+  MINUTE_CHOICES,
 } from '@/scheduler/plan'
 
 const t = (h: number, m = 0) => new Date(Date.UTC(2026, 9, 10, h, m)).toISOString()
@@ -226,6 +228,8 @@ describe('what if', () => {
     })
     expect(edits[1].changes).toEqual([{ field: 'state', before: 1, after: 2 }])
     expect(valueChoices('priority', 1)).toEqual([2, 0])
+    expect(valueChoices('minimumtime', null)).toEqual(MINUTE_CHOICES)
+    expect(valueLabel('minimumtime', null)).toBe('not set')
   })
 
   it('diffs time per target', () => {
