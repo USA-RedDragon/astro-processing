@@ -10,6 +10,7 @@ import {
   goalTiming,
   measureText,
   pct,
+  planCountText,
   r1,
   r2,
   seasonLabel,
@@ -17,6 +18,7 @@ import {
   STATE_INDEX,
   type FilterGoal,
   type GoalKind,
+  type Plan,
   type Point,
   type ProjectDetail,
   type StackMaster,
@@ -429,6 +431,10 @@ function planDesired(id: number, base: number) {
   return planDraft[id]?.desired ?? base
 }
 
+function planGoal(pl: Plan): FilterGoal | undefined {
+  return target.value?.goals.find((g) => g.goalSet && g.filter === pl.filter)
+}
+
 async function savePlans() {
   const t = target.value
   if (!t) return
@@ -761,8 +767,9 @@ function numInput(e: Event): number {
                 {{ mode === 'snr' ? 'Faint-signal SNR per filter' : 'Depth per filter' }}
               </h2>
               <p class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
-                Bars show completion the way Target Scheduler counts it: against the goal where
-                one is in force, otherwise against the desired count.
+                Bars show completion the way Target Scheduler counts it. A filter with a goal
+                finishes on its goal and ignores its desired count; a filter without one finishes
+                on its desired count.
               </p>
             </div>
             <div role="group" aria-label="Goal type" class="seg">
@@ -825,7 +832,10 @@ function numInput(e: Event): number {
                       · +1 h gives {{ r1(fg.measurement.gainPerHourPct) }}%</span
                     ></span
                   >
-                  <span>Scheduler count {{ fg.accepted }}/{{ fg.desired }}</span>
+                  <span v-if="fg.goalSet"
+                    >Goal-driven{{ fg.readiness && !fg.readiness.open ? ' · scheduler stopped' : '' }}</span
+                  >
+                  <span v-else>Scheduler count {{ fg.accepted }}/{{ fg.desired }}</span>
                 </div>
               </div>
               <span class="row num" style="justify-content: flex-end; flex-wrap: nowrap">
@@ -1021,8 +1031,8 @@ function numInput(e: Event): number {
           <div>
             <h2 id="plans-h">Exposure plans · {{ target?.exposureSet }}</h2>
             <p class="small muted" style="margin: 0.125rem 0 0">
-              Desired counts are kept for the scheduler, but when the target has goals, the goal
-              decides when a filter is done.
+              A plan whose filter has a goal is goal-driven: the goal decides when it is done and
+              its desired count is not used. Desired counts apply only to plans without a goal.
             </p>
           </div>
           <div v-if="planDirty" class="row">
@@ -1043,7 +1053,7 @@ function numInput(e: Event): number {
                 <th>On</th>
                 <th>Template</th>
                 <th style="text-align: right">Exposure</th>
-                <th style="text-align: right">Desired</th>
+                <th style="text-align: right">Desired or goal</th>
                 <th style="text-align: right">Acquired</th>
                 <th style="text-align: right">Accepted</th>
                 <th>Gain · moon</th>
@@ -1066,7 +1076,10 @@ function numInput(e: Event): number {
                 </td>
                 <td style="font-weight: 600; white-space: nowrap">{{ pl.template }}</td>
                 <td style="text-align: right">{{ pl.exposure }} s</td>
-                <td style="text-align: right">
+                <td v-if="planGoal(pl)" class="muted" style="text-align: right; white-space: normal">
+                  {{ planCountText(planGoal(pl)) }}
+                </td>
+                <td v-else style="text-align: right">
                   <input
                     class="input num"
                     type="number"

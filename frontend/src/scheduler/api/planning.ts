@@ -89,6 +89,7 @@ export interface FilterGoal {
   status: MeasureStatus
   measurement?: Measurement
   progress?: Progress
+  readiness?: Readiness
   error?: string
   percentComplete: number
   completionBasis: string
@@ -114,6 +115,17 @@ export interface Plan {
   moonWidth: number
   percentComplete?: number
   completionBasis?: string
+  goalDriven?: boolean
+  complete?: boolean
+}
+
+export interface Readiness {
+  state: 'measured' | 'collecting' | 'unmeasurable'
+  reason?: string
+  stackSubs: number
+  minSubs: number
+  subLimit: number
+  open: boolean
 }
 
 export interface Season {
@@ -438,12 +450,42 @@ export function basisText(basis: string): string {
       return 'acquired of desired, grading delayed'
     case 'acquired, no grading':
       return 'acquired of desired × throttle'
+    case 'collecting subs to measure':
+      return 'of its goal, not measured yet'
   }
   return basis
 }
 
+export function readinessText(fg: FilterGoal): string {
+  const r = fg.readiness
+  if (!r) return ''
+  if (r.state === 'collecting') {
+    if (r.stackSubs < r.minSubs)
+      return `collecting the first ${r.minSubs} subs to measure (${r.stackSubs} of ${r.minSubs})`
+    return `${r.stackSubs} subs stacked, waiting for the first measurement`
+  }
+  if (r.state === 'unmeasurable') {
+    const why = r.reason || 'the goal cannot be measured'
+    return r.open
+      ? `${why}; imaging stops at ${r.subLimit} subs (${r.stackSubs} so far)`
+      : `${why}; stopped at ${r.stackSubs} subs`
+  }
+  return ''
+}
+
+export function planCountText(fg: FilterGoal | undefined): string {
+  if (!fg?.goalSet) return ''
+  const ready = readinessText(fg)
+  if (ready) return 'goal-driven · ' + ready
+  if (fg.progress?.done) return 'goal-driven · ' + (fg.progress.progress >= 1 ? 'goal met' : 'plateau reached')
+  if (fg.progress) return `goal-driven · ${pct(fg.progress.progress)} of its goal`
+  return 'goal-driven'
+}
+
 export function goalTiming(fg: FilterGoal): string {
   const p = fg.progress
+  const ready = readinessText(fg)
+  if (ready) return ready
   if (!p) return measureText(fg) || 'finishes on counts'
   if (p.unmeasured) return p.unmeasured
   if (p.done) return p.progress >= 1 ? 'goal met' : 'plateau reached'

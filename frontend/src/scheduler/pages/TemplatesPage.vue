@@ -308,6 +308,10 @@ function moonText(t: Template): string {
           Pick a set, tick the targets, then apply. Selections made in Targets arrive here already
           ticked.
         </p>
+        <p class="xsmall muted" style="margin: 0.125rem 0 0">
+          New plans take the set's usual sub count. That count only matters for a target without
+          a goal: a plan whose filter has a goal ignores it and finishes on the goal.
+        </p>
       </div>
       <div role="radiogroup" aria-label="Exposure set" class="sets">
         <button

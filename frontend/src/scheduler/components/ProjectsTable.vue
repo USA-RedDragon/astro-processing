@@ -26,6 +26,7 @@ import {
   measureText,
   pct,
   r1,
+  readinessText,
   r2,
   seasonLabel,
   PRIORITY_INDEX,
@@ -116,8 +117,8 @@ function pendingFor(p: Project): string {
 const adoptTitle = computed(() => {
   const g = projects.value.flatMap((p) => p.targets.flatMap((t) => t.goals))[0]?.defaultGoal
   return g
-    ? `The stacker's default goal, faint-signal SNR ${g.snr} per filter${g.plateauStop ? ' with the plateau stop' : ''}; the desired counts stay as a fallback`
-    : 'Use the stacker\'s default goal per filter; the desired counts stay as a fallback'
+    ? `The stacker's default goal, faint-signal SNR ${g.snr} per filter${g.plateauStop ? ' with the plateau stop' : ''}. Each filter then finishes on its goal; the desired counts are not used`
+    : 'Use the stacker\'s default goal per filter. Each filter then finishes on its goal; the desired counts are not used'
 })
 
 function kindLabel(p: Project): string {
@@ -134,6 +135,8 @@ function weakestText(p: Project): string {
   if (g && g.kind === 'depth' && !g.unmeasured)
     return `${prefix}${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
   if (g && g.kind === 'snr') return `${prefix}SNR ${r1(g.achieved)} of ${r1(g.goal)}`
+  const ready = readinessText(w)
+  if (ready) return prefix + ready
   if (g?.unmeasured) return prefix + g.unmeasured
   const meas = w.measurement ? ` · measured SNR ${r1(w.measurement.snr)}` : ' · ' + measureText(w)
   return `${prefix}${w.accepted}/${w.desired} ${basisText(w.completionBasis)}${meas}`
@@ -278,8 +281,8 @@ function applySet() {
         <CardDescription>
           Change priority or state right in the row; it applies when the current exposure ends.
           Progress is the least complete exposure plan, counted as Target Scheduler counts it:
-          against the goal where one is in force, otherwise against the desired count. For a
-          mosaic, its least complete panel.
+          a filter with a goal against its goal, a filter without one against its desired count.
+          For a mosaic, its least complete panel.
         </CardDescription>
       </CardHeader>
       <CardContent class="flex flex-col gap-3">
