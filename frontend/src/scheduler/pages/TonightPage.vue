@@ -38,7 +38,7 @@ import {
 } from '../plan'
 import { errorToast, notifyCommand, shell, showToast } from '../shell'
 import PageHead from '../components/PageHead.vue'
-import { moonLine, moonPhaseText, mosaicBalance, nightSpan, noMoonAvoidance } from '../nowtonight'
+import { moonLine, moonPhaseText, mosaicBalance, nightSpan } from '../nowtonight'
 
 const night = ref<Night>('tonight')
 const preview = ref<Preview | null>(null)
@@ -197,10 +197,7 @@ const moonCaption = computed(() => {
   const r = range.value
   return r ? moonLine(moonNight.value, r[0], r[1]) : ''
 })
-const moonPhase = computed(() => {
-  const r = range.value
-  return moonPhaseText(moonNight.value, !!r && noMoonAvoidance(moonNight.value, r[0], r[1]))
-})
+const moonPhase = computed(() => moonPhaseText(moonNight.value))
 const phaseText = computed(() => {
   const bar = Math.max(2, (W - LABEL_W) * (moonNight.value?.illumination ?? 0))
   return bar > (W - LABEL_W) * 0.6

@@ -13,7 +13,6 @@ import {
   moonPhaseText,
   mosaicBalance,
   nightSpan,
-  noMoonAvoidance,
   noSourceText,
   phaseName,
   powerView,
@@ -134,20 +133,11 @@ describe('moon', () => {
   }
   it('describes rise and set inside the night', () => {
     expect(moonLine(m, Date.parse(t(1)), Date.parse(t(11)))).toBe(
-      'Moon 1%, rises 04:00. No moon avoidance tonight.',
+      'Moon 1%, rises 04:00.',
     )
     expect(moonLine(m, Date.parse(t(1)), Date.parse(t(7)))).toBe(
-      'Moon 1%, below the horizon all night. No moon avoidance tonight.',
+      'Moon 1%, below the horizon all night.',
     )
-  })
-  it('says when moon avoidance is off', () => {
-    const bright = { ...m, illumination: 0.4 }
-    expect(noMoonAvoidance(bright, Date.parse(t(1)), Date.parse(t(11)))).toBe(false)
-    expect(noMoonAvoidance(bright, Date.parse(t(1)), Date.parse(t(7)))).toBe(true)
-    expect(noMoonAvoidance(m, Date.parse(t(1)), Date.parse(t(11)))).toBe(true)
-    expect(noMoonAvoidance(null, 0, 1)).toBe(false)
-    expect(moonLine(bright, Date.parse(t(1)), Date.parse(t(11)))).toBe('Moon 40%, rises 04:00.')
-    expect(moonPhaseText(m, true)).toBe('1% lit · new moon Sat 10 Oct · no moon avoidance tonight')
   })
   it('names the phase', () => {
     expect(phaseName(7.4)).toBe('first quarter')

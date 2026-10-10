@@ -228,15 +228,8 @@ export function phaseName(age: number, synodic = 29.530588): string {
   return 'waning crescent'
 }
 
-export const MOON_AVOIDANCE_OFF_ILLUMINATION = 0.03
-
 function moonUpBetween(m: MoonNight, t0: number, t1: number): boolean {
   return m.samples.some((s) => s.alt > 0 && ms(s.t) >= t0 && ms(s.t) <= t1)
-}
-
-export function noMoonAvoidance(m: MoonNight | null, t0: number, t1: number): boolean {
-  if (!m) return false
-  return m.illumination < MOON_AVOIDANCE_OFF_ILLUMINATION || !moonUpBetween(m, t0, t1)
 }
 
 export function moonLine(m: MoonNight | null, t0: number, t1: number): string {
@@ -258,12 +251,10 @@ export function moonLine(m: MoonNight | null, t0: number, t1: number): string {
     if (rises.length) bits.push('rises ' + hm(rises[0]))
     where = bits.join(', ')
   }
-  return (
-    `Moon ${pct}%, ${where}.` + (noMoonAvoidance(m, t0, t1) ? ' No moon avoidance tonight.' : '')
-  )
+  return `Moon ${pct}%, ${where}.`
 }
 
-export function moonPhaseText(m: MoonNight | null, avoidanceOff = false): string {
+export function moonPhaseText(m: MoonNight | null): string {
   if (!m) return ''
   const phase = phaseName(m.age)
   const parts = [`${Math.round(m.illumination * 100)}% lit`]
@@ -272,7 +263,6 @@ export function moonPhaseText(m: MoonNight | null, avoidanceOff = false): string
   const nf = ms(m.next_full)
   if (!isNaN(nn) && (isNaN(nf) || nn <= nf)) parts.push('new moon ' + shortDate(m.next_new))
   else if (!isNaN(nf)) parts.push('full moon ' + shortDate(m.next_full))
-  if (avoidanceOff) parts.push('no moon avoidance tonight')
   return parts.join(' · ')
 }
 
