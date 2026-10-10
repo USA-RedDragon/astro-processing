@@ -2,10 +2,12 @@
   <div class="space-y-6">
     <div>
       <h1 class="text-2xl font-semibold">Calibration</h1>
-      <p class="text-sm text-muted-foreground mt-1">
-        Dark sets to take: about 25 × 600 s darks at each setpoint, per gain and offset.
-        Lights between setpoints use the nearest set, scaled.
-      </p>
+      <template v-if="library">
+        <p class="text-sm text-muted-foreground mt-1">{{ ladderText(library) }}</p>
+        <p class="text-sm text-muted-foreground">{{ minFramesText(library) }}</p>
+        <p v-if="library.gaps.length > 0" class="text-sm text-muted-foreground">{{ captureText(library.gaps) }}</p>
+      </template>
+      <p v-else-if="loaded" class="text-sm text-muted-foreground mt-1">{{ unavailable }}</p>
     </div>
 
     <Card>
@@ -13,26 +15,35 @@
         <CardTitle>Dark library gaps</CardTitle>
       </CardHeader>
       <CardContent>
-        <p v-if="loaded && gaps.length === 0" class="text-sm text-muted-foreground">No gaps.</p>
+        <p v-if="loaded && library && gaps.length === 0" class="text-sm text-muted-foreground">
+          Every ladder setpoint the lights need has a dark set of their exposure.
+        </p>
+        <p v-else-if="loaded && !library" class="text-sm text-muted-foreground">{{ unavailable }}</p>
         <UiTable v-else>
           <TableHeader>
             <TableRow>
               <TableHead class="text-right">Setpoint</TableHead>
+              <TableHead class="text-right">Exposure</TableHead>
               <TableHead class="text-right">Gain</TableHead>
               <TableHead class="text-right">Offset</TableHead>
               <TableHead class="text-right">Lights</TableHead>
               <TableHead class="text-right">Nights</TableHead>
               <TableHead>Latest night</TableHead>
+              <TableHead>Darks at this setpoint now</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            <TableRow v-for="g in gaps" :key="`${g.set_temp}-${g.gain}-${g.offset}`">
+            <TableRow v-for="g in gaps" :key="`${g.set_temp}-${g.gain}-${g.offset}-${g.exposure}`">
               <TableCell class="text-right tabular-nums">{{ g.set_temp }} °C</TableCell>
+              <TableCell class="text-right tabular-nums">
+                {{ g.exposure != null ? `${g.exposure} s` : 'not recorded' }}
+              </TableCell>
               <TableCell class="text-right tabular-nums">{{ g.gain }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ g.offset }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ g.lights }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ g.nights }}</TableCell>
               <TableCell>{{ g.latest_night }}</TableCell>
+              <TableCell>{{ otherExposuresText(g) }}</TableCell>
             </TableRow>
           </TableBody>
         </UiTable>
@@ -53,17 +64,26 @@ import {
 } from '@/components/ui/table';
 import API from '@/lib/API';
 import { onChange } from '@/lib/events';
-import type { DarkLibraryGap } from '../graphql/graphql';
+import { captureText, ladderText, minFramesText, otherExposuresText } from '@/lib/calibration';
+import type { DarkLibrary, DarkLibraryGap } from '../graphql/graphql';
 
-const GET_DARK_GAPS_QUERY = `
-  query GetDarkLibraryGaps {
-    darkLibraryGaps {
-      gain
-      offset
-      set_temp
-      lights
-      nights
-      latest_night
+const GET_DARK_LIBRARY_QUERY = `
+  query GetDarkLibrary {
+    darkLibrary {
+      ladder
+      min_frames
+      set_temp_exact_c
+      set_temp_scale_max_c
+      gaps {
+        gain
+        offset
+        exposure
+        set_temp
+        lights
+        nights
+        latest_night
+        other_exposures
+      }
     }
   }
 `;
@@ -84,7 +104,8 @@ export default {
   },
   data() {
     return {
-      gaps: [] as DarkLibraryGap[],
+      library: null as DarkLibrary | null,
+      unavailable: '',
       loaded: false,
       stopChanges: () => {},
     };
@@ -97,13 +118,24 @@ export default {
   unmounted() {
     this.stopChanges();
   },
+  computed: {
+    gaps(): DarkLibraryGap[] {
+      return this.library?.gaps ?? [];
+    },
+  },
   methods: {
+    captureText,
+    ladderText,
+    minFramesText,
+    otherExposuresText,
     async fetchData() {
       try {
-        const response = await API.request(GET_DARK_GAPS_QUERY);
-        this.gaps = response.darkLibraryGaps as DarkLibraryGap[];
+        const response = await API.request(GET_DARK_LIBRARY_QUERY);
+        this.library = (response.darkLibrary as DarkLibrary | null) ?? null;
+        this.unavailable = this.library ? '' : 'Not available: the stacker is not configured on this server.';
       } catch (error) {
-        console.error('Error fetching dark library gaps:', error);
+        console.error('Error fetching the dark library:', error);
+        this.unavailable = `Not available: ${error instanceof Error ? error.message : String(error)}`;
       } finally {
         this.loaded = true;
       }
