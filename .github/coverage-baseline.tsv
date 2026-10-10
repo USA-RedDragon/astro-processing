@@ -5,10 +5,10 @@ internal/events/watch.go	36	28
 internal/server/graph/resolvers/calibration.go	33	31
 internal/server/graph/resolvers/calibration.resolvers.go	7	0
 internal/server/graph/resolvers/common.resolvers.go	2	0
-internal/server/graph/resolvers/other.resolvers.go	30	0
+internal/server/graph/resolvers/other.resolvers.go	30	15
 internal/server/graph/resolvers/plans.go	8	0
 internal/server/graph/resolvers/project.resolvers.go	100	0
-internal/server/graph/resolvers/resolver.go	43	3
+internal/server/graph/resolvers/resolver.go	44	5
 internal/server/graph/resolvers/subframes.go	217	158
 internal/server/graph/resolvers/target.resolvers.go	124	0
 internal/server/middleware/di.go	3	0
@@ -28,5 +28,5 @@ internal/store/models/targetscheduler/target.go	18	0
 internal/store/utils/utils.go	10	6
 internal/submeta/submeta.go	18	14
 internal/utils/graphql.go	7	0
-internal/workerclient/client.go	55	31
+internal/workerclient/client.go	55	34
 main.go	7	0
