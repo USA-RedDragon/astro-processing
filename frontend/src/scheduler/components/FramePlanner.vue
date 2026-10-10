@@ -31,6 +31,7 @@ const props = defineProps<{
   panels?: number
   cols?: number
   rows?: number
+  minAltitude?: number
 }>()
 
 const emit = defineEmits<{ 'update:plan': [plan: FramePlan] }>()
@@ -39,7 +40,13 @@ const W = 640
 const H = 400
 
 const rotation = ref<number | null>(props.rotation ?? null)
-const overlap = ref(15)
+const overlapSet = ref<number | null>(null)
+const overlap = computed<number | null>({
+  get: () => overlapSet.value ?? framing.value?.overlap ?? null,
+  set: (v) => {
+    overlapSet.value = v
+  },
+})
 const layoutId = ref('')
 const wantGrid = ref<{ rows: number; cols: number } | null>(initialGrid())
 const framing = ref<Framing | null>(null)
@@ -72,7 +79,8 @@ async function load() {
         minorArcmin: o.minorArcmin || o.majorArcmin || 0,
         pa: o.pa || 0,
         rotation: rotation.value ?? undefined,
-        overlap: overlap.value,
+        overlap: overlapSet.value ?? undefined,
+        minAltitude: props.minAltitude,
         rows: wantGrid.value?.rows,
         cols: wantGrid.value?.cols,
       },
@@ -89,7 +97,10 @@ async function load() {
       layoutId.value = f.options.find((x) => x.recommended)?.id ?? ids[0] ?? ''
     }
   } catch (e) {
-    if ((e as Error).name !== 'AbortError') error.value = e instanceof Error ? e.message : String(e)
+    if ((e as Error).name !== 'AbortError') {
+      error.value = e instanceof Error ? e.message : String(e)
+      framing.value = null
+    }
   } finally {
     loading.value = false
   }
@@ -111,7 +122,7 @@ watch(
   },
   { immediate: true },
 )
-watch([rotation, overlap], schedule)
+watch([rotation, overlapSet, () => props.minAltitude], schedule)
 onUnmounted(() => {
   ctl?.abort()
   if (timer) clearTimeout(timer)
@@ -136,7 +147,7 @@ function useCustom() {
 }
 
 watch(chosen, (c) => {
-  if (!c || rotation.value === null) return
+  if (!c || rotation.value === null || overlap.value === null) return
   emit('update:plan', {
     rotation: rotation.value,
     overlap: overlap.value,
@@ -221,14 +232,17 @@ const basisText = computed(() => {
     )
   if (b.hoursPerClearNight !== null)
     parts.push(
-      `${b.hoursPerClearNight.toFixed(1)} h per clear night from ${b.historyNights} imaging nights`,
+      `${b.hoursPerClearNight.toFixed(1)} h per imaging night from ${b.historyNights} nights with accepted subs`,
     )
   if (b.clearNightsPerSeason !== null)
-    parts.push(`${Math.round(b.clearNightsPerSeason)} clear nights a season`)
+    parts.push(`${Math.round(b.clearNightsPerSeason)} imaging nights a season`)
+  const alt = `above ${f.minAltitude}°${f.minAltitudeSource === 'default' ? ' (default)' : ''}`
   const dark =
     f.nightHours !== null
-      ? `${f.nightHours.toFixed(1)} usable dark hours a night${f.bestMonths.length ? ' in ' + f.bestMonths.join(', ') : ''}`
-      : 'usable dark hours unknown' + (f.siteKnown ? '' : ' until the site is known')
+      ? `${f.nightHours.toFixed(1)} usable dark hours a night ${alt}${f.bestMonths.length ? ' in ' + f.bestMonths.join(', ') : ''}`
+      : f.siteKnown
+        ? `no month with usable dark hours ${alt}`
+        : 'usable dark hours unknown until the site is known'
   parts.push(dark)
   return (
     'Estimates use ' +
@@ -338,7 +352,7 @@ function useSuggested() {
         </g>
         <text :x="W - 34" y="24" font-size="11" fill="#f4f4f8">N</text>
         <text :x="W - 72" y="64" font-size="11" fill="#f4f4f8">E</text>
-        <text x="16" :y="H - 12" font-size="11" fill="#f4f4f8">
+        <text v-if="shown" x="16" :y="H - 12" font-size="11" fill="#f4f4f8">
           {{ panelCount }} {{ panelCount === 1 ? 'frame' : 'panels'
           }}{{ coverText ? ' · covers ' + coverText : ''
           }}{{
@@ -370,9 +384,22 @@ function useSuggested() {
         </button>
         <label class="field small">
           <span class="spread"
-            ><span>Panel overlap</span><span class="num">{{ overlap }}%</span></span
+            ><span>Panel overlap</span
+            ><span class="num"
+              >{{ overlap ?? '…' }}%{{
+                framing && overlapSet === null && framing.overlapSource === 'default'
+                  ? ' · default'
+                  : ''
+              }}</span
+            ></span
           >
-          <input v-model.number="overlap" type="range" min="5" max="30" />
+          <input
+            v-model.number="overlap"
+            type="range"
+            min="5"
+            max="30"
+            :disabled="overlap === null"
+          />
         </label>
         <template v-if="step === 'frame'">
           <div class="facts">
@@ -388,18 +415,20 @@ function useSuggested() {
             </div>
             <div class="fact wide">
               <span class="xsmall muted">Rig</span><span>{{ rigText }}</span>
-              <span class="xsmall muted">{{ rigSource(framing?.rigInfo) }}</span>
+              <span v-if="framing" class="xsmall muted">{{ rigSource(framing.rigInfo) }}</span>
             </div>
           </div>
-          <p class="small muted" style="margin: 0">
+          <p v-if="chosen" class="small muted" style="margin: 0">
             {{
-              chosen && chosen.panels.length > 1
+              chosen.panels.length > 1
                 ? `At this rotation it needs ${chosen.name.toLowerCase()}; pick another layout on the next step.`
                 : 'It fits one frame at this rotation.'
             }}
           </p>
         </template>
-        <p v-if="error" class="small" style="margin: 0; color: var(--bad)">{{ error }}</p>
+        <p v-if="error" class="small" style="margin: 0; color: var(--bad)">
+          Layouts not worked out: {{ error }}
+        </p>
         <p v-else-if="loading && !framing" class="small muted" style="margin: 0">
           Working out layouts…
         </p>

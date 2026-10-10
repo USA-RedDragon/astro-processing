@@ -59,6 +59,10 @@ export interface Framing {
   rotation: number
   suggestedRotation: number
   overlap: number
+  overlapDefault: number
+  overlapSource: 'default' | 'request'
+  minAltitude: number
+  minAltitudeSource: 'default' | 'request'
   nightHours: number | null
   basis: FramingBasis
   bestMonths: string[]
