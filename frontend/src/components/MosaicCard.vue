@@ -2,6 +2,14 @@
   <Card>
     <CardHeader>
       <CardTitle>Mosaic</CardTitle>
+      <CardAction v-if="project">
+        <router-link
+          :to="`/mosaics/${encodeURIComponent(project)}`"
+          class="text-sm text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Panels, seams and seasons
+        </router-link>
+      </CardAction>
     </CardHeader>
     <CardContent>
       <p class="text-sm text-muted-foreground mb-4">
@@ -46,13 +54,13 @@
 import type { PropType } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
 import { status } from '@/lib/events';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/formatters';
 import type { Mosaic } from '../graphql/graphql';
 
 export default {
   name: 'MosaicCard',
-  components: { Card, CardContent, CardHeader, CardTitle, LoaderCircle },
+  components: { Card, CardAction, CardContent, CardHeader, CardTitle, LoaderCircle },
   props: {
     mosaics: {
       type: Array as PropType<Mosaic[]>,

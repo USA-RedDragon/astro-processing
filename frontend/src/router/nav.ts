@@ -29,6 +29,17 @@ export const navGroups: NavGroup[] = [
     ],
   },
   {
+    label: 'Plan',
+    items: [
+      {
+        to: '/mosaics',
+        label: 'Mosaics',
+        note: 'Panels, seams, seasons, adoption',
+        names: ['mosaics', 'mosaic'],
+      },
+    ],
+  },
+  {
     label: 'Discover',
     items: [
       {

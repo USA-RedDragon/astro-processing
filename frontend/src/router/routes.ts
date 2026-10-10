@@ -57,6 +57,19 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Collabs' },
   },
   {
+    path: '/mosaics',
+    name: 'mosaics',
+    component: () => import('../scheduler/pages/MosaicsPage.vue'),
+    meta: { title: 'Mosaics' },
+  },
+  {
+    path: '/mosaics/:projectId',
+    name: 'mosaic',
+    component: () => import('../scheduler/pages/MosaicsPage.vue'),
+    props: true,
+    meta: { title: 'Mosaic' },
+  },
+  {
     path: '/targets',
     name: 'targets',
     redirect: (to) => ({ path: '/', query: { ...to.query, view: 'list' } }),
@@ -72,8 +85,6 @@ const routes: RouteRecordRaw[] = [
   },
   ...[
     ['/add', 'add'],
-    ['/mosaics', 'mosaics'],
-    ['/mosaics/:projectId', 'mosaic'],
     ['/templates', 'templates'],
     ['/history', 'history'],
   ].map(([path, name]) => ({
