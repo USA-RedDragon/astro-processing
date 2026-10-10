@@ -43,6 +43,14 @@ export const navGroups: NavGroup[] = [
         note: 'Panels, seams, seasons, adoption',
         names: ['mosaics', 'mosaic'],
       },
+      {
+        to: '/templates',
+        label: 'Templates',
+        note: 'Exposure sets and bulk edits',
+        names: ['templates'],
+      },
+      { to: '/history', label: 'History', note: 'Every change, with undo', names: ['history'] },
+      { to: '/add', label: 'Add target', note: 'Find, frame, mosaic, goal', names: ['add'] },
     ],
   },
   {

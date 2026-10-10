@@ -70,6 +70,24 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Mosaic' },
   },
   {
+    path: '/add',
+    name: 'add',
+    component: () => import('../scheduler/pages/AddTargetPage.vue'),
+    meta: { title: 'Add target' },
+  },
+  {
+    path: '/templates',
+    name: 'templates',
+    component: () => import('../scheduler/pages/TemplatesPage.vue'),
+    meta: { title: 'Templates' },
+  },
+  {
+    path: '/history',
+    name: 'history',
+    component: () => import('../scheduler/pages/HistoryPage.vue'),
+    meta: { title: 'History' },
+  },
+  {
     path: '/targets',
     name: 'targets',
     redirect: (to) => ({ path: '/', query: { ...to.query, view: 'list' } }),
@@ -83,19 +101,6 @@ const routes: RouteRecordRaw[] = [
       return { path: `/project/${to.params.projectId}`, query: rest }
     },
   },
-  ...[
-    ['/add', 'add'],
-    ['/templates', 'templates'],
-    ['/history', 'history'],
-  ].map(([path, name]) => ({
-    path: path!,
-    name: name!,
-    component: () => import('../views/MainPage.vue'),
-    beforeEnter: (to: { fullPath: string }) => {
-      window.location.href = `https://astro-stacker.jackal-stargazer.ts.net${to.fullPath}`
-      return false
-    },
-  })),
   {
     path: '/start',
     name: 'start',

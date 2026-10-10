@@ -387,3 +387,9 @@ table.dgrid tbody tr:hover {
   font-size: 0.875rem;
   overflow-wrap: anywhere;
 }
+
+.page input[type='checkbox'],
+.page input[type='radio'],
+.page input[type='range'] {
+  accent-color: var(--primary);
+}
