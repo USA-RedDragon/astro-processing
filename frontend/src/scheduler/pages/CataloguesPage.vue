@@ -15,13 +15,13 @@ import {
   hours,
   label,
   linkEvidence,
-  methodText,
-  minAltitudeText,
   size,
   paText,
   typeLabel,
   type CatalogueEntry,
   type Decision,
+  type Link,
+  type SubjectRef,
   type ObjectDetail,
   type Overview,
   type ReviewItem,
@@ -51,8 +51,35 @@ const sourcesOpen = ref(false)
 const statusLabel: Record<string, string> = {
   done: 'Done',
   'in-progress': 'In progress',
+  measuring: 'Measuring',
   'not-started': 'Not started',
 }
+
+const backfill = computed(() => overview.value?.backfill ?? null)
+
+const backfillLine = computed(() => {
+  const b = backfill.value
+  if (!b) return ''
+  const head = `Goal measurements: ${b.measured} of ${b.total} masters measured`
+  const current = b.current < b.measured ? ` (${b.current} on the current method)` : ''
+  let state: string
+  switch (b.state) {
+    case 'measuring':
+      state = ` · measuring now on ${b.workers} ${b.workers === 1 ? 'worker' : 'workers'}, ${b.doneInPass} of ${b.queued} done this pass`
+      if (b.perHour > 0) state += `, ${b.perHour} an hour`
+      if (b.eta) state += `, done about ${hm(b.eta)}`
+      break
+    case 'paused-for-stacking':
+      state = ` · paused while the stacker works, ${b.doneInPass} of ${b.queued} done this pass`
+      break
+    case 'idle':
+      state = ' · idle until the next check'
+      break
+    default:
+      state = ' · goal measurement is off'
+  }
+  return head + current + state
+})
 
 const current = computed(() => overview.value?.catalogues.find((c) => c.key === tab.value))
 
@@ -128,21 +155,19 @@ function hidden(e: CatalogueEntry): boolean {
 
 function cellStyle(e: CatalogueEntry) {
   const s = e.status
+  const started = s === 'in-progress' || s === 'measuring'
   return {
-    background:
-      s === 'done' ? 'var(--done)' : s === 'in-progress' ? 'var(--prog-bg)' : 'transparent',
+    background: s === 'done' ? 'var(--done)' : started ? 'var(--prog-bg)' : 'transparent',
     color:
-      s === 'done'
-        ? 'var(--ink-dark)'
-        : s === 'in-progress'
-          ? 'var(--foreground)'
-          : 'var(--muted-foreground)',
+      s === 'done' ? 'var(--ink-dark)' : started ? 'var(--foreground)' : 'var(--muted-foreground)',
     border:
       s === 'done'
         ? '1px solid var(--done)'
         : s === 'in-progress'
           ? '1px solid var(--prog)'
-          : '1px dashed var(--border)',
+          : s === 'measuring'
+            ? '1px dashed var(--prog)'
+            : '1px dashed var(--border)',
     boxShadow: e.tonight?.up ? 'inset 0 -3px 0 var(--warn)' : 'none',
     opacity: hidden(e) ? 0.18 : 1,
     outline:
@@ -175,16 +200,40 @@ function window(e: CatalogueEntry): string {
       : t.peakAlt > 0
         ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
         : 'not up tonight'
-  const n = overview.value?.night
-  const min = n?.minAltitude
-  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)}${min !== undefined && min !== null ? ` above ${minAltitudeText(min, n?.minAltitudeSource)}` : ''}`
+  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)} above ${t.minAltitude}° (${t.minAltitudeSource})`
+}
+
+function measuredText(e: CatalogueEntry): string {
+  const t = e.tally
+  if (!t.filters) return e.scheduled ? 'scheduled, nothing captured yet' : 'no frames yet'
+  const parts = [`${t.measured} of ${t.filters} masters measured`]
+  if (t.short) parts.push(`${t.short} with too few subs to measure`)
+  return parts.join(', ')
 }
 
 function pickStatus(e: CatalogueEntry): string {
   const s = statusLabel[e.status] ?? e.status
   const subj = e.subjects.filter((x) => x.status !== 'rejected' && x.status !== 'suggested')
-  if (!subj.length) return s
-  return `${s} · ${subj.map((x) => x.name + (x.state ? ` (${x.state})` : '')).join(', ')}`
+  const head = `${s} · ${measuredText(e)}`
+  if (!subj.length) return head
+  return `${head} · ${subj.map((x) => x.name + (x.state ? ` (${x.state})` : '')).join(', ')}`
+}
+
+function basisText(l: Link | SubjectRef): string {
+  const cov = l.coverage !== null && l.coverage !== undefined ? Math.round(l.coverage * 100) : null
+  switch (l.basis) {
+    case 'frames':
+      return `inside your frames (${cov}% of the object covered)`
+    case 'target':
+      return `inside the Target Scheduler frame where your frames were taken (${cov}% covered)`
+    case 'pointing':
+      return 'your frames point inside it (no plate solution)'
+    case 'plan':
+      return `inside a planned frame (${cov}% covered), nothing captured`
+    case 'manual':
+      return 'confirmed by you'
+  }
+  return 'name only'
 }
 
 const pickHours = computed(() => {
@@ -201,9 +250,8 @@ const pickLinks = computed(() =>
     .filter((l) => l.status !== 'rejected')
     .map(
       (l) =>
-        `${l.subjectName} (${methodText(l.method)}${l.status === 'suggested' ? ', unconfirmed' : ''})`,
-    )
-    .join(', '),
+        `${l.subjectName}: ${l.status === 'suggested' ? 'name conflict, waiting for you' : basisText(l)}`,
+    ),
 )
 
 function addFor(e: CatalogueEntry, subject?: string) {
@@ -243,9 +291,10 @@ async function decide(m: ReviewItem, after: Decision) {
   <main class="page wide">
     <PageHead context="Discover" title="Catalogue completion">
       <span>
-        Your stacks matched to catalogue objects. Done means every filter has met its faint-SNR
-        goal. Matches come from coordinates first, then names; the uncertain ones wait for you
-        below.
+        Catalogue objects inside your plate-solved frames, judged the way Target Scheduler judges
+        your targets: by a goal where one is set, otherwise by subs against desired. Measuring means
+        a filter with a goal has no measurement yet. Only names that point outside your frames wait
+        for you below.
       </span>
       <template #actions>
         <div v-if="overview?.night" class="xsmall muted num" style="text-align: right">
@@ -260,6 +309,7 @@ async function decide(m: ReviewItem, after: Decision) {
       {{ overview.siteError }}
     </p>
     <p v-if="loading" class="empty">Loading catalogues…</p>
+    <p v-if="backfillLine" class="small muted num" style="margin: 0">{{ backfillLine }}</p>
 
     <div v-if="overview" class="cats">
       <button
@@ -278,7 +328,8 @@ async function decide(m: ReviewItem, after: Decision) {
         <span class="row num" style="align-items: baseline">
           <span style="font-size: 1.5rem; font-weight: 600; line-height: 1.1">{{ c.done }}</span>
           <span class="xsmall muted"
-            >done · {{ c.inProgress }} in progress · {{ c.notStarted }} not started</span
+            >done · {{ c.inProgress }} in progress · {{ c.measuring }} measuring ·
+            {{ c.notStarted }} not started</span
           >
         </span>
         <span class="bar" aria-hidden="true">
@@ -286,8 +337,18 @@ async function decide(m: ReviewItem, after: Decision) {
           <span
             :style="{ width: (c.inProgress / c.total) * 100 + '%', background: 'var(--prog)' }"
           />
+          <span
+            :style="{
+              width: (c.measuring / c.total) * 100 + '%',
+              background: 'var(--prog-bg)',
+              boxShadow: 'inset 0 0 0 1px var(--prog)',
+            }"
+          />
         </span>
-        <span class="xsmall muted">Up tonight: {{ c.upTonight }}</span>
+        <span class="xsmall muted"
+          >Done by goal {{ c.doneByGoal }} · by subs against desired {{ c.doneByCounts }} ·
+          scheduled, nothing captured {{ c.scheduled }} · up tonight {{ c.upTonight }}</span
+        >
       </button>
     </div>
 
@@ -303,6 +364,7 @@ async function decide(m: ReviewItem, after: Decision) {
             <select id="f-status" v-model="status" class="input" style="height: 2rem">
               <option>All</option>
               <option>Not started</option>
+              <option>Measuring</option>
               <option>In progress</option>
               <option>Done</option>
             </select>
@@ -318,6 +380,12 @@ async function decide(m: ReviewItem, after: Decision) {
           progress</span
         >
         <span class="row" style="gap: 0.375rem"
+          ><span
+            class="key"
+            style="background: var(--prog-bg); border: 1px dashed var(--prog)"
+          />Measuring</span
+        >
+        <span class="row" style="gap: 0.375rem"
           ><span class="key" style="border: 1px dashed var(--muted-foreground)" />Not started</span
         >
         <span class="row" style="gap: 0.375rem"
@@ -325,6 +393,10 @@ async function decide(m: ReviewItem, after: Decision) {
             class="key"
             style="border: 1px solid var(--border); box-shadow: inset 0 -3px 0 var(--warn)"
           />Up tonight</span
+        >
+        <span v-if="overview.night"
+          >Up tonight means at least {{ overview.night.upTonightHours }} h above the minimum
+          altitude.</span
         >
         <span>Click any object for details.</span>
       </div>
@@ -339,7 +411,9 @@ async function decide(m: ReviewItem, after: Decision) {
           :alt="'DSS2 colour survey image around ' + label(pick.object)"
           style="max-width: 12rem"
         />
-        <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1">
+        <div
+          style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; flex: 1 1 14rem"
+        >
           <span>
             <strong>{{ pick.label }}</strong> {{ pick.object.name }}
             <span class="muted">
@@ -367,7 +441,10 @@ async function decide(m: ReviewItem, after: Decision) {
             >
             <span class="muted">effective</span>
           </span>
-          <span v-if="pickLinks" class="xsmall muted">Linked by {{ pickLinks }}</span>
+          <span v-if="pick.completionBasis" class="xsmall muted">{{ pick.completionBasis }}</span>
+          <ul v-if="pickLinks.length" class="xsmall muted links">
+            <li v-for="l in pickLinks" :key="l">{{ l }}</li>
+          </ul>
         </div>
         <span class="row">
           <RouterLink v-if="pickImaged" class="btn sm" :to="pickImaged.to">{{
@@ -401,7 +478,7 @@ async function decide(m: ReviewItem, after: Decision) {
           type="button"
           class="cell num"
           :aria-label="cellLabel(e)"
-          :title="label(e.object)"
+          :title="label(e.object) + (e.completionBasis ? ' · ' + e.completionBasis : '')"
           :style="cellStyle(e)"
           @click="choose(e)"
         >
@@ -413,21 +490,22 @@ async function decide(m: ReviewItem, after: Decision) {
     <div class="row" style="gap: 1.5rem; align-items: flex-start">
       <section aria-labelledby="match-h" class="card" style="flex: 3 1 34rem; gap: 0.75rem">
         <div class="spread">
-          <h2 id="match-h">Name matches to review</h2>
+          <h2 id="match-h">Name conflicts to review</h2>
           <span class="xsmall muted"
-            >{{ openMatches.length }} {{ openMatches.length === 1 ? 'match' : 'matches' }} to
+            >{{ openMatches.length }} {{ openMatches.length === 1 ? 'conflict' : 'conflicts' }} to
             review</span
           >
         </div>
         <p class="small muted" style="margin: 0">
-          Your project names against the catalogues. Confirming links the project to the object for
-          completion; the scheduler's names stay as they are, so the stacker still finds its frames.
+          Objects inside your frames link on their own. These are names that point at an object
+          outside them. Confirming links the project to the object for completion; the scheduler's
+          names stay as they are, so the stacker still finds its frames.
         </p>
         <p v-if="matchesFailed" class="empty">
           Could not load the name matches: {{ matchesFailed }}
         </p>
         <p v-else-if="!shownMatches.length" class="empty">
-          Nothing to review: no project has an unconfirmed match.
+          Nothing to review. No project name points outside its frames.
         </p>
         <ul class="list">
           <li v-for="m in shownMatches" :key="m.subject + m.object.id" class="match">
@@ -593,6 +671,10 @@ async function decide(m: ReviewItem, after: Decision) {
   padding: 0.75rem 0;
   border-top: 1px solid var(--border);
   font-size: 0.8125rem;
+}
+.links {
+  margin: 0;
+  padding-left: 1rem;
 }
 .upline {
   align-items: center;

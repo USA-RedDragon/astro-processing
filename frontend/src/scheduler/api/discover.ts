@@ -29,19 +29,26 @@ export interface CatalogMatch {
   how: string
 }
 
-export type LinkStatus = 'auto' | 'in-frame' | 'suggested' | 'confirmed' | 'rejected'
+export type LinkStatus = 'auto' | 'imaged' | 'planned' | 'suggested' | 'confirmed' | 'rejected'
+
+export type LinkBasis = 'frames' | 'pointing' | 'target' | 'plan' | 'name' | 'manual'
 
 export interface Link {
   subject: string
   subjectName: string
   object: CatalogObject
   method: string
-  rule?: string
+  rule: string
   why: string
   separation: number | null
   agreeRadius?: number | null
   similarity?: number | null
   status: LinkStatus
+  basis: LinkBasis
+  coverage: number | null
+  centreInside: boolean
+  targets?: string[]
+  nameMatch?: string
 }
 
 const METHOD_TEXT: Record<string, string> = {
@@ -80,11 +87,28 @@ export interface SubjectRef {
   state?: string
   status: LinkStatus
   method: string
+  basis?: LinkBasis
+  coverage: number | null
   done: boolean
+  doneByGoal: boolean
+  completionBasis: string
+  completion: Completion
+  tally: Tally
+  why?: string
+  hours: number
+}
+
+export interface Tally {
+  filters: number
+  measured: number
+  short: number
   hours: number
 }
 
 export interface Tonight {
+  minAltitude: number
+  minAltitudeSource: string
+  upThresholdHours: number
   up: boolean
   hours: number
   start?: string
@@ -96,13 +120,17 @@ export interface Tonight {
   siteResolved: boolean
 }
 
-export type Completion = 'done' | 'in-progress' | 'not-started'
+export type Completion = 'done' | 'in-progress' | 'measuring' | 'not-started'
 
 export interface CatalogueEntry {
   index: number
   label: string
   object: CatalogObject
   status: Completion
+  completionBasis: string
+  doneByGoal: boolean
+  scheduled: boolean
+  tally: Tally
   hours: Record<string, number>
   subjects: SubjectRef[]
   tonight?: Tonight
@@ -114,8 +142,12 @@ export interface CatalogueSummary {
   name: string
   total: number
   done: number
+  doneByGoal: number
+  doneByCounts: number
   inProgress: number
+  measuring: number
   notStarted: number
+  scheduled: number
   upTonight: number
 }
 
@@ -126,7 +158,24 @@ export interface NightInfo {
   darkHours: number
   moonIllumination: number
   minAltitude: number
-  minAltitudeSource?: string
+  minAltitudeSource: string
+  upTonightHours: number
+}
+
+export interface GoalBackfill {
+  total: number
+  measured: number
+  current: number
+  failed: number
+  state: 'off' | 'idle' | 'measuring' | 'paused-for-stacking'
+  workers: number
+  queued: number
+  queuedNew: number
+  doneInPass: number
+  passStarted?: string
+  lastHour: number
+  perHour: number
+  eta?: string
 }
 
 export interface Source {
@@ -138,6 +187,7 @@ export interface Source {
 }
 
 export interface Overview {
+  backfill?: GoalBackfill
   catalogues: CatalogueSummary[]
   openMatches: number
   night?: NightInfo

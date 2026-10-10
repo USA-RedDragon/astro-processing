@@ -42,9 +42,11 @@ interface Link {
   subjectName: string
   object: CatalogObject
   method: string
-  confidence: number
+  rule: string
   why: string
-  separation: number
+  separation: number | null
+  basis: string
+  coverage: number | null
   status: string
 }
 
@@ -313,10 +315,32 @@ async function choose(id: string) {
 const topMatch = computed<Link | null>(() => {
   const ls = (pick.value?.links ?? []).filter((l) => l.status !== 'rejected')
   const want = String(route.query.subject ?? '')
-  const m =
-    (want && ls.find((x) => x.subject === want)) ||
-    [...ls].sort((a, b) => b.confidence - a.confidence)[0]
+  const m = (want && ls.find((x) => x.subject === want)) || ls[0]
   return m ?? null
+})
+
+const matchSettled = computed(() =>
+  ['imaged', 'auto', 'confirmed'].includes(topMatch.value?.status ?? ''),
+)
+
+const matchBasis = computed(() => {
+  const m = topMatch.value
+  if (!m) return ''
+  if (m.status === 'suggested') return 'Needs your decision'
+  const covered = m.coverage !== null ? `, ${Math.round(m.coverage * 100)}% covered` : ''
+  switch (m.basis) {
+    case 'frames':
+      return 'Inside your frames' + covered
+    case 'target':
+      return 'Inside your target frame' + covered
+    case 'pointing':
+      return 'Your frames point at it'
+    case 'plan':
+      return 'Inside a planned frame' + covered
+    case 'manual':
+      return 'Confirmed by you'
+  }
+  return 'Name only'
 })
 
 const topProject = computed(() => {
@@ -359,7 +383,6 @@ async function recordMatch(after: 'confirmed' | 'rejected') {
       object_id: o.id,
       object_name: label(o),
       method: 'add-target review',
-      confidence: m.confidence,
       before,
       after,
     })
@@ -794,7 +817,7 @@ function goStep(i: number) {
         role="group"
         aria-labelledby="match-h"
         class="match"
-        :style="{ borderColor: topMatch.confidence < 0.9 ? 'var(--warn)' : 'var(--ok)' }"
+        :style="{ borderColor: matchSettled ? 'var(--ok)' : 'var(--warn)' }"
       >
         <div class="spread">
           <h3 id="match-h" style="margin: 0; font-size: 0.9375rem; font-weight: 600">
@@ -803,13 +826,13 @@ function goStep(i: number) {
           <span
             class="small num"
             style="font-weight: 600"
-            :style="{ color: topMatch.confidence < 0.9 ? 'var(--warn)' : 'var(--ok)' }"
-            >{{ Math.round(topMatch.confidence * 100) }}% confident</span
+            :style="{ color: matchSettled ? 'var(--ok)' : 'var(--warn)' }"
+            >{{ matchBasis }}</span
           >
         </div>
         <ul class="small muted" style="margin: 0; padding-left: 1.25rem">
           <li>{{ topMatch.why }}</li>
-          <li v-if="topMatch.separation">
+          <li v-if="topMatch.separation !== null">
             {{ topMatch.separation.toFixed(2) }}° between your coordinates and the catalogue's
           </li>
         </ul>
