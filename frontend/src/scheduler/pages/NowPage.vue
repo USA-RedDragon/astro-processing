@@ -509,7 +509,7 @@ const nextUp = computed(() =>
       name: r.wait ? 'Wait' : [...new Set(names)].join(' · '),
       filters: r.wait ? '' : runFilters(r),
       why: r.wait
-        ? 'Nothing is up yet'
+        ? r.reason ?? ''
         : [
           total !== null && total !== undefined ? 'score ' + total.toFixed(2) : '',
           r.reason ? 'ends: ' + r.reason : '',
@@ -777,7 +777,7 @@ const cross = (x: number, y: number, r: number) =>
                   ? 'Minimum-time window ends ' + hm(target.minimum_time_end)
                   : 'No minimum-time window'
               }}</span>
-              <span v-if="target.hard_stop">Hard stop {{ hm(target.hard_stop) }}</span>
+              <span v-if="target.hard_stop">Imaging window ends {{ hm(target.hard_stop) }}</span>
             </div>
           </div>
           <p v-else-if="state === 'paused'" class="muted small" style="margin: 0">
@@ -875,7 +875,12 @@ const cross = (x: number, y: number, r: number) =>
             <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
               <div style="font-weight: 600; font-size: 0.9375rem">
                 {{ latest.target }}
-                <span class="muted" style="font-weight: 400">· {{ latest.project }}</span>
+                <span
+                  v-if="latest.project && latest.project !== latest.target"
+                  class="muted"
+                  style="font-weight: 400"
+                  >· {{ latest.project }}</span
+                >
               </div>
               <div class="small muted num">
                 {{ filterName(latest.filter)
@@ -904,12 +909,16 @@ const cross = (x: number, y: number, r: number) =>
               </div>
               <div>
                 <div class="xsmall muted">Score</div>
-                <div class="stat">{{ fmt(latest.score) }}</div>
+                <div class="stat">
+                  {{ latest.score !== undefined ? fmt(latest.score) : 'Not scored yet' }}
+                </div>
               </div>
               <div>
-                <div class="xsmall muted">Weight</div>
+                <div class="xsmall muted" title="The stacker's score × the exposure time">
+                  Effective s (score × exposure)
+                </div>
                 <div class="stat">
-                  {{ latest.weight !== undefined ? Math.round(latest.weight) + ' s' : '—' }}
+                  {{ latest.weight !== undefined ? Math.round(latest.weight) + ' s' : 'Not scored yet' }}
                 </div>
               </div>
               <div>
@@ -932,19 +941,19 @@ const cross = (x: number, y: number, r: number) =>
         <div>
           <h2 id="hfr-h">Star size and guiding tonight</h2>
           <p class="small muted" style="margin: 0.125rem 0 0">
-            HFR of every sub since dusk. The line restarts at each target change; the current target
-            is drawn bold.
+            HFR of every sub since {{ subs ? clock(subs.since) : '…' }}. The line restarts at each
+            target change; the current target is drawn bold.
           </p>
         </div>
         <div class="row num" style="gap: 1.5rem; align-items: flex-start">
           <div v-if="hfrStats.curName">
-            <div class="xsmall muted">{{ hfrStats.curName }} median HFR</div>
+            <div class="xsmall muted">{{ hfrStats.curName }} median HFR, all filters</div>
             <div class="stat-lg">
               {{ hfrStats.curMed !== null ? hfrStats.curMed.toFixed(2) + ' px' : '—' }}
             </div>
           </div>
           <div v-if="hfrStats.prevName">
-            <div class="xsmall muted">{{ hfrStats.prevName }} median</div>
+            <div class="xsmall muted">{{ hfrStats.prevName }} median, all filters</div>
             <div class="stat-lg">
               {{ hfrStats.prevMed !== null ? hfrStats.prevMed.toFixed(2) + ' px' : '—' }}
             </div>
