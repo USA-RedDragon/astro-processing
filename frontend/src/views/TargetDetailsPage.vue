@@ -350,8 +350,14 @@ const GET_TARGET_CALIBRATION_QUERY = `
         rotator
         lights
         flat { quality night frames age_days rotation_mismatch scaled }
-        dark { quality night frames age_days temp_off set_temp rotation_mismatch scaled }
-        bias { quality night frames age_days rotation_mismatch scaled }
+        dark {
+          quality night frames age_days temp_off set_temp rotation_mismatch scaled exposure
+          source master header_error basis { night exposure gain offset set_temp bin_x }
+        }
+        bias {
+          quality night frames age_days rotation_mismatch scaled
+          source master header_error basis { night exposure gain offset set_temp bin_x }
+        }
       }
     }
   }
