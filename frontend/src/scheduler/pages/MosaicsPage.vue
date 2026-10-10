@@ -30,7 +30,7 @@ import {
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
 import { errorToast, notifyCommand } from '../shell'
-import { filterColor, pct, r1 } from '../api/planning'
+import { filterColor, objectLinkText, pct, r1 } from '../api/planning'
 import { filterShort } from '../plan'
 import { MONTHS } from '../api/discover'
 import { shortDate } from '../format'
@@ -187,6 +187,17 @@ function joinList(xs: string[], max = 6): string {
   if (xs.length <= 1) return xs[0] ?? ''
   return xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]
 }
+
+const panelLinks = computed(() =>
+  panels.value.flatMap((p) =>
+    (p.objectLinks ?? []).map((l) => ({
+      key: `${p.number}|${l.object}`,
+      number: p.number,
+      object: l.object,
+      text: objectLinkText(l),
+    })),
+  ),
+)
 
 const placeholders = computed(() =>
   panels.value.flatMap((p) =>
@@ -1010,6 +1021,15 @@ const tabs = computed<[Tab, string][]>(() => [
             <h2 id="needs-h">What the panels need</h2>
             <ul class="small" style="margin: 0; padding-left: 1.125rem">
               <li v-for="n in detail.needs" :key="n">{{ n }}</li>
+            </ul>
+          </section>
+          <section v-if="panelLinks.length" class="card" aria-labelledby="links-h">
+            <h2 id="links-h">How each panel's frames are found</h2>
+            <ul class="small" style="margin: 0; padding-left: 1.125rem">
+              <li v-for="l in panelLinks" :key="l.key">
+                <span style="font-weight: 600">Panel {{ l.number }} · {{ l.object }}</span>:
+                {{ l.text }}
+              </li>
             </ul>
           </section>
         </div>

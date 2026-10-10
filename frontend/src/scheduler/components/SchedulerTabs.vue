@@ -12,6 +12,7 @@ import {
   goalDrivenPlugin,
   legacyGoalNote,
   measureText,
+  objectLinkText,
   pct,
   planCountText,
   r1,
@@ -1039,6 +1040,14 @@ function numInput(e: Event): number {
           its current hours from the fit σ² = a²/t + b² to the half-stack differences (A−B)/√2;
           SNR is the band's median above the sky over σ.
         </p>
+        <div v-if="target?.objectLinks?.length">
+          <h3 class="small" style="margin: 0.5rem 0 0.25rem">Which frames count for this target</h3>
+          <ul class="xsmall" style="margin: 0; padding-left: 1.125rem">
+            <li v-for="l in target.objectLinks" :key="'link-' + l.object">
+              <span style="font-weight: 600">{{ l.object }}</span>: {{ objectLinkText(l) }}
+            </li>
+          </ul>
+        </div>
       </section>
 
       <section v-if="tab === 'plans'" class="card" aria-labelledby="plans-h">

@@ -160,6 +160,35 @@ export interface Target {
   lastSub?: string
   exposureSet: string
   goalMode: GoalKind
+  objectLinks?: ObjectLink[]
+}
+
+export interface ObjectLinkMethod {
+  method: string
+  frames: number
+}
+
+export interface ObjectLink {
+  object: string
+  frames: number
+  methods: ObjectLinkMethod[]
+}
+
+const LINK_METHOD_TEXT: Record<string, string> = {
+  header: 'target GUID in the FITS header',
+  acquiredimage: "Target Scheduler's acquired-image record",
+  name: 'FITS OBJECT matches the target name',
+  'target-name': 'same name as the target only, no frames linked',
+}
+
+export function linkMethodText(m: string): string {
+  return LINK_METHOD_TEXT[m] ?? m
+}
+
+export function objectLinkText(l: ObjectLink): string {
+  if (!l.frames) return l.methods.map((m) => linkMethodText(m.method)).join(', ')
+  const by = l.methods.map((m) => `${m.frames} by ${linkMethodText(m.method)}`).join(', ')
+  return `${l.frames} frame${l.frames === 1 ? '' : 's'}: ${by}`
 }
 
 export interface RuleWeight {

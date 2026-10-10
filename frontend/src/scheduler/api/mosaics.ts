@@ -1,6 +1,7 @@
 import { api, query } from './client'
 import { submitCommand } from './commands'
 import type { Rig as DiscoverRig } from './discover'
+import type { ObjectLink } from './planning'
 
 export interface SkyPoint {
   ra: number
@@ -113,6 +114,7 @@ export interface MosaicPanel {
   targetGuid: string
   target: string
   objects: string[]
+  objectLinks?: ObjectLink[]
   row: number | null
   col: number | null
   ra: number
