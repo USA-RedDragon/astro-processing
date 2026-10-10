@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { listCommands, type CommandRecord } from '../api/commands'
 import { onEvent } from '../api/events'
@@ -170,14 +171,11 @@ const waitingLabel = computed(() => {
 
 <template>
   <main class="page wide">
-    <div>
-      <h1 class="h1">History</h1>
-      <p class="lede" style="max-width: 76ch">
-        Every change to the scheduler. When web editing is on, the Target Scheduler editor on the
-        observatory PC is read-only, so every entry has a before-value. Undo sends the reverse
-        change; it never rewrites the past.
-      </p>
-    </div>
+    <PageHead context="Plan" title="History">
+      Every change to the scheduler. When web editing is on, the Target Scheduler editor on the
+      observatory PC is read-only, so every entry has a before-value. Undo sends the reverse change;
+      it never rewrites the past.
+    </PageHead>
 
     <div v-if="waitingLabel" role="status" class="waiting">
       <span>{{ waitingLabel }}</span>
@@ -259,12 +257,6 @@ const waitingLabel = computed(() => {
 </template>
 
 <style scoped>
-.h1 {
-  margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.3;
-}
 .waiting {
   display: flex;
   flex-wrap: wrap;

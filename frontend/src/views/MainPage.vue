@@ -76,6 +76,14 @@
         >
           Clear filters
         </button>
+
+        <router-link
+          :to="{ name: 'add' }"
+          class="ml-auto inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium
+            text-primary-foreground hover:bg-primary/90"
+        >
+          Add target
+        </router-link>
       </div>
 
       <div v-if="listView" class="px-4">

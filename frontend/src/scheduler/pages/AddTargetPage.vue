@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, query } from '../api/client'
@@ -552,13 +553,10 @@ function goStep(i: number) {
 
 <template>
   <main class="page wide">
-    <div>
-      <h1 style="margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1.3">Add target</h1>
-      <p class="lede">
-        Find an object, check it against what you already have, frame it for the rig, split it into
-        panels if it needs them, then pick exposures and a goal.
-      </p>
-    </div>
+    <PageHead context="Plan" title="Add target">
+      Find an object, check it against what you already have, frame it for the rig, split it into
+      panels if it needs them, then pick exposures and a goal.
+    </PageHead>
 
     <ol aria-label="Steps" class="steps">
       <li v-for="(s, i) in steps" :key="s">

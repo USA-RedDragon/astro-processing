@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import {
@@ -278,15 +279,10 @@ function moonText(t: Template): string {
 
 <template>
   <main class="page wide">
-    <div class="page-head">
-      <div>
-        <h1>Templates</h1>
-        <p class="lede">
-          Apply an exposure set to many targets at once, or edit exposure templates together. A
-          template change reaches every plan that uses it.
-        </p>
-      </div>
-    </div>
+    <PageHead context="Plan" title="Templates">
+      Apply an exposure set to many targets at once, or edit exposure templates together. A template
+      change reaches every plan that uses it.
+    </PageHead>
     <p v-if="loadError" class="empty" style="color: var(--bad)">
       Could not load templates: {{ loadError }}
     </p>
