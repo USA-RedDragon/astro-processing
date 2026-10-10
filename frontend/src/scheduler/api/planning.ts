@@ -117,6 +117,8 @@ export interface Plan {
   completionBasis?: string
   goalDriven?: boolean
   complete?: boolean
+  countPercent?: number
+  countBasis?: string
 }
 
 export interface Readiness {
@@ -456,9 +458,77 @@ export function basisText(basis: string): string {
   return basis
 }
 
-export function readinessText(fg: FilterGoal): string {
+export const GOAL_DRIVEN_PLUGIN = '5.8.2.204'
+
+export function versionAtLeast(version: string | undefined, min: string): boolean {
+  if (!version) return false
+  const a = version.split('.').map((x) => parseInt(x, 10))
+  const b = min.split('.').map((x) => parseInt(x, 10))
+  if (a.some((x) => isNaN(x))) return false
+  for (let i = 0; i < b.length; i++) {
+    const x = a[i] ?? 0
+    if (x !== b[i]) return x > b[i]
+  }
+  return true
+}
+
+export function goalDrivenPlugin(version: string | undefined): boolean {
+  return versionAtLeast(version, GOAL_DRIVEN_PLUGIN)
+}
+
+export function legacyGoalNote(version: string | undefined): string {
+  return (
+    `Target Scheduler plugin ${version ?? 'of unknown version'} finishes a filter with a goal on its ` +
+    'desired count until the stacker has measured the goal, and on the goal after that. ' +
+    `From plugin ${GOAL_DRIVEN_PLUGIN} the desired count is not used for a filter with a goal.`
+  )
+}
+
+function onCountsNow(pl: Plan, version: string | undefined): boolean {
+  return !goalDrivenPlugin(version) && pl.completionBasis === 'collecting subs to measure'
+}
+
+export function planPercentFor(pl: Plan, version: string | undefined): number {
+  return onCountsNow(pl, version) ? (pl.countPercent ?? 0) : (pl.percentComplete ?? 0)
+}
+
+export function planBasisFor(pl: Plan, version: string | undefined): string {
+  return onCountsNow(pl, version) ? (pl.countBasis ?? '') : (pl.completionBasis ?? '')
+}
+
+export function filterPercentFor(
+  t: Target,
+  fg: FilterGoal,
+  version: string | undefined,
+): { percent: number; basis: string } {
+  if (goalDrivenPlugin(version) || fg.completionBasis !== 'collecting subs to measure')
+    return { percent: fg.percentComplete, basis: fg.completionBasis }
+  let best: { percent: number; basis: string } | null = null
+  for (const pl of t.plans) {
+    if (!pl.enabled || pl.filter !== fg.filter) continue
+    const percent = planPercentFor(pl, version)
+    if (!best || percent < best.percent) best = { percent, basis: planBasisFor(pl, version) }
+  }
+  return best ?? { percent: fg.percentComplete, basis: fg.completionBasis }
+}
+
+export function projectProgressFor(p: Project, version: string | undefined): number {
+  if (goalDrivenPlugin(version)) return p.progress
+  const plans = p.targets.filter((t) => t.active).flatMap((t) => t.plans.filter((pl) => pl.enabled))
+  if (!plans.some((pl) => onCountsNow(pl, version))) return p.progress
+  let min = 1
+  for (const t of p.targets) {
+    if (!t.active) continue
+    const enabled = t.plans.filter((pl) => pl.enabled)
+    if (!enabled.length) return 0
+    for (const pl of enabled) min = Math.min(min, planPercentFor(pl, version) / 100)
+  }
+  return min
+}
+
+export function readinessText(fg: FilterGoal, version?: string): string {
   const r = fg.readiness
-  if (!r) return ''
+  if (!r || !goalDrivenPlugin(version)) return ''
   if (r.state === 'collecting') {
     if (r.stackSubs < r.minSubs)
       return `collecting the first ${r.minSubs} subs to measure (${r.stackSubs} of ${r.minSubs})`
@@ -473,18 +543,18 @@ export function readinessText(fg: FilterGoal): string {
   return ''
 }
 
-export function planCountText(fg: FilterGoal | undefined): string {
-  if (!fg?.goalSet) return ''
-  const ready = readinessText(fg)
+export function planCountText(fg: FilterGoal | undefined, version?: string): string {
+  if (!fg?.goalSet || !goalDrivenPlugin(version)) return ''
+  const ready = readinessText(fg, version)
   if (ready) return 'goal-driven · ' + ready
   if (fg.progress?.done) return 'goal-driven · ' + (fg.progress.progress >= 1 ? 'goal met' : 'plateau reached')
   if (fg.progress) return `goal-driven · ${pct(fg.progress.progress)} of its goal`
   return 'goal-driven'
 }
 
-export function goalTiming(fg: FilterGoal): string {
+export function goalTiming(fg: FilterGoal, version?: string): string {
   const p = fg.progress
-  const ready = readinessText(fg)
+  const ready = readinessText(fg, version)
   if (ready) return ready
   if (!p) return measureText(fg) || 'finishes on counts'
   if (p.unmeasured) return p.unmeasured

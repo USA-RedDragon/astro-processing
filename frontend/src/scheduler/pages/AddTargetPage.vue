@@ -10,6 +10,8 @@ import {
   type GoalKind,
   type PanelDraft,
   type Snapshot,
+  goalDrivenPlugin,
+  legacyGoalNote,
 } from '../api/planning'
 import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
 import { rigSource } from '../api/discover'
@@ -119,7 +121,9 @@ const form = reactive({
   priority: null as string | null,
   minAlt: null as number | null,
   minTime: null as number | null,
+  desired: null as number | null,
 })
+const pluginGoalDriven = computed(() => goalDrivenPlugin(shell.scheduler.version))
 const created = ref<{ record: CommandRecord; name: string; guid: string } | null>(null)
 const draft = ref<{
   project: { guid: string; name: string }
@@ -543,6 +547,7 @@ async function makeDraft() {
       minimumAltitude: minAlt.value ?? -1,
       minimumTime: minTime.value ?? 0,
       setId: form.setId,
+      desired: pluginGoalDriven.value ? 0 : (form.desired ?? 0),
       goal: {
         kind: form.goalKind,
         snr: form.snr ?? 0,
@@ -571,8 +576,9 @@ function numOrNull(e: Event): number | null {
   return v === '' || isNaN(Number(v)) ? null : Number(v)
 }
 
-function itemText(i: { template: string; exposure: number }): string {
-  return `${i.template} ${i.exposure} s`
+function itemText(i: { template: string; exposure: number; desired: number }): string {
+  if (pluginGoalDriven.value) return `${i.template} ${i.exposure} s`
+  return `${i.template} ${i.exposure} s × ${form.desired ?? i.desired}`
 }
 
 const review = computed(() => {
@@ -984,7 +990,7 @@ function goStep(i: number) {
           <p class="xsmall muted" style="margin: 0">
             You can draw your own region for the faint band later, on the target's Goal tab.
           </p>
-          <p class="xsmall muted" style="margin: 0">
+          <p v-if="pluginGoalDriven" class="xsmall muted" style="margin: 0">
             Each filter finishes on this goal, not on a sub count. Until the stacker has measured
             it, the scheduler takes the subs the measurement needs.
           </p>
@@ -1042,6 +1048,24 @@ function goStep(i: number) {
               <option v-for="v in timeOptions" :key="v" :value="v" />
             </datalist>
             <span class="xsmall muted">{{ usualText(usualTime, ' min') }}</span></label
+          >
+          <label v-if="!pluginGoalDriven" class="field" style="grid-column: 1 / -1"
+            ><span>Desired per plan</span
+            ><input
+              v-model.number="form.desired"
+              class="input num"
+              type="number"
+              min="1"
+              placeholder="from the set"
+            />
+            <span class="xsmall muted"
+              >{{
+                form.desired === null
+                  ? 'Empty: each plan takes the median count your projects use for it.'
+                  : 'Every plan gets this count.'
+              }}
+              {{ legacyGoalNote(shell.scheduler.version) }}</span
+            ></label
           >
         </fieldset>
       </div>

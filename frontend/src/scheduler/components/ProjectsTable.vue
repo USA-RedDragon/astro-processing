@@ -24,7 +24,10 @@ import {
   basisText,
   getPlanning,
   measureText,
+  filterPercentFor,
+  goalDrivenPlugin,
   pct,
+  projectProgressFor,
   r1,
   readinessText,
   r2,
@@ -114,12 +117,21 @@ function pendingFor(p: Project): string {
   return w.status === 'queued' ? 'queued' : 'applies ' + whenApplies(w)
 }
 
+const pluginVersion = computed(() => shell.scheduler.version)
+
 const adoptTitle = computed(() => {
   const g = projects.value.flatMap((p) => p.targets.flatMap((t) => t.goals))[0]?.defaultGoal
-  return g
-    ? `The stacker's default goal, faint-signal SNR ${g.snr} per filter${g.plateauStop ? ' with the plateau stop' : ''}. Each filter then finishes on its goal; the desired counts are not used`
-    : 'Use the stacker\'s default goal per filter. Each filter then finishes on its goal; the desired counts are not used'
+  const what = g
+    ? `The stacker's default goal, faint-signal SNR ${g.snr} per filter${g.plateauStop ? ' with the plateau stop' : ''}`
+    : "Use the stacker's default goal per filter"
+  return goalDrivenPlugin(pluginVersion.value)
+    ? `${what}. Each filter then finishes on its goal; the desired counts are not used`
+    : `${what}. Target Scheduler plugin ${pluginVersion.value ?? 'of unknown version'} still finishes each filter on its desired count until the goal is first measured`
 })
+
+function progressOf(p: Project): number {
+  return projectProgressFor(p, pluginVersion.value)
+}
 
 function kindLabel(p: Project): string {
   if (p.isMosaic) return `${p.targets.length} panels`
@@ -135,11 +147,13 @@ function weakestText(p: Project): string {
   if (g && g.kind === 'depth' && !g.unmeasured)
     return `${prefix}${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
   if (g && g.kind === 'snr') return `${prefix}SNR ${r1(g.achieved)} of ${r1(g.goal)}`
-  const ready = readinessText(w)
+  const ready = readinessText(w, pluginVersion.value)
   if (ready) return prefix + ready
   if (g?.unmeasured) return prefix + g.unmeasured
   const meas = w.measurement ? ` · measured SNR ${r1(w.measurement.snr)}` : ' · ' + measureText(w)
-  return `${prefix}${w.accepted}/${w.desired} ${basisText(w.completionBasis)}${meas}`
+  const t = p.targets.find((x) => x.name === p.weakestTarget) ?? p.targets[0]
+  const basis = t ? filterPercentFor(t, w, pluginVersion.value).basis : w.completionBasis
+  return `${prefix}${w.accepted}/${w.desired} ${basisText(basis)}${meas}`
 }
 
 async function setField(p: Project, field: 'priority' | 'state', value: unknown) {
@@ -381,11 +395,11 @@ function applySet() {
                 <TableCell class="align-top whitespace-normal min-w-[11rem] max-w-[18rem]">
                   <div class="flex items-center gap-2">
                     <Progress
-                      :model-value="Math.round(Math.min(1, p.progress) * 100)"
+                      :model-value="Math.round(Math.min(1, progressOf(p)) * 100)"
                       class="h-1.5"
                     />
                     <span class="w-11 text-right font-semibold">
-                      {{ pct(Math.min(1, p.progress)) }}
+                      {{ pct(Math.min(1, progressOf(p))) }}
                     </span>
                   </div>
                   <div class="text-xs text-muted-foreground">

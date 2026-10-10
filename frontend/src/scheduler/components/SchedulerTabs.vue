@@ -8,6 +8,9 @@ import {
   getProject,
   getStacks,
   goalTiming,
+  filterPercentFor,
+  goalDrivenPlugin,
+  legacyGoalNote,
   measureText,
   pct,
   planCountText,
@@ -431,8 +434,17 @@ function planDesired(id: number, base: number) {
   return planDraft[id]?.desired ?? base
 }
 
+const pluginVersion = computed(() => shell.scheduler.version)
+const pluginGoalDriven = computed(() => goalDrivenPlugin(pluginVersion.value))
+
 function planGoal(pl: Plan): FilterGoal | undefined {
+  if (!pluginGoalDriven.value) return undefined
   return target.value?.goals.find((g) => g.goalSet && g.filter === pl.filter)
+}
+
+function fgPercent(fg: FilterGoal): { percent: number; basis: string } {
+  const t = target.value
+  return t ? filterPercentFor(t, fg, pluginVersion.value) : { percent: fg.percentComplete, basis: fg.completionBasis }
 }
 
 async function savePlans() {
@@ -797,6 +809,9 @@ function numInput(e: Event): number {
               count. Saving a goal here makes the goal decide when each filter is done.</span
             >
           </div>
+          <div v-if="goalDriven && !pluginGoalDriven" class="note small">
+            <span>{{ legacyGoalNote(pluginVersion) }}</span>
+          </div>
           <div v-for="g in lowConf" :key="'low-' + g.filter" class="warn small">
             <span
               >{{ g.filter }} is low confidence: {{ g.measurement?.lowReason || 'no reason recorded' }}.
@@ -811,28 +826,28 @@ function numInput(e: Event): number {
                 }}</span
               >
               <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
-                <div class="bar tall" :title="pct(fg.percentComplete / 100) + ' ' + basisText(fg.completionBasis)">
+                <div class="bar tall" :title="pct(fgPercent(fg).percent / 100) + ' ' + basisText(fgPercent(fg).basis)">
                   <div
                     :style="{
-                      width: pct(fg.percentComplete / 100),
+                      width: pct(fgPercent(fg).percent / 100),
                       background: filterColor(fg.stackFilter),
                     }"
                   />
                 </div>
                 <div class="spread xsmall muted num">
                   <span
-                    >{{ pct(fg.percentComplete / 100) }} {{ basisText(fg.completionBasis) }} ·
+                    >{{ pct(fgPercent(fg).percent / 100) }} {{ basisText(fgPercent(fg).basis) }} ·
                     {{
                       fg.measurement
                         ? r1(fg.measurement.effectiveHours) + ' h effective'
                         : r1(fg.acceptedHours) + ' h accepted'
                     }}
-                    · {{ goalTiming(fg)
+                    · {{ goalTiming(fg, pluginVersion)
                     }}<span v-if="fg.measurement?.gainPerHourPct != null">
                       · +1 h gives {{ r1(fg.measurement.gainPerHourPct) }}%</span
                     ></span
                   >
-                  <span v-if="fg.goalSet"
+                  <span v-if="fg.goalSet && pluginGoalDriven"
                     >Goal-driven{{ fg.readiness && !fg.readiness.open ? ' · scheduler stopped' : '' }}</span
                   >
                   <span v-else>Scheduler count {{ fg.accepted }}/{{ fg.desired }}</span>
@@ -1031,8 +1046,11 @@ function numInput(e: Event): number {
           <div>
             <h2 id="plans-h">Exposure plans · {{ target?.exposureSet }}</h2>
             <p class="small muted" style="margin: 0.125rem 0 0">
-              A plan whose filter has a goal is goal-driven: the goal decides when it is done and
-              its desired count is not used. Desired counts apply only to plans without a goal.
+              <template v-if="pluginGoalDriven"
+                >A plan whose filter has a goal is goal-driven: the goal decides when it is done and
+                its desired count is not used. Desired counts apply only to plans without a
+                goal.</template
+              ><template v-else>{{ legacyGoalNote(pluginVersion) }}</template>
             </p>
           </div>
           <div v-if="planDirty" class="row">
@@ -1077,7 +1095,7 @@ function numInput(e: Event): number {
                 <td style="font-weight: 600; white-space: nowrap">{{ pl.template }}</td>
                 <td style="text-align: right">{{ pl.exposure }} s</td>
                 <td v-if="planGoal(pl)" class="muted" style="text-align: right; white-space: normal">
-                  {{ planCountText(planGoal(pl)) }}
+                  {{ planCountText(planGoal(pl), pluginVersion) }}
                 </td>
                 <td v-else style="text-align: right">
                   <input
