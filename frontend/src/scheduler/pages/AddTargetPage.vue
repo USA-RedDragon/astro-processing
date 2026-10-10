@@ -641,7 +641,7 @@ function goStep(i: number) {
               }"
             >
               <td style="font-weight: 600; white-space: nowrap">{{ h.object.designation }}</td>
-              <td style="white-space: nowrap">{{ h.object.name || '—' }}</td>
+              <td style="white-space: nowrap">{{ h.object.name }}</td>
               <td class="muted" style="white-space: nowrap">
                 {{ (h.object.aliases ?? []).slice(0, 2).join(', ') || '—' }}
               </td>

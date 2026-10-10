@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
+import SkyThumb from '../components/SkyThumb.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import {
   MONTHS,
@@ -124,21 +125,14 @@ const frame = computed(() => {
   return null
 })
 
-function framing(r: FinderRow) {
-  const fr = frame.value
-  if (!fr) return null
-  const w = fr.w
-  const h = fr.h
-  const maj = r.object.majorArcmin / 60
-  const min = (r.object.minorArcmin || r.object.majorArcmin) / 60
-  const scale = 64 / Math.max(w, maj, (min * w) / h)
-  return {
-    ew: Math.max(3, maj * scale) + 'px',
-    eh: Math.max(3, min * scale) + 'px',
-    rot: `rotate(${90 - (r.object.pa || 0)}deg)`,
-    fw: w * scale + 'px',
-    fh: h * scale + 'px',
-  }
+function thumbLabel(r: FinderRow): string {
+  const f = frame.value
+  return (
+    `Sky survey image around ${r.object.designation}` +
+    (f
+      ? `, with your ${f.w.toFixed(2)}° × ${f.h.toFixed(2)}° frame at ${Math.round(r.rotation || 0)}°`
+      : '')
+  )
 }
 
 function fitText(r: FinderRow): string {
@@ -303,21 +297,14 @@ function imaged(r: FinderRow) {
               <tr v-for="(r, i) in result?.rows ?? []" :key="r.object.id">
                 <td class="muted">{{ i + 1 }}</td>
                 <td>
-                  <div v-if="framing(r)" aria-hidden="true" class="thumb">
-                    <span
-                      class="neb"
-                      :style="{
-                        width: framing(r)!.ew,
-                        height: framing(r)!.eh,
-                        transform: framing(r)!.rot,
-                      }"
-                    />
-                    <span
-                      class="frame"
-                      :style="{ width: framing(r)!.fw, height: framing(r)!.fh }"
-                    />
-                  </div>
-                  <span v-else class="xsmall muted">Frame unknown</span>
+                  <SkyThumb
+                    :ra="r.object.ra"
+                    :dec="r.object.dec"
+                    :size-deg="r.object.majorArcmin / 60"
+                    :frame="frame"
+                    :rotation="r.rotation"
+                    :label="thumbLabel(r)"
+                  />
                 </td>
                 <td style="white-space: nowrap">
                   <div style="font-weight: 600">
@@ -330,7 +317,7 @@ function imaged(r: FinderRow) {
                     >
                   </div>
                   <div class="xsmall muted">
-                    {{ r.object.name || '—' }} · {{ typeLabel(r.object.type) }}
+                    {{ [r.object.name, typeLabel(r.object.type)].filter(Boolean).join(' · ') }}
                   </div>
                 </td>
                 <td style="white-space: nowrap">{{ size(r.object) }}</td>
@@ -435,27 +422,6 @@ function imaged(r: FinderRow) {
   height: 1.75rem;
   padding: 0;
   font-size: 0.6875rem;
-}
-.thumb {
-  position: relative;
-  width: 4.5rem;
-  height: 3rem;
-  border-radius: 0.25rem;
-  background: var(--sky);
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.neb {
-  position: absolute;
-  border-radius: 50%;
-  background: var(--neb);
-  opacity: 0.75;
-}
-.frame {
-  position: absolute;
-  border: 1px solid #f4f4f8;
 }
 .mbars {
   display: flex;
