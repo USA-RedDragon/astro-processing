@@ -1352,9 +1352,6 @@ const cross = (x: number, y: number, r: number) =>
             Skip after this exposure
           </button>
         </div>
-        <p class="xsmall muted foot">
-          Abort now (discard the partial sub) is a separate action under Equipment.
-        </p>
       </div>
     </div>
 
@@ -1436,9 +1433,6 @@ const cross = (x: number, y: number, r: number) =>
             Pause after this exposure
           </button>
         </div>
-        <p class="xsmall muted foot">
-          Dawn flats and the end-of-night shutdown still run, even while paused.
-        </p>
       </div>
     </div>
   </main>
@@ -1646,10 +1640,5 @@ fieldset.plain legend {
 .input.time {
   height: 2rem;
   font-size: 0.8125rem;
-}
-.foot {
-  margin: 0;
-  border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
 }
 </style>
