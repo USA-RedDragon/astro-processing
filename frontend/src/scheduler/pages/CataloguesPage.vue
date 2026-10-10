@@ -18,6 +18,7 @@ import {
   methodText,
   minAltitudeText,
   size,
+  paText,
   typeLabel,
   type CatalogueEntry,
   type Decision,
@@ -343,6 +344,7 @@ async function decide(m: ReviewItem, after: Decision) {
             <strong>{{ pick.label }}</strong> {{ pick.object.name }}
             <span class="muted">
               · {{ typeLabel(pick.object.type) }} · {{ size(pick.object) }} ·
+              {{ paText(pick.object) }} ·
               {{
                 !pick.fit
                   ? 'fit unknown until the rig is measured'

@@ -10,8 +10,8 @@ interface PlannerObject {
   ra: number
   dec: number
   majorArcmin: number
-  minorArcmin: number
-  pa: number
+  minorArcmin: number | null
+  pa: number | null
 }
 
 export interface FramePlan {
@@ -76,8 +76,8 @@ async function load() {
         ra: o.ra,
         dec: o.dec,
         majorArcmin: o.majorArcmin || 0,
-        minorArcmin: o.minorArcmin || o.majorArcmin || 0,
-        pa: o.pa || 0,
+        minorArcmin: o.minorArcmin ?? null,
+        pa: o.pa ?? null,
         rotation: rotation.value ?? undefined,
         overlap: overlapSet.value ?? undefined,
         minAltitude: props.minAltitude,
@@ -203,8 +203,11 @@ const polys = computed(() =>
 const outline = computed(() => {
   const s = view.value.scale
   const maj = ((props.object.majorArcmin || 0) / 60) * s
-  const min = ((props.object.minorArcmin || props.object.majorArcmin || 0) / 60) * s
-  return { rx: Math.max(3, min / 2), ry: Math.max(3, maj / 2), pa: props.object.pa || 0 }
+  const o = props.object
+  if (o.minorArcmin === null || o.pa === null)
+    return { rx: Math.max(3, maj / 2), ry: Math.max(3, maj / 2), pa: 0 }
+  const min = (o.minorArcmin / 60) * s
+  return { rx: Math.max(3, min / 2), ry: Math.max(3, maj / 2), pa: o.pa }
 })
 
 const surveyUrl = computed(
@@ -256,7 +259,11 @@ const panelCount = computed(() => shown.value?.panels.length ?? 0)
 const objectInfo = computed(() => {
   const o = props.object
   const size = o.majorArcmin
-    ? ` · ${o.majorArcmin.toFixed(0)}′ × ${(o.minorArcmin || o.majorArcmin).toFixed(0)}′ at ${o.pa || 0}°`
+    ? o.minorArcmin === null
+      ? ` · ≈ ${o.majorArcmin.toFixed(0)}′, minor axis not catalogued, drawn as a circle`
+      : o.pa === null
+        ? ` · ${o.majorArcmin.toFixed(0)}′ × ${o.minorArcmin.toFixed(0)}′, PA not catalogued, drawn as a circle`
+        : ` · ${o.majorArcmin.toFixed(0)}′ × ${o.minorArcmin.toFixed(0)}′ at PA ${o.pa}°`
     : ''
   return `RA ${(o.ra / 15).toFixed(3)} h · Dec ${o.dec.toFixed(2)}°${size}`
 })

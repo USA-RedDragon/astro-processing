@@ -75,8 +75,8 @@ export interface FramingRequest {
   ra: number
   dec: number
   majorArcmin: number
-  minorArcmin: number
-  pa: number
+  minorArcmin: number | null
+  pa: number | null
   rotation?: number
   overlap?: number
   rows?: number

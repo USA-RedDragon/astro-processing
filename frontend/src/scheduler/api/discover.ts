@@ -10,11 +10,14 @@ export interface CatalogObject {
   ra: number
   dec: number
   majorArcmin: number
-  minorArcmin: number
-  pa: number
+  minorArcmin: number | null
+  pa: number | null
   source: string
+  members?: string[]
   magnitude?: number
+  magnitudeBand?: string
   surfaceBrightness?: number
+  surfaceBrightnessSource?: string
   brightness?: string
   brightScore?: number
   lists?: string[]
@@ -450,6 +453,10 @@ export function size(o: Pick<CatalogObject, 'majorArcmin' | 'minorArcmin'>): str
   if (!o.minorArcmin || Math.abs(o.minorArcmin - o.majorArcmin) < 0.05)
     return '≈ ' + fmt(o.majorArcmin)
   return `${fmt(o.majorArcmin)} × ${fmt(o.minorArcmin)}`
+}
+
+export function paText(o: Pick<CatalogObject, 'pa'>): string {
+  return o.pa === null || o.pa === undefined ? 'PA not catalogued' : `PA ${Math.round(o.pa)}°`
 }
 
 export function hours(h: number): string {
