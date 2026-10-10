@@ -9,11 +9,13 @@ import {
   size,
   typeLabel,
   halphaSource,
+  minAltitudeText,
   rigFrame,
   rigSource,
   skySource,
   type FinderResult,
   type FinderRow,
+  type ScoreTerm,
 } from '../api/discover'
 import { errorToast } from '../shell'
 import { imagedRoute } from '../imaged'
@@ -128,9 +130,9 @@ const frame = computed(() => {
 function thumbLabel(r: FinderRow): string {
   const f = frame.value
   return (
-    `Sky survey image around ${r.object.designation}` +
+    `DSS2 colour survey image around ${r.object.designation}` +
     (f
-      ? `, with your ${f.w.toFixed(2)}° × ${f.h.toFixed(2)}° frame at ${Math.round(r.rotation || 0)}°`
+      ? `, with your ${f.w.toFixed(2)}° × ${f.h.toFixed(2)}° frame ${r.rotation === null ? 'unrotated, PA not catalogued' : `at ${Math.round(r.rotation)}°`}`
       : '')
   )
 }
@@ -141,26 +143,69 @@ function fitText(r: FinderRow): string {
 }
 
 function fillText(r: FinderRow): string {
-  return `${Math.round(Math.min(r.fit.fill, 9.99) * 100)}% of the long side`
+  return `${Math.round(Math.min(r.fit.fill, 9.99) * 100)}% of the frame's long side`
 }
 
+const goodHours = computed(() => result.value?.bestMonthHours ?? null)
+
 function bars(r: FinderRow) {
+  const g = goodHours.value
   return r.months.map((v, i) => ({
     h: Math.max(2, Math.round((Math.min(v, 9) / 9) * 28)) + 'px',
-    c: v >= 4 ? 'var(--bar)' : 'var(--bar-off)',
-    title: `${MONTHS[i]}: ${v.toFixed(1)} h`,
+    c: (r.bestMonths ?? []).includes(i + 1) ? 'var(--bar)' : 'var(--bar-off)',
+    title: `${MONTHS[i]}: ${v.toFixed(1)} h${g !== null ? ` (best at ${g} h or more)` : ''}`,
   }))
 }
 
 function monthsAria(r: FinderRow) {
   const best = (r.bestMonths ?? []).map((m) => MONTHS[m - 1])
-  return best.length ? 'Best months: ' + best.join(', ') : 'No month with four dark hours'
+  return best.length ? 'Best months: ' + best.join(', ') : 'No best month'
 }
+
+function brightText(r: FinderRow): string {
+  const b = r.brightness
+  if (!b) return 'Brightness not catalogued'
+  if (b.kind === 'catalogued')
+    return `${b.text}${b.band ? `, ${b.band} band` : ', band not stated'}`
+  return b.text
+}
+
+function halphaText(r: FinderRow): string {
+  const h = r.halpha
+  if (!h) return 'H-α unknown'
+  return `H-α ${Math.round(h.rayleigh)} R mean within ${h.radiusDeg.toFixed(2)}°`
+}
+
+const termLabel = computed(() => {
+  const m: Record<string, string> = {}
+  for (const w of result.value?.weights ?? []) m[w.key] = w.label
+  return m
+})
+
+function termText(t: ScoreTerm): string {
+  const label = termLabel.value[t.key] ?? t.key
+  return t.value === null
+    ? `${label} unknown (${t.detail})`
+    : `${label} +${t.points.toFixed(2)} (${t.detail})`
+}
+
+function scoreTitle(r: FinderRow): string {
+  return (r.terms ?? []).map(termText).join('\n')
+}
+
+function scorePct(r: FinderRow): number {
+  const max = result.value?.scoreMax
+  return max ? Math.min(100, (r.score / max) * 100) : 0
+}
+
+const minAlt = computed(() =>
+  minAltitudeText(result.value?.minAltitude, result.value?.minAltitudeSource),
+)
 
 function go(r: FinderRow) {
   const mosaic = r.fit.panels > 1
   return addLink(r.object, mosaic ? 'mosaic' : 'frame', {
-    rotation: r.rotation || undefined,
+    rotation: r.rotation ?? undefined,
     panels: mosaic ? r.fit.panels : undefined,
     cols: mosaic ? r.fit.columns : undefined,
     rows: mosaic ? r.fit.rows : undefined,
@@ -177,12 +222,11 @@ function imaged(r: FinderRow) {
     <PageHead context="Discover" title="Target finder">
       <template v-if="frame">
         Objects that suit your {{ frame.w.toFixed(2) }}° × {{ frame.h.toFixed(2) }}° frame from your
-        site, ranked by how well they fill it, how bright they are against your sky and when they
-        are well placed.
+        site, ranked by how well they fill it, their dark hours, H-α and catalogue gaps. Brightness
+        is shown as the catalogue gives it and is not ranked.
       </template>
       <template v-else>
-        Objects ranked by how well they fill your frame, how bright they are against your sky and
-        when they are well placed.
+        Objects ranked by how well they fill your frame, their dark hours, H-α and catalogue gaps.
       </template>
       <span v-if="result" class="block xsmall mt-1">{{ rigSource(result.rig) }}</span>
       <template #actions>
@@ -247,11 +291,10 @@ function imaged(r: FinderRow) {
               {{ m }}
             </button>
           </div>
-          <p class="xsmall muted" style="margin: 0">
-            A best month has 4+ hours above your minimum altitude in astronomical darkness.
-            <template v-if="result">{{
-              skySource(result.skyBrightness, result.skyBrightnessBasis)
-            }}</template>
+          <p v-if="result" class="xsmall muted" style="margin: 0">
+            A best month has {{ result.bestMonthHours ?? '?' }} or more hours above {{ minAlt }} in
+            astronomical darkness, from {{ result.monthSample ?? 'one sampled night per month' }}.
+            {{ skySource(result.skyBrightness, result.skyBrightnessBasis) }}
           </p>
         </fieldset>
         <fieldset class="fs">
@@ -272,7 +315,7 @@ function imaged(r: FinderRow) {
           <label for="sort" class="row small" style="gap: 0.375rem">
             <span class="muted">Sort</span>
             <select id="sort" v-model="f.sort" class="input" style="height: 2rem">
-              <option value="score">Fit score</option>
+              <option value="score">Sort key</option>
               <option value="fill">Frame fill</option>
               <option value="now">Best now</option>
             </select>
@@ -289,7 +332,7 @@ function imaged(r: FinderRow) {
                 <th scope="col">Fit</th>
                 <th scope="col">Brightness · H-α</th>
                 <th scope="col">Best months</th>
-                <th scope="col" style="text-align: right">Score</th>
+                <th scope="col" style="text-align: right">Sort key</th>
                 <th scope="col"><span class="sr-only">Add</span></th>
               </tr>
             </thead>
@@ -302,7 +345,7 @@ function imaged(r: FinderRow) {
                     :dec="r.object.dec"
                     :size-deg="r.object.majorArcmin / 60"
                     :frame="frame"
-                    :rotation="r.rotation"
+                    :rotation="r.rotation ?? undefined"
                     :label="thumbLabel(r)"
                   />
                 </td>
@@ -326,10 +369,13 @@ function imaged(r: FinderRow) {
                   <div class="xsmall muted">{{ fillText(r) }}</div>
                 </td>
                 <td style="min-width: 12rem">
-                  <div class="small">{{ r.brightness || 'Brightness unknown' }}</div>
-                  <div class="xsmall muted">
-                    {{ r.halpha && r.narrowband ? r.narrowband : 'H-α unknown' }}
+                  <div class="small">
+                    {{ brightText(r) }}
+                    <span v-if="r.brightness?.kind === 'computed'" class="badge xsmall"
+                      >computed</span
+                    >
                   </div>
+                  <div class="xsmall muted">{{ halphaText(r) }}</div>
                 </td>
                 <td>
                   <div role="img" :aria-label="monthsAria(r)" class="mbars">
@@ -342,11 +388,22 @@ function imaged(r: FinderRow) {
                   </div>
                   <div class="mlabels"><span>J</span><span>D</span></div>
                 </td>
-                <td style="text-align: right">
-                  <div style="font-weight: 600; font-size: 0.9375rem">{{ r.score.toFixed(2) }}</div>
-                  <div class="scorebar">
-                    <div :style="{ width: Math.min(100, r.score * 100) + '%' }" />
+                <td style="text-align: right" :title="scoreTitle(r)">
+                  <div style="font-weight: 600; font-size: 0.9375rem">
+                    {{ r.score.toFixed(2)
+                    }}<span v-if="result?.scoreMax" class="xsmall muted">
+                      / {{ result.scoreMax.toFixed(2) }}</span
+                    >
                   </div>
+                  <div class="scorebar">
+                    <div :style="{ width: scorePct(r) + '%' }" />
+                  </div>
+                  <ul class="terms xsmall muted">
+                    <li v-for="t in r.terms ?? []" :key="t.key">
+                      {{ termLabel[t.key] ?? t.key }}
+                      {{ t.value === null ? 'unknown' : '+' + t.points.toFixed(2) }}
+                    </li>
+                  </ul>
                 </td>
                 <td style="text-align: right">
                   <RouterLink v-if="imaged(r)" class="btn sm" :to="imaged(r)!.to">Open</RouterLink>
@@ -364,12 +421,27 @@ function imaged(r: FinderRow) {
         <p v-else-if="noFits || (result && !result.rows.length && !loading)" class="empty">
           Nothing fits all of these. Loosen a filter, or show everything.
         </p>
-        <p class="xsmall muted" style="margin: 0">
-          Score weighs frame fill (best between 30 and 90%), catalogued brightness against your sky,
-          the darkest month's hours above your minimum altitude, and a bonus for catalogue gaps.
-          Frame it opens the wizard at the framing step; Plan mosaic opens it at the mosaic step.
-          <template v-if="result">{{ halphaSource(result.halphaMap) }}</template>
-        </p>
+        <div v-if="result" class="xsmall muted" style="margin: 0">
+          <p style="margin: 0">
+            Sort key is the sum of these terms, at most {{ result.scoreMax?.toFixed(2) ?? '?' }}.
+            Hover a row's key for its terms. An unknown term adds nothing.
+          </p>
+          <ul style="margin: 0.25rem 0 0; padding-left: 1.125rem">
+            <li v-for="w in result.weights ?? []" :key="w.key">
+              {{ w.label }} × {{ w.weight }}: {{ w.rule }}.
+            </li>
+          </ul>
+          <p style="margin: 0.25rem 0 0">
+            Panel counts assume {{ Math.round((result.overlap ?? 0) * 100) }}% overlap, the mosaic
+            wizard's default, with the frame turned whichever way needs fewer panels.
+            <template v-if="result.excluded?.length">
+              Left out of the catalogue:
+              {{ result.excluded.map((x) => `${x.count} ${x.reason}`).join('; ') }}.
+            </template>
+            Frame it opens the wizard at the framing step; Plan mosaic opens it at the mosaic step.
+            {{ halphaSource(result.halphaMap) }}
+          </p>
+        </div>
       </section>
     </div>
   </main>
@@ -439,6 +511,12 @@ function imaged(r: FinderRow) {
   font-size: 0.625rem;
   color: var(--muted-foreground);
   width: 6.125rem;
+}
+.terms {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  white-space: nowrap;
 }
 .scorebar {
   height: 0.25rem;

@@ -33,10 +33,36 @@ export interface Link {
   subjectName: string
   object: CatalogObject
   method: string
-  confidence: number
+  rule?: string
   why: string
-  separation: number
+  separation: number | null
+  agreeRadius?: number | null
+  similarity?: number | null
   status: LinkStatus
+}
+
+const METHOD_TEXT: Record<string, string> = {
+  designation: 'catalogue designation',
+  name: 'catalogue name',
+  similar: 'similar name',
+  footprint: 'inside your frames',
+  coordinates: 'coordinates',
+  manual: 'linked by you',
+}
+
+export function methodText(m: string): string {
+  return METHOD_TEXT[m] ?? m
+}
+
+export function linkEvidence(l: Link): string {
+  const parts = [methodText(l.method)]
+  if (l.separation !== null && l.separation !== undefined && l.separation >= 0)
+    parts.push(`${l.separation.toFixed(2)}° apart`)
+  if (l.agreeRadius !== null && l.agreeRadius !== undefined)
+    parts.push(`within ${l.agreeRadius.toFixed(2)}°`)
+  if (l.similarity !== null && l.similarity !== undefined)
+    parts.push(`name similarity ${l.similarity.toFixed(2)}`)
+  return parts.join(', ')
 }
 
 export interface ReviewItem extends Link {
@@ -97,6 +123,7 @@ export interface NightInfo {
   darkHours: number
   moonIllumination: number
   minAltitude: number
+  minAltitudeSource?: string
 }
 
 export interface Source {
@@ -138,6 +165,7 @@ export interface RigBasis {
   telescope: string | null
   guideFrames: number
   hfrFrames: number
+  filters?: { filter: string; frames: number; last: string | null }[] | null
 }
 
 export interface Rig {
@@ -185,21 +213,42 @@ export interface HalphaMap {
   error: string | null
 }
 
+export interface Brightness {
+  text: string
+  kind: 'class' | 'catalogued' | 'computed' | 'none'
+  value: number | null
+  band?: string
+  source?: string
+}
+
+export interface ScoreTerm {
+  key: string
+  value: number | null
+  points: number
+  detail: string
+}
+
+export interface ScoreWeight {
+  key: string
+  label: string
+  weight: number
+  rule: string
+}
+
 export interface FinderRow {
   object: CatalogObject
   group: string
   fit: Fit
-  brightness: string
-  brightScore: number | null
-  narrowband: string
+  brightness: Brightness
   halpha?: { rayleigh: number; peak: number; radiusDeg: number } | null
   months: number[]
   bestMonths: number[] | null
   tonightHours: number
   score: number
+  terms: ScoreTerm[] | null
   imaged: boolean
   subjects: SubjectRef[] | null
-  rotation: number
+  rotation: number | null
   catalogueGap: boolean
 }
 
@@ -213,6 +262,15 @@ export interface FinderResult {
   skyBrightness: number | null
   skyBrightnessBasis?: SkyBasis | null
   halphaMap?: HalphaMap | null
+  weights?: ScoreWeight[] | null
+  scoreMax?: number
+  minAltitude?: number
+  minAltitudeSource?: string
+  bestMonthHours?: number
+  monthSample?: string
+  overlap?: number
+  minFill?: number
+  excluded?: { reason: string; count: number }[] | null
 }
 
 export interface FinderQuery {
@@ -229,7 +287,8 @@ export interface Criterion {
   name: string
   rule: string
   you: string
-  result: 'pass' | 'fail' | 'open'
+  result: 'pass' | 'fail' | 'open' | 'none'
+  scope?: 'rig' | 'tonight'
 }
 
 export interface Region {
@@ -261,6 +320,8 @@ export interface Collab {
     lastNight?: string
   }
   fits: boolean
+  verdict?: 'fits' | 'no' | 'unchecked'
+  unchecked?: number
   criteria: Criterion[]
   panels: number
   columns: number
@@ -269,6 +330,7 @@ export interface Collab {
   tonight?: Tonight
   curve?: { at: string; alt: number }[]
   months: number[]
+  bestMonths?: number[] | null
   have: {
     subject: string
     name: string
@@ -281,6 +343,7 @@ export interface Collab {
 
 export interface CollabsView {
   enabled: boolean
+  sourceUrl?: string
   fetchedAt?: string
   error?: string
   sky?: { telescopes: number; online: number; imaging: number }
@@ -293,6 +356,9 @@ export interface CollabsView {
   skyBrightnessBasis?: SkyBasis | null
   night?: NightInfo
   siteError?: string
+  bestMonthHours?: number
+  monthSample?: string
+  overlap?: number
 }
 
 export const searchCatalog = (q: string, limit = 20) =>
@@ -334,7 +400,6 @@ export function decideMatch(l: Link, before: Decision, after: Decision): Promise
     object_id: l.object.id,
     object_name: label(l.object),
     method: l.method,
-    confidence: l.confidence,
     before,
     after,
   })
@@ -389,6 +454,7 @@ export function size(o: Pick<CatalogObject, 'majorArcmin' | 'minorArcmin'>): str
 
 export function hours(h: number): string {
   if (!h) return '0 h'
+  if (h < 0.05) return '<0.1 h'
   return h >= 10 ? `${Math.round(h)} h` : `${h.toFixed(1)} h`
 }
 
@@ -467,7 +533,18 @@ export function rigSource(r: Rig | null | undefined): string {
     return 'Rig unknown: no light frames with FITS headers yet.'
   const kit = [b.camera, b.telescope].filter(Boolean).join(' on ')
   const span = b.from && b.to ? `, ${monthYear(b.from)} to ${monthYear(b.to)}` : ''
-  return `From the FITS headers of ${b.frames} light ${b.frames === 1 ? 'frame' : 'frames'}${span}${kit ? ' (' + kit + ')' : ''}.`
+  const geo = `Frame, star size and guiding from the FITS headers of ${b.frames} light ${b.frames === 1 ? 'frame' : 'frames'}${span}${kit ? ' (' + kit + ')' : ''}.`
+  const fl = b.filters ?? []
+  if (!fl.length) return geo
+  const used = fl
+    .map((x) => `${x.filter} ${x.frames}${x.last ? ', last ' + monthYear(x.last) : ''}`)
+    .join('; ')
+  return `${geo} Filters from all indexed lights: ${used}.`
+}
+
+export function minAltitudeText(deg: number | null | undefined, source?: string | null): string {
+  if (deg === null || deg === undefined) return 'the minimum altitude (not set)'
+  return `${deg}°${source ? `, configured in ${source}` : ''}`
 }
 
 export function skySource(mag: number | null | undefined, b: SkyBasis | null | undefined): string {
