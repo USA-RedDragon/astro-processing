@@ -12,6 +12,13 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  server: {
+    proxy: {
+      '/api/v1': { target: process.env.STACKER_URL ?? 'http://localhost:8081', changeOrigin: true },
+      '/query': { target: process.env.BACKEND_URL ?? 'http://localhost:8080', changeOrigin: true },
+      '/events': { target: process.env.BACKEND_URL ?? 'http://localhost:8080', changeOrigin: true },
+    },
+  },
   test: {
     reporters: ['junit', 'html', 'default'],
     outputFile: {

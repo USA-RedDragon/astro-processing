@@ -5,6 +5,7 @@
       <RouterView />
     </div>
     <AppFooter />
+    <ToastHost />
   </div>
 </template>
 
@@ -12,6 +13,8 @@
 import { RouterView } from 'vue-router';
 import AppFooter from './components/AppFooter.vue';
 import AppHeader from './components/AppHeader.vue';
+import ToastHost from './components/ToastHost.vue';
+import { shell, startShell } from './scheduler/shell';
 
 export default {
   name: 'App',
@@ -19,21 +22,20 @@ export default {
     RouterView,
     AppHeader,
     AppFooter,
+    ToastHost,
   },
-  data() {
-    return {
-    };
-  },
-  created() {
-    this.fetchData();
+  mounted() {
+    startShell();
+    document.addEventListener('click', this.closeStatus);
   },
   unmounted() {
+    document.removeEventListener('click', this.closeStatus);
   },
   methods: {
-    fetchData() {
+    closeStatus(e: MouseEvent) {
+      const t = e.target as HTMLElement | null;
+      if (shell.statusOpen && t && !t.closest('.pop') && !t.closest('.status-btn')) shell.statusOpen = false;
     },
-  },
-  computed: {
   },
 };
 </script>

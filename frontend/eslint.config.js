@@ -36,7 +36,7 @@ export default defineConfigWithVueTs([
       'object-curly-spacing': ['error', 'always'],
       'require-jsdoc': 'off',
       indent: ['error', 2, { SwitchCase: 1 }],
-      'max-len': ['error', 120],
+      'max-len': ['error', { code: 120, ignoreStrings: true, ignoreTemplateLiterals: true, ignoreRegExpLiterals: true }],
       '@typescript-eslint/no-unused-vars': [
         'error',
         { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },

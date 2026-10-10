@@ -1,4 +1,6 @@
-export default [
+import type { RouteRecordRaw } from 'vue-router'
+
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Main',
@@ -23,5 +25,56 @@ export default [
     path: '/calibration',
     name: 'Calibration',
     component: () => import('../views/CalibrationPage.vue'),
-  }
+  },
+  {
+    path: '/now',
+    name: 'now',
+    component: () => import('../scheduler/pages/NowPage.vue'),
+    meta: { title: 'Now' },
+  },
+  {
+    path: '/tonight',
+    name: 'tonight',
+    component: () => import('../scheduler/pages/TonightPage.vue'),
+    meta: { title: 'Tonight' },
+  },
+  {
+    path: '/targets',
+    name: 'targets',
+    redirect: (to) => ({ path: '/', query: { ...to.query, view: 'list' } }),
+  },
+  {
+    path: '/targets/:projectId',
+    name: 'target',
+    redirect: (to) => {
+      const { target, ...rest } = to.query
+      if (target) return { path: `/target/${target}`, query: rest }
+      return { path: `/project/${to.params.projectId}`, query: rest }
+    },
+  },
+  ...[
+    ['/add', 'add'],
+    ['/mosaics', 'mosaics'],
+    ['/mosaics/:projectId', 'mosaic'],
+    ['/templates', 'templates'],
+    ['/history', 'history'],
+    ['/catalogues', 'catalogues'],
+    ['/finder', 'finder'],
+    ['/collabs', 'collabs'],
+  ].map(([path, name]) => ({
+    path: path!,
+    name: name!,
+    component: () => import('../views/MainPage.vue'),
+    beforeEnter: (to: { fullPath: string }) => {
+      window.location.href = `https://astro-stacker.jackal-stargazer.ts.net${to.fullPath}`;
+      return false;
+    },
+  })),
+  {
+    path: '/start',
+    name: 'start',
+    redirect: '/',
+  },
 ]
+
+export default routes

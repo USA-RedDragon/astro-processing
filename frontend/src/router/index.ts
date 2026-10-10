@@ -6,4 +6,9 @@ const router = createRouter({
   routes,
 })
 
+router.afterEach((to) => {
+  const t = to.meta.title as string | undefined
+  document.title = t ? `${t} · Astro Processing` : 'Astro Processing'
+})
+
 export default router
