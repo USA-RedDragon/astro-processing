@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue'
 import type { Point, StackMaster } from '../api/planning'
-import { ApiError } from '../api/client'
 import { getGoalMaskInfo, goalMaskURL, type GoalMaskInfo } from '../api/goalmask'
 import { frameToView, maskRect, pctLabel, viewToFrame } from '../faintmask'
 
@@ -55,13 +54,8 @@ watch(
       state.value = 'ready'
     } catch (e) {
       if (n !== seq) return
-      if (e instanceof ApiError && e.status === 404) {
-        missingReason.value = 'no master for this filter'
-        state.value = 'missing'
-      } else {
-        state.value = 'failed'
-        failure.value = e instanceof Error ? e.message : String(e)
-      }
+      state.value = 'failed'
+      failure.value = e instanceof Error ? e.message : String(e)
     }
   },
   { immediate: true },
