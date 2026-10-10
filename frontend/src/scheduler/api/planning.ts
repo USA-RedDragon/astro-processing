@@ -329,9 +329,60 @@ export interface ProjectDraft {
   minimumAltitude: number
   minimumTime: number
   setId: string
+  plans?: { templateId: number; exposure: number }[]
+  goalDriven?: boolean
   desired?: number
   goal: { kind: GoalKind; snr: number; depth: number; plateauStop?: boolean }
   panels: PanelDraft[]
+}
+
+export interface PickHours {
+  hours: number | null
+  low: number | null
+  high: number | null
+  points: number
+  basis: string
+  unknown?: string
+}
+
+export interface PickFilter {
+  filter: string
+  template: { id: number; name: string; filter: string } | null
+  templateBasis: string
+  exposure: number | null
+  exposureBasis: string
+  subs: number
+  hours: PickHours
+}
+
+export interface PickRule {
+  key: string
+  filter: string
+  label: string
+  threshold: number | null
+  derived: boolean
+  basis: string
+  measured: number | null
+  strict: boolean
+  met: boolean
+  points: { name: string; object: string; rayleigh: number; shot: boolean }[]
+}
+
+export interface ExposurePick {
+  class: string
+  classLabel: string
+  palette: string
+  reason: string
+  noPick?: string
+  halpha: { rayleigh: number; peak: number; radiusDeg: number } | null
+  halphaMap: { state: string; source: string; fetchedAt: string | null; error: string | null }
+  rules: PickRule[]
+  filters: PickFilter[]
+  set: { id: string; name: string; projects: number } | null
+  missing: string[]
+  goalSnr: number
+  skyBrightness: number | null
+  skyBrightnessBasis: { source: string; band: string; nights: number; reason: string | null }
 }
 
 export interface StackMaster {
@@ -352,6 +403,8 @@ export const draftApplySet = (body: {
   targetIds: number[]
   desired?: number
 }) => api.post<ApplySetDraft>('/planning/applyset/draft', body)
+export const getPick = (objectId: string) =>
+  api.get<ExposurePick>('/catalog/objects/' + encodeURIComponent(objectId) + '/pick')
 export const draftProject = (d: ProjectDraft) => api.post<unknown>('/planning/projects/draft', d)
 export const getStacks = (object: string) =>
   api.get<StackMaster[]>('/stacks?object=' + encodeURIComponent(object))

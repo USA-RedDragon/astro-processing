@@ -6,8 +6,11 @@ import { api, query } from '../api/client'
 import { submitCommand, type CommandRecord } from '../api/commands'
 import {
   draftProject,
+  getPick,
   getPlanning,
+  type ExposurePick,
   type GoalKind,
+  type PickHours,
   type PanelDraft,
   type Snapshot,
   goalDrivenPlugin,
@@ -111,7 +114,14 @@ function onPlan(p: FramePlan) {
   plan.layoutName = p.layoutName
   plan.layoutId = p.layoutId
 }
+const exposurePick = ref<ExposurePick | null>(null)
+const pickError = ref('')
+const pickLoading = ref(false)
+const subLengths = reactive<Record<string, number | null>>({})
+const exposureTouched = ref(false)
+
 const form = reactive({
+  usePick: false,
   setId: '',
   goalKind: 'snr' as GoalKind,
   snr: null as number | null,
@@ -313,6 +323,91 @@ async function choose(id: string) {
   plan.rotation = null
   planned.value = null
   form.setId = presetSet.value?.set.id ?? ''
+  form.usePick = false
+  exposureTouched.value = false
+  exposurePick.value = null
+  pickError.value = ''
+  for (const k of Object.keys(subLengths)) delete subLengths[k]
+  loadPick(o.id)
+}
+
+async function loadPick(id: string) {
+  pickLoading.value = true
+  try {
+    const p = await getPick(id)
+    if (pick.value?.object.id !== id) return
+    exposurePick.value = p
+    if (!p.noPick && p.filters.length && !exposureTouched.value) form.usePick = true
+  } catch (e) {
+    if (pick.value?.object.id === id) pickError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    if (pick.value?.object.id === id) pickLoading.value = false
+  }
+}
+
+const pickRows = computed(() =>
+  (exposurePick.value?.filters ?? []).map((f) => ({
+    ...f,
+    sub: f.filter in subLengths ? subLengths[f.filter] : f.exposure,
+  })),
+)
+
+const pickReady = computed(
+  () =>
+    pickRows.value.length > 0 &&
+    pickRows.value.every((r) => !!r.template && r.sub !== null && r.sub > 0),
+)
+
+function hoursNum(v: number): string {
+  return v >= 10 ? String(Math.round(v)) : v.toFixed(1)
+}
+
+function hoursText(h: PickHours, filter: string): string {
+  if (h.hours === null) return h.unknown ?? 'unknown'
+  const what = filter === 'H-α' ? 'targets' : h.points === 1 ? 'master' : 'masters'
+  const range =
+    h.low !== null && h.high !== null && hoursNum(h.low) !== hoursNum(h.high)
+      ? `, ${hoursNum(h.low)} to ${hoursNum(h.high)} h`
+      : ''
+  return `≈ ${hoursNum(h.hours)} h${range}, from ${h.points} ${what}`
+}
+
+function rText(r: number): string {
+  return r >= 10 ? `${Math.round(r)} R` : `${r.toFixed(1)} R`
+}
+
+function choosePick() {
+  form.usePick = true
+  exposureTouched.value = true
+}
+
+const unusedTemplates = computed(() => {
+  const used = new Set(
+    projects.value.flatMap((p) =>
+      p.targets.flatMap((t) => t.plans.filter((pl) => pl.desired > 0).map((pl) => pl.templateId)),
+    ),
+  )
+  return pickRows.value
+    .filter((r) => r.template && !used.has(r.template.id))
+    .map((r) => r.template?.name ?? r.filter)
+})
+
+const needsDesired = computed(
+  () =>
+    form.usePick &&
+    !pluginGoalDriven.value &&
+    form.desired === null &&
+    unusedTemplates.value.length > 0,
+)
+
+function ruleValue(measured: number | null): string {
+  if (measured !== null) return rText(measured)
+  const st = exposurePick.value?.halphaMap.state
+  return st && st !== 'ready' ? `unknown, the H-α map is ${st}` : 'not on the H-α map'
+}
+
+function onSub(filter: string, e: Event) {
+  subLengths[filter] = numOrNull(e)
 }
 
 const topMatch = computed<Link | null>(() => {
@@ -473,6 +568,7 @@ const presetSet = computed(() => {
 })
 
 const setNote = computed(() => {
+  if (form.usePick) return 'Or choose one of your sets instead of the suggestion.'
   const what = 'Sets are the exposure plan combinations your projects use.'
   if (!sets.value.length)
     return 'None of your projects has enabled exposure plans, so there is no set to reuse.'
@@ -485,6 +581,7 @@ const setNote = computed(() => {
 const chosenSet = computed(() => sets.value.find((s) => s.id === form.setId) ?? null)
 
 const setFilters = computed(() => {
+  if (form.usePick) return [...new Set(pickRows.value.map((r) => r.template?.filter ?? r.filter))]
   const set = chosenSet.value
   const byName = new Map((snap.value?.templates ?? []).map((t) => [t.name.toLowerCase(), t.filter]))
   return [...new Set((set?.items ?? []).map((i) => byName.get(i.template.toLowerCase()) ?? i.template))]
@@ -546,7 +643,11 @@ async function makeDraft() {
       priority: priority.value ?? '',
       minimumAltitude: minAlt.value ?? -1,
       minimumTime: minTime.value ?? 0,
-      setId: form.setId,
+      setId: form.usePick ? '' : form.setId,
+      plans: form.usePick
+        ? pickRows.value.map((r) => ({ templateId: r.template?.id ?? 0, exposure: r.sub ?? 0 }))
+        : undefined,
+      goalDriven: pluginGoalDriven.value,
       desired: pluginGoalDriven.value ? 0 : (form.desired ?? 0),
       goal: {
         kind: form.goalKind,
@@ -569,6 +670,12 @@ async function makeDraft() {
   } catch (e) {
     draftError.value = e instanceof Error ? e.message : String(e)
   }
+}
+
+function selectSet(id: string) {
+  form.setId = id
+  form.usePick = false
+  exposureTouched.value = true
 }
 
 function numOrNull(e: Event): number | null {
@@ -602,7 +709,15 @@ const review = computed(() => {
     },
     {
       k: 'Exposures',
-      v: set ? set.items.map(itemText).join(', ') : 'No exposure set chosen',
+      v:
+        form.usePick && exposurePick.value
+          ? `${exposurePick.value.palette}, suggested: ` +
+            pickRows.value
+              .map((r) => `${r.template?.name ?? r.filter} ${r.sub ?? '?'} s`)
+              .join(', ')
+          : set
+            ? set.items.map(itemText).join(', ')
+            : 'No exposure set chosen',
     },
     {
       k: 'Goal',
@@ -672,8 +787,10 @@ const canNext = computed(() => {
   if (step.value === 4)
     return (
       !!form.name.trim() &&
-      !!form.setId &&
-      !missingTemplates.value.length &&
+      !pickLoading.value &&
+      (form.usePick
+        ? pickReady.value && !needsDesired.value
+        : !!form.setId && !missingTemplates.value.length) &&
       minAlt.value !== null &&
       minTime.value !== null &&
       !!priority.value
@@ -907,6 +1024,109 @@ function goStep(i: number) {
 
     <section v-if="step === 4" class="card" aria-labelledby="exp-h">
       <h2 id="exp-h">Exposures and goal</h2>
+      <p v-if="pickLoading" class="small muted" style="margin: 0">
+        Picking filters for {{ pick ? label(pick.object) : 'this object' }}…
+      </p>
+      <p v-else-if="pickError" class="small" style="margin: 0; color: var(--bad)">
+        No filter pick: {{ pickError }}
+      </p>
+      <p v-else-if="exposurePick?.noPick" class="small muted" style="margin: 0">
+        No filter pick: {{ exposurePick.noPick }}
+      </p>
+      <section
+        v-else-if="exposurePick"
+        class="pickcard"
+        :class="{ on: form.usePick }"
+        aria-labelledby="pick-h"
+      >
+        <div class="spread">
+          <label class="row" style="font-size: 0.9375rem; font-weight: 600"
+            ><input
+              type="radio"
+              name="exposure-choice"
+              :checked="form.usePick"
+              @change="choosePick"
+            />
+            <span id="pick-h">Suggested: {{ exposurePick.palette }}</span></label
+          >
+          <span v-if="exposurePick.set" class="xsmall muted"
+            >matches your set {{ exposurePick.set.name }}, used on
+            {{ exposurePick.set.projects }}
+            {{ exposurePick.set.projects === 1 ? 'project' : 'projects' }}</span
+          >
+        </div>
+        <p class="small" style="margin: 0">{{ exposurePick.reason }}</p>
+        <div v-for="r in exposurePick.rules" :key="r.key" class="xsmall muted">
+          {{ r.label }}: {{ r.strict ? 'above' : 'at or above' }}
+          {{ r.threshold === null ? 'no threshold' : rText(r.threshold)
+          }}{{ r.derived ? ', derived from your targets' : ', a named rule, not derived' }}
+          · this object
+          {{ ruleValue(r.measured) }}
+          <details>
+            <summary>Basis</summary>
+            {{ r.basis }}
+          </details>
+        </div>
+        <div class="scroll-x">
+          <table class="dgrid" style="min-width: 40rem">
+            <thead>
+              <tr>
+                <th>Filter</th>
+                <th>Template</th>
+                <th>Sub length (s)</th>
+                <th>Hours to SNR {{ exposurePick.goalSnr }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in pickRows" :key="r.filter">
+                <td style="font-weight: 600; white-space: nowrap">{{ r.filter }}</td>
+                <td>
+                  <span v-if="r.template">{{ r.template.name }}</span>
+                  <span v-else style="color: var(--bad)">{{ r.templateBasis }}</span>
+                  <span v-if="r.template" class="xsmall muted" style="display: block">{{
+                    r.templateBasis
+                  }}</span>
+                </td>
+                <td>
+                  <input
+                    class="input num"
+                    type="number"
+                    min="1"
+                    :aria-label="'Sub length for ' + r.filter"
+                    :value="r.sub ?? ''"
+                    style="width: 6rem; height: 2rem"
+                    @change="onSub(r.filter, $event)"
+                  />
+                  <span class="xsmall muted" style="display: block">{{
+                    r.sub !== r.exposure ? 'set by you; ' + r.exposureBasis : r.exposureBasis
+                  }}</span>
+                </td>
+                <td>
+                  <span :class="{ muted: r.hours.hours === null }">{{
+                    hoursText(r.hours, r.filter)
+                  }}</span>
+                  <details v-if="r.hours.basis">
+                    <summary class="xsmall muted">Basis</summary>
+                    <span class="xsmall muted">{{ r.hours.basis }}</span>
+                  </details>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p
+          v-if="form.usePick && exposurePick.missing.length"
+          class="small"
+          style="margin: 0; color: var(--bad)"
+        >
+          The scheduler has no template for {{ exposurePick.missing.join(', ') }}. Add it on the PC
+          or clone one in Templates first, or choose a set.
+        </p>
+        <p v-if="needsDesired" class="small" style="margin: 0; color: var(--bad)">
+          No plan of yours has a desired count for {{ unusedTemplates.join(', ') }}, so set Desired
+          per plan below.
+        </p>
+      </section>
       <p class="small muted" style="margin: 0">
         {{ setNote }}
       </p>
@@ -916,17 +1136,21 @@ function goStep(i: number) {
           :key="s.id"
           type="button"
           role="radio"
-          :aria-checked="form.setId === s.id"
+          :aria-checked="!form.usePick && form.setId === s.id"
           class="setcard"
-          :class="{ on: form.setId === s.id }"
-          @click="form.setId = s.id"
+          :class="{ on: !form.usePick && form.setId === s.id }"
+          @click="selectSet(s.id)"
         >
           <span style="font-weight: 600; font-size: 0.875rem">{{ s.name }}</span>
           <span class="xsmall muted">{{ s.items.map(itemText).join(' · ') }}</span>
           <span class="xsmall muted">{{ s.hint }}</span>
         </button>
       </div>
-      <p v-if="missingTemplates.length" class="small" style="margin: 0; color: var(--bad)">
+      <p
+        v-if="!form.usePick && missingTemplates.length"
+        class="small"
+        style="margin: 0; color: var(--bad)"
+      >
         The scheduler has no template called {{ missingTemplates.join(', ') }}. Add it on the PC or
         clone one in Templates first.
       </p>
@@ -1207,6 +1431,17 @@ function goStep(i: number) {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+.pickcard {
+  border: 1px solid var(--border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.pickcard.on {
+  border-color: var(--foreground);
 }
 .setcard.on {
   border-color: var(--foreground);
