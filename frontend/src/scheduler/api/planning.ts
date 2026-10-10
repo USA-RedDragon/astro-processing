@@ -341,6 +341,7 @@ export interface PickHours {
   low: number | null
   high: number | null
   points: number
+  goal: string
   basis: string
   unknown?: string
 }

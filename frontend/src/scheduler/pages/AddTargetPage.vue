@@ -359,17 +359,20 @@ const pickReady = computed(
 )
 
 function hoursNum(v: number): string {
-  return v >= 10 ? String(Math.round(v)) : v.toFixed(1)
+  if (v >= 10) return String(Math.round(v))
+  if (v >= 0.1) return v.toFixed(1)
+  return String(Number(v.toPrecision(2)))
 }
 
 function hoursText(h: PickHours, filter: string): string {
-  if (h.hours === null) return h.unknown ?? 'unknown'
+  const goal = h.goal ? `Goal ${h.goal}: ` : ''
+  if (h.hours === null) return goal + (h.unknown ?? 'unknown')
   const what = filter === 'H-α' ? 'targets' : h.points === 1 ? 'master' : 'masters'
   const range =
     h.low !== null && h.high !== null && hoursNum(h.low) !== hoursNum(h.high)
-      ? `, ${hoursNum(h.low)} to ${hoursNum(h.high)} h`
+      ? ` (${hoursNum(h.low)} to ${hoursNum(h.high)} h)`
       : ''
-  return `≈ ${hoursNum(h.hours)} h${range}, from ${h.points} ${what}`
+  return `${goal}≈ ${hoursNum(h.hours)} h${range}, from ${h.points} ${what}`
 }
 
 function rText(r: number): string {
@@ -1074,7 +1077,7 @@ function goStep(i: number) {
                 <th>Filter</th>
                 <th>Template</th>
                 <th>Sub length (s)</th>
-                <th>Hours to SNR {{ exposurePick.goalSnr }}</th>
+                <th>Hours to goal</th>
               </tr>
             </thead>
             <tbody>
@@ -1105,10 +1108,9 @@ function goStep(i: number) {
                   <span :class="{ muted: r.hours.hours === null }">{{
                     hoursText(r.hours, r.filter)
                   }}</span>
-                  <details v-if="r.hours.basis">
-                    <summary class="xsmall muted">Basis</summary>
-                    <span class="xsmall muted">{{ r.hours.basis }}</span>
-                  </details>
+                  <span v-if="r.hours.basis" class="xsmall muted" style="display: block">{{
+                    r.hours.basis
+                  }}</span>
                 </td>
               </tr>
             </tbody>
