@@ -11,7 +11,8 @@ import {
   type PanelDraft,
   type Snapshot,
 } from '../api/planning'
-import { errorToast, notifyCommand, queuedText, undo, whenApplies } from '../shell'
+import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
+import { rigSource } from '../api/discover'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
 
 interface CatalogObject {
@@ -70,6 +71,7 @@ interface Hit {
   object: CatalogObject
   how?: string
   detail?: ObjectDetail
+  detailError?: string
 }
 
 const route = useRoute()
@@ -87,8 +89,8 @@ const matchChoice = ref('')
 const snap = ref<Snapshot | null>(null)
 
 const plan = reactive({
-  rotation: 0,
-  overlap: 15,
+  rotation: null as number | null,
+  overlap: null as number | null,
   cols: 1,
   rows: 1,
   layoutName: 'One frame',
@@ -106,16 +108,16 @@ function onPlan(p: FramePlan) {
   plan.layoutId = p.layoutId
 }
 const form = reactive({
-  setId: 'hoo',
+  setId: '',
   goalKind: 'snr' as GoalKind,
-  snr: 10,
-  depth: 25.5,
-  plateauStop: true,
+  snr: null as number | null,
+  depth: null as number | null,
+  plateauStop: null as boolean | null,
   name: '',
-  priority: 'Normal',
-  minAlt: 15,
-  minTime: 60,
-  desired: 300,
+  priority: null as string | null,
+  minAlt: null as number | null,
+  minTime: null as number | null,
+  desired: null as number | null,
 })
 const created = ref<{ record: CommandRecord; name: string; guid: string } | null>(null)
 const draft = ref<{
@@ -197,18 +199,21 @@ async function search() {
     if (seq !== searchSeq) return
     hits.value = found
     searchError.value = ''
-    await Promise.all(
-      found.slice(0, 15).map(async (h) => {
+    let next = 0
+    const worker = async () => {
+      while (next < found.length && seq === searchSeq) {
+        const h = found[next++]
         try {
           h.detail = await api.get<ObjectDetail>(
             '/catalog/objects/' + encodeURIComponent(h.object.id),
           )
-        } catch {
-          h.detail = undefined
+        } catch (e) {
+          h.detailError = e instanceof Error ? e.message : String(e)
         }
-      }),
-    )
-    if (seq === searchSeq) hits.value = [...found]
+        if (seq === searchSeq) hits.value = [...found]
+      }
+    }
+    await Promise.all(Array.from({ length: 6 }, worker))
   } catch (e) {
     searchError.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -238,24 +243,36 @@ const shownHits = computed(() =>
   }),
 )
 
-function sizeText(o: CatalogObject): string {
-  if (!o.majorArcmin) return '—'
-  if (o.majorArcmin >= 60) return `≈ ${(o.majorArcmin / 60).toFixed(1)}°`
-  return o.minorArcmin && o.minorArcmin !== o.majorArcmin
-    ? `${Math.round(o.majorArcmin)}′ × ${Math.round(o.minorArcmin)}′`
-    : `≈ ${Math.round(o.majorArcmin)}′`
+function arcText(arcmin: number): string {
+  if (arcmin < 1) return `${Math.round(arcmin * 60)}″`
+  return `${Math.round(arcmin)}′`
 }
 
-function fitText(f?: Fit): string {
-  if (!f) return '…'
+function sizeText(o: CatalogObject): string {
+  if (!o.majorArcmin) return 'size unknown'
+  if (o.majorArcmin >= 60) return `≈ ${(o.majorArcmin / 60).toFixed(1)}°`
+  return o.minorArcmin && o.minorArcmin !== o.majorArcmin
+    ? `${arcText(o.majorArcmin)} × ${arcText(o.minorArcmin)}`
+    : `≈ ${arcText(o.majorArcmin)}`
+}
+
+function fitText(h: Hit): string {
+  if (h.detailError) return 'not checked: ' + h.detailError
+  const f = h.detail?.fit
+  if (!f) return 'checking…'
+  if (!h.object.majorArcmin) return 'size unknown'
   if (f.panels > 1) return `Mosaic · ${f.columns} × ${f.rows}`
-  if (f.fill < 0.15) return `Small · ${Math.max(1, Math.round(f.fill * 100))}% of frame`
+  if (f.fill < 0.15) {
+    const p = f.fill * 100
+    return `Small · ${p < 1 ? '<1' : Math.round(p)}% of the frame width`
+  }
   return 'Fits one frame'
 }
 
 function inDataText(h: Hit): { text: string; tone: string } {
+  if (h.detailError) return { text: 'not checked', tone: 'var(--muted-foreground)' }
   const d = h.detail
-  if (!d) return { text: '…', tone: 'var(--muted-foreground)' }
+  if (!d) return { text: 'checking…', tone: 'var(--muted-foreground)' }
   const subs = (d.subjects ?? []).filter((x) => x.status !== 'rejected')
   if (!subs.length) {
     const sug = (d.links ?? []).find((l) => l.status === 'suggested')
@@ -288,19 +305,9 @@ async function choose(id: string) {
   const f = pick.value.fit
   plan.cols = Math.max(1, f.columns)
   plan.rows = Math.max(1, f.rows)
-  plan.rotation = o.pa && f.panels > 1 ? Math.round(((o.pa % 180) + 180) % 180) : 0
-  const t = o.type
-  form.setId =
-    t === 'galaxy' ||
-    t === 'galaxy-group' ||
-    t === 'globular' ||
-    t === 'open-cluster' ||
-    t === 'dark' ||
-    t === 'reflection'
-      ? 'lrgb'
-      : t === 'pn' || t === 'snr'
-        ? 'hoo'
-        : 'hargb'
+  plan.rotation = null
+  planned.value = null
+  form.setId = presetSet.value?.set.id ?? ''
 }
 
 const topMatch = computed<Link | null>(() => {
@@ -383,8 +390,97 @@ function back() {
   step.value = Math.max(1, step.value - 1)
 }
 
-const frameW = computed(() => snap.value?.frame?.widthDeg || null)
-const frameH = computed(() => snap.value?.frame?.heightDeg || null)
+const frameW = computed(() => snap.value?.frame?.widthDeg ?? null)
+const frameH = computed(() => snap.value?.frame?.heightDeg ?? null)
+const frameText = computed(() => {
+  const f = snap.value?.frame
+  if (!snap.value) return 'frame size unknown: the planning data did not load'
+  if (frameW.value === null || frameH.value === null)
+    return 'frame size unknown: ' + (f?.reason ?? 'the rig is not measured yet')
+  return `one frame is ${frameW.value.toFixed(2)}° × ${frameH.value.toFixed(2)}° · ${rigSource(f as never)}`
+})
+
+interface Usual<T> {
+  value: T
+  count: number
+  total: number
+}
+
+function usual<T>(vals: T[]): Usual<T> | null {
+  const counts = new Map<T, number>()
+  for (const v of vals) counts.set(v, (counts.get(v) ?? 0) + 1)
+  let best: Usual<T> | null = null
+  for (const [value, count] of counts)
+    if (!best || count > best.count) best = { value, count, total: vals.length }
+  return best
+}
+
+function usedValues<T extends number>(vals: T[]): T[] {
+  return [...new Set(vals)].sort((a, b) => a - b)
+}
+
+const projects = computed(() => snap.value?.projects ?? [])
+const usualAlt = computed(() => usual(projects.value.map((p) => p.minimumAltitude)))
+const usualTime = computed(() => usual(projects.value.map((p) => p.minimumTime)))
+const usualPriority = computed(() => usual(projects.value.map((p) => p.priority)))
+const altOptions = computed(() => usedValues(projects.value.map((p) => p.minimumAltitude)))
+const timeOptions = computed(() => usedValues(projects.value.map((p) => p.minimumTime)))
+
+function usualText(u: Usual<number | string> | null, unit: string): string {
+  if (!u) return 'no projects to take a usual value from'
+  return `your usual: ${u.value}${unit}, on ${u.count} of ${u.total} projects`
+}
+
+const minAlt = computed(() => form.minAlt ?? usualAlt.value?.value ?? null)
+const minTime = computed(() => form.minTime ?? usualTime.value?.value ?? null)
+const priority = computed(() => form.priority ?? usualPriority.value?.value ?? null)
+const goalDefaults = computed(() => snap.value?.defaults?.goal ?? null)
+const snr = computed(() => form.snr ?? goalDefaults.value?.snr ?? null)
+const plateauStop = computed(() => form.plateauStop ?? goalDefaults.value?.plateauStop ?? null)
+
+const presetSet = computed(() => {
+  const pid = topProject.value
+  if (!pid || matchChoice.value === 'different') return null
+  const set = sets.value.find((x) => x.projectIds.includes(pid))
+  const proj = projects.value.find((p) => p.id === pid)
+  return set && proj ? { set, reason: `the set on ${proj.name}, which matches this object` } : null
+})
+
+const setNote = computed(() => {
+  const what = 'Sets are the exposure plan combinations your projects use.'
+  if (!sets.value.length)
+    return 'None of your projects has enabled exposure plans, so there is no set to reuse.'
+  if (presetSet.value && form.setId === presetSet.value.set.id)
+    return `Preselected: ${presetSet.value.reason}. ${what}`
+  if (form.setId) return what
+  return `Nothing is preselected: no project of yours matches this object. ${what}`
+})
+
+const chosenSet = computed(() => sets.value.find((s) => s.id === form.setId) ?? null)
+
+const setFilters = computed(() => {
+  const set = chosenSet.value
+  const byName = new Map((snap.value?.templates ?? []).map((t) => [t.name.toLowerCase(), t.filter]))
+  return [...new Set((set?.items ?? []).map((i) => byName.get(i.template.toLowerCase()) ?? i.template))]
+})
+
+const depthDefaults = computed(() => {
+  const d = goalDefaults.value?.depths ?? []
+  const norm = (f: string) => f.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return setFilters.value.map((f) => {
+    const m = d.find((x) => norm(x.filter) === norm(f))
+    return { filter: f, depth: m?.depth ?? null }
+  })
+})
+
+const depthDefaultText = computed(() => {
+  const list = depthDefaults.value
+  if (!list.length) return 'pick an exposure set to see the per-filter defaults'
+  return (
+    'default per filter: ' +
+    list.map((x) => `${x.filter} ${x.depth === null ? 'unknown' : x.depth.toFixed(1)}`).join(', ')
+  )
+})
 
 const panels = computed<PanelDraft[]>(() => {
   const o = pick.value?.object
@@ -396,14 +492,14 @@ const panels = computed<PanelDraft[]>(() => {
       rotation: p.rotation,
       name: p.name,
     }))
-  return [{ raHours: (((o.ra % 360) + 360) % 360) / 15, dec: o.dec, rotation: plan.rotation }]
+  return [{ raHours: (((o.ra % 360) + 360) % 360) / 15, dec: o.dec, rotation: plan.rotation ?? 0 }]
 })
 
 const panelCount = computed(() => panels.value.length)
 
 const sets = computed(() => snap.value?.sets ?? [])
 const missingTemplates = computed(() => {
-  const set = sets.value.find((s) => s.id === form.setId)
+  const set = chosenSet.value
   const names = new Set((snap.value?.templates ?? []).map((t) => t.name.toLowerCase()))
   return (set?.items ?? [])
     .filter((i) => !names.has(i.template.toLowerCase()))
@@ -421,24 +517,24 @@ async function makeDraft() {
       catalog: o.designation,
       match: matchChoice.value || undefined,
       matchWith: topMatch.value?.subjectName,
-      priority: form.priority,
-      minimumAltitude: form.minAlt,
-      minimumTime: form.minTime,
+      priority: priority.value ?? '',
+      minimumAltitude: minAlt.value ?? -1,
+      minimumTime: minTime.value ?? 0,
       setId: form.setId,
-      desired: form.desired,
+      desired: form.desired ?? 0,
       goal: {
         kind: form.goalKind,
-        snr: form.snr,
-        depth: form.depth,
-        plateauStop: form.plateauStop,
+        snr: form.snr ?? 0,
+        depth: form.depth ?? 0,
+        plateauStop: plateauStop.value ?? undefined,
       },
       panels: panels.value,
       mosaic:
         panels.value.length > 1
           ? {
             layout: plan.layoutId,
-            rotation: plan.rotation,
-            overlap: plan.overlap,
+            rotation: plan.rotation ?? 0,
+            overlap: plan.overlap ?? 0,
             cols: plan.cols,
             rows: plan.rows,
           }
@@ -449,35 +545,46 @@ async function makeDraft() {
   }
 }
 
+function numOrNull(e: Event): number | null {
+  const v = (e.target as HTMLInputElement).value.trim()
+  return v === '' || isNaN(Number(v)) ? null : Number(v)
+}
+
+function itemText(i: { template: string; exposure: number; desired: number }): string {
+  return `${i.template} ${i.exposure} s × ${form.desired ?? i.desired}`
+}
+
 const review = computed(() => {
   const o = pick.value?.object
-  const set = sets.value.find((s) => s.id === form.setId)
+  const set = chosenSet.value
   if (!o) return []
   return [
     { k: 'Object', v: label(o) + ' · ' + o.type },
     {
       k: 'Project',
-      v: `${form.name} · ${form.priority} priority · minimum altitude ${form.minAlt}° · minimum time ${form.minTime} min`,
+      v: `${form.name} · ${priority.value ?? 'no'} priority · minimum altitude ${minAlt.value ?? 'not set'}° · minimum time ${minTime.value ?? 'not set'} min`,
     },
     {
       k: 'Framing',
       v:
-        panelCount.value > 1
-          ? `${plan.layoutName}, ${panelCount.value} panels at ${plan.rotation}°, ${plan.overlap}% overlap`
-          : `One frame at ${plan.rotation}°`,
+        plan.rotation === null
+          ? 'Not framed: one frame at the catalogue centre, rotation 0°, because the layouts were not worked out'
+          : panelCount.value > 1
+            ? `${plan.layoutName}, ${panelCount.value} panels at ${plan.rotation}°, ${plan.overlap}% overlap`
+            : `One frame at ${plan.rotation}°`,
     },
     {
       k: 'Exposures',
-      v: set
-        ? set.name + ' · ' + set.items.map((i) => i.template + ' ' + i.exposure + ' s').join(', ')
-        : '—',
+      v: set ? set.items.map(itemText).join(', ') : 'No exposure set chosen',
     },
     {
       k: 'Goal',
       v:
         form.goalKind === 'snr'
-          ? `Faint-signal SNR ${form.snr} per filter${form.plateauStop ? ', or the plateau' : ''}`
-          : `${form.depth} mag/arcsec² at SNR 3 per filter`,
+          ? `Faint-signal SNR ${snr.value}${form.snr === null ? ' (default)' : ''} per filter${plateauStop.value ? ', or the plateau' : ''}`
+          : form.depth === null
+            ? `Default depth per filter (${depthDefaultText.value.replace('default per filter: ', '')} mag/arcsec²) at SNR ${goalDefaults.value?.depthSnr ?? '?'}`
+            : `${form.depth} mag/arcsec² at SNR ${goalDefaults.value?.depthSnr ?? '?'} per filter`,
     },
     {
       k: 'Name match',
@@ -491,7 +598,9 @@ const review = computed(() => {
       k: 'Scheduler rows',
       v: draft.value
         ? `1 project, ${draft.value.targets.length} ${draft.value.targets.length === 1 ? 'target' : 'targets'}, ${draft.value.targets.reduce((a, t) => a + t.plans.length, 0)} plans, ${draft.value.goals.length} goals`
-        : '…',
+        : draftError.value
+          ? 'Not drafted: ' + draftError.value
+          : 'Drafting…',
     },
   ]
 })
@@ -533,14 +642,24 @@ async function undoCreated() {
 
 const canNext = computed(() => {
   if (step.value === 1) return !!pick.value && !matchNeeds.value
-  if (step.value === 4) return !!form.name.trim() && !missingTemplates.value.length
+  if (step.value === 4)
+    return (
+      !!form.name.trim() &&
+      !!form.setId &&
+      !missingTemplates.value.length &&
+      minAlt.value !== null &&
+      minTime.value !== null &&
+      !!priority.value
+    )
   return true
 })
 
 const applyLine = computed(() => {
   const r = created.value?.record
   if (r) return r.status === 'queued' ? queuedText() : `It reaches the scheduler ${whenApplies(r)}.`
-  return 'It is created through the scheduler, which allocates the ids, and applies when the current exposure ends.'
+  if (shell.scheduler.reachable !== 'online')
+    return `Scheduler API ${shell.scheduler.reachable}: ${queuedText()}`
+  return `The scheduler creates it and allocates the ids; sent now, it applies ${whenApplies()}.`
 })
 
 function goStep(i: number) {
@@ -650,7 +769,7 @@ function goStep(i: number) {
               <td style="white-space: nowrap" :style="{ color: inDataText(h).tone }">
                 {{ inDataText(h).text }}
               </td>
-              <td style="white-space: nowrap">{{ fitText(h.detail?.fit) }}</td>
+              <td style="white-space: nowrap">{{ fitText(h) }}</td>
               <td style="text-align: right">
                 <button
                   type="button"
@@ -728,11 +847,7 @@ function goStep(i: number) {
         </h2>
         <span v-if="pick" class="xsmall muted"
           >RA {{ (pick.object.ra / 15).toFixed(3) }} h · Dec {{ pick.object.dec.toFixed(2) }}° ·
-          {{
-            frameW && frameH
-              ? `one frame is ${frameW.toFixed(2)}° × ${frameH.toFixed(2)}°`
-              : 'frame size unknown until the rig is measured'
-          }}</span
+          {{ frameText }}</span
         >
       </div>
       <FramePlanner
@@ -747,19 +862,27 @@ function goStep(i: number) {
           pa: pick.object.pa,
         }"
         :step="step === 2 ? 'frame' : 'mosaic'"
-        :rotation="plan.rotation"
+        :rotation="plan.rotation ?? undefined"
         :cols="plan.cols"
         :rows="plan.rows"
+        :min-altitude="minAlt ?? undefined"
         @update:plan="onPlan"
       />
       <p v-if="step === 3" class="xsmall muted" style="margin: 0">
         Every panel gets the same goal, measured per panel, and the weakest one sets completion. New
-        mosaics get the Panel Deficit rule at 75 and are adopted as planned mosaics straight away.
+        mosaics get the Panel Deficit rule at
+        {{ snap?.defaults?.panelDeficitWeight ?? 'its on-weight' }} and are adopted as planned
+        mosaics straight away. Dark hours use minimum altitude {{ minAlt ?? 'not set' }}°{{
+          form.minAlt === null && usualAlt ? ' (your usual)' : ''
+        }}; change it on the Exposures and goal step.
       </p>
     </section>
 
     <section v-if="step === 4" class="card" aria-labelledby="exp-h">
       <h2 id="exp-h">Exposures and goal</h2>
+      <p class="small muted" style="margin: 0">
+        {{ setNote }}
+      </p>
       <div role="radiogroup" aria-label="Exposure set" class="sets">
         <button
           v-for="s in sets"
@@ -772,9 +895,7 @@ function goStep(i: number) {
           @click="form.setId = s.id"
         >
           <span style="font-weight: 600; font-size: 0.875rem">{{ s.name }}</span>
-          <span class="xsmall muted">{{
-            s.items.map((i) => i.template + ' ' + i.exposure + ' s').join(' · ')
-          }}</span>
+          <span class="xsmall muted">{{ s.items.map(itemText).join(' · ') }}</span>
           <span class="xsmall muted">{{ s.hint }}</span>
         </button>
       </div>
@@ -786,8 +907,9 @@ function goStep(i: number) {
         <fieldset class="box" style="flex: 1 1 24rem">
           <legend>Goal{{ panelCount > 1 ? ', per panel' : '' }}</legend>
           <label class="row" style="font-size: 0.875rem"
-            ><input v-model="form.goalKind" type="radio" value="snr" /> Faint-signal SNR, the
-            default</label
+            ><input v-model="form.goalKind" type="radio" value="snr" /> Faint-signal SNR{{
+              goalDefaults?.kind === 'snr' ? ', the default' : ''
+            }}</label
           >
           <div class="row small" style="padding-left: 1.5rem">
             <label for="g-snr" class="muted">SNR at least</label>
@@ -798,9 +920,15 @@ function goStep(i: number) {
               type="number"
               min="3"
               max="50"
+              :placeholder="goalDefaults ? String(goalDefaults.snr) : ''"
               style="width: 4.5rem; height: 2rem"
             />
-            <span class="muted">in the 20–40th percentile band, half-stack noise</span>
+            <span class="muted"
+              >{{ form.snr === null && goalDefaults ? 'default · ' : '' }}in the
+              {{ goalDefaults?.bandLowPercentile ?? '?' }}–{{
+                goalDefaults?.bandHighPercentile ?? '?'
+              }}th percentile band, half-stack noise</span
+            >
           </div>
           <label class="row" style="font-size: 0.875rem"
             ><input v-model="form.goalKind" type="radio" value="depth" /> Depth</label
@@ -813,13 +941,24 @@ function goStep(i: number) {
               class="input num"
               type="number"
               step="0.1"
-              style="width: 4.5rem; height: 2rem"
+              placeholder="per filter"
+              style="width: 5.5rem; height: 2rem"
             />
-            <span class="muted">mag/arcsec² at SNR 3</span>
+            <span class="muted"
+              >mag/arcsec² at SNR {{ goalDefaults?.depthSnr ?? '?' }} ·
+              {{ form.depth === null ? depthDefaultText : 'the same depth for every filter' }}</span
+            >
           </div>
           <label class="row small"
-            ><input v-model="form.plateauStop" type="checkbox" /> Also stop a filter when +1 h gives
-            less than 1.5%</label
+            ><input
+              :checked="!!plateauStop"
+              type="checkbox"
+              @change="form.plateauStop = ($event.target as HTMLInputElement).checked"
+            />
+            Also stop a filter when +1 h gives less than
+            {{ goalDefaults?.plateauGainPct ?? '?' }}%{{
+              form.plateauStop === null && goalDefaults ? ' (default on)' : ''
+            }}</label
           >
           <p class="xsmall muted" style="margin: 0">
             You can draw your own region for the faint band later, on the target's Goal tab.
@@ -836,34 +975,64 @@ function goStep(i: number) {
           /></label>
           <label class="field"
             ><span>Priority</span
-            ><select v-model="form.priority" class="input">
+            ><select
+              class="input"
+              :value="priority ?? ''"
+              @change="form.priority = ($event.target as HTMLSelectElement).value"
+            >
+              <option v-if="!priority" value="" disabled>Choose</option>
               <option>High</option>
               <option>Normal</option>
               <option>Low</option>
-            </select></label
+            </select>
+            <span class="xsmall muted">{{ usualText(usualPriority, '') }}</span></label
           >
           <label class="field"
-            ><span>Minimum altitude</span
-            ><select v-model.number="form.minAlt" class="input">
-              <option :value="10">10°</option>
-              <option :value="15">15°</option>
-              <option :value="20">20°</option>
-              <option :value="25">25°</option>
-              <option :value="30">30°</option>
-            </select></label
+            ><span>Minimum altitude (°)</span
+            ><input
+              class="input num"
+              type="number"
+              min="0"
+              max="89"
+              list="alt-used"
+              :value="minAlt ?? ''"
+              @change="form.minAlt = numOrNull($event)"
+            />
+            <datalist id="alt-used">
+              <option v-for="v in altOptions" :key="v" :value="v" />
+            </datalist>
+            <span class="xsmall muted">{{ usualText(usualAlt, '°') }}</span></label
           >
           <label class="field"
-            ><span>Minimum time</span
-            ><select v-model.number="form.minTime" class="input">
-              <option :value="30">30 min</option>
-              <option :value="60">60 min</option>
-              <option :value="90">90 min</option>
-            </select></label
+            ><span>Minimum time (min)</span
+            ><input
+              class="input num"
+              type="number"
+              min="1"
+              list="time-used"
+              :value="minTime ?? ''"
+              @change="form.minTime = numOrNull($event)"
+            />
+            <datalist id="time-used">
+              <option v-for="v in timeOptions" :key="v" :value="v" />
+            </datalist>
+            <span class="xsmall muted">{{ usualText(usualTime, ' min') }}</span></label
           >
           <label class="field"
             ><span>Desired per plan (fallback count)</span
-            ><input v-model.number="form.desired" class="input num" type="number" min="1"
-          /></label>
+            ><input
+              v-model.number="form.desired"
+              class="input num"
+              type="number"
+              min="1"
+              placeholder="from the set"
+            />
+            <span class="xsmall muted">{{
+              form.desired === null
+                ? 'Empty: each plan takes the median count your projects use for it.'
+                : 'Every plan gets this count.'
+            }}</span></label
+          >
         </fieldset>
       </div>
     </section>
@@ -886,7 +1055,6 @@ function goStep(i: number) {
             {{ applyLine }} It shows in History and can be undone.
           </p>
           <div class="row">
-            <RouterLink :to="{ name: 'tonight' }" class="btn">Simulate tonight first</RouterLink>
             <button
               type="button"
               class="btn primary"

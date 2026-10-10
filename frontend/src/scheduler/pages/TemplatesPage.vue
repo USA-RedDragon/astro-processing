@@ -38,7 +38,7 @@ onMounted(() => {
 })
 onUnmounted(() => off?.())
 
-const setId = ref('hoo')
+const setId = ref('')
 const mode = ref<'add' | 'replace'>('add')
 const picked = reactive<Record<number, boolean>>({})
 const filterQ = ref('')
@@ -80,7 +80,7 @@ watch(
 )
 
 async function refreshDraft() {
-  if (!pickedIds.value.length) {
+  if (!pickedIds.value.length || !setId.value) {
     draft.value = null
     draftError.value = ''
     return
@@ -310,6 +310,7 @@ function moonText(t: Template): string {
           <span class="xsmall muted">{{
             s.items.map((i) => i.template + ' ' + i.exposure + ' s').join(' · ')
           }}</span>
+          <span class="xsmall muted">{{ s.hint }}</span>
         </button>
       </div>
       <fieldset class="row" style="border: 0; margin: 0; padding: 0; gap: 1rem">

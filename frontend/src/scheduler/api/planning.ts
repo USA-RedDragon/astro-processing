@@ -150,6 +150,7 @@ export interface Template {
 export interface SetItem {
   template: string
   exposure: number
+  desired: number
 }
 
 export interface ExposureSet {
@@ -157,6 +158,46 @@ export interface ExposureSet {
   name: string
   hint: string
   items: SetItem[]
+  projects: number
+  projectIds: number[]
+  examples: string[]
+}
+
+export interface RigBasis {
+  source: string
+  frames: number
+  from: string | null
+  to: string | null
+  camera: string | null
+  telescope: string | null
+}
+
+export interface PlanningFrame {
+  widthDeg: number | null
+  heightDeg: number | null
+  scale: number | null
+  focalLength: number | null
+  pixelSize: number | null
+  widthPx: number | null
+  heightPx: number | null
+  basis: RigBasis
+  reason: string | null
+}
+
+export interface GoalDefaults {
+  kind: GoalKind
+  snr: number
+  depthSnr: number
+  depths: { filter: string; depth: number }[]
+  plateauStop: boolean
+  plateauGainPct: number
+  bandLowPercentile: number
+  bandHighPercentile: number
+}
+
+export interface PlanningDefaults {
+  goal: GoalDefaults
+  panelDeficitWeight: number
 }
 
 export interface Rule {
@@ -167,11 +208,12 @@ export interface Rule {
 }
 
 export interface Snapshot {
-  frame: { widthDeg: number; heightDeg: number; scale: number }
+  frame: PlanningFrame
   projects: Project[]
   templates: Template[]
   sets: ExposureSet[]
   rules: Rule[]
+  defaults: PlanningDefaults
 }
 
 export interface ProjectDetail {
