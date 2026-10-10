@@ -1,7 +1,7 @@
 cmd/root.go	33	0
 internal/config/config.go	9	6
-internal/events/relay.go	99	83
-internal/events/watch.go	36	28
+internal/events/relay.go	99	80
+internal/events/watch.go	36	29
 internal/server/graph/resolvers/calibration.go	10	0
 internal/server/graph/resolvers/calibration.resolvers.go	10	0
 internal/server/graph/resolvers/common.resolvers.go	2	0
