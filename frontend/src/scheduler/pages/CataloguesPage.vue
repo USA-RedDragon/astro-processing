@@ -163,9 +163,11 @@ function window(e: CatalogueEntry): string {
   const t = e.tonight
   if (!t) return 'visibility unknown until the site is known'
   if (!t.up)
-    return t.peakAlt > 0
-      ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
-      : 'not up tonight'
+    return t.peakAlt === null
+      ? 'no astronomical darkness tonight'
+      : t.peakAlt > 0
+        ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
+        : 'not up tonight'
   const min = overview.value?.night?.minAltitude
   return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)}${min !== undefined && min !== null ? ` above ${min}°` : ''}`
 }
@@ -347,7 +349,7 @@ async function decide(m: ReviewItem, after: Decision) {
           </span>
           <span class="xsmall muted">
             {{ pickStatus(pick) }} · {{ window(pick)
-            }}<template v-if="pick.tonight">
+            }}<template v-if="pick.tonight && pick.tonight.moonSeparation !== null">
               · Moon {{ Math.round(pick.tonight.moonSeparation) }}° away</template
             >
           </span>

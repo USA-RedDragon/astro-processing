@@ -60,9 +60,9 @@ export interface Tonight {
   hours: number
   start?: string
   end?: string
-  peakAlt: number
+  peakAlt: number | null
   peakAt?: string
-  moonSeparation: number
+  moonSeparation: number | null
   moonIllumination: number
   siteResolved: boolean
 }
