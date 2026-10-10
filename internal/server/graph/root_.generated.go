@@ -167,16 +167,20 @@ type ComplexityRoot struct {
 	}
 
 	ProjectCover struct {
-		Filter     func(childComplexity int) int
-		Mosaic     func(childComplexity int) int
-		Palette    func(childComplexity int) int
-		PreviewURL func(childComplexity int) int
-		UpdatedAt  func(childComplexity int) int
+		Filter      func(childComplexity int) int
+		Mosaic      func(childComplexity int) int
+		Palette     func(childComplexity int) int
+		Panels      func(childComplexity int) int
+		PanelsTotal func(childComplexity int) int
+		PreviewURL  func(childComplexity int) int
+		UpdatedAt   func(childComplexity int) int
 	}
 
 	ProjectStats struct {
 		Imaging       func(childComplexity int) int
 		LastImageDate func(childComplexity int) int
+		Plans         func(childComplexity int) int
+		PlansMet      func(childComplexity int) int
 	}
 
 	Query struct {
@@ -231,11 +235,14 @@ type ComplexityRoot struct {
 	}
 
 	TargetFilterStats struct {
-		ExposureTime func(childComplexity int) int
-		FilterName   func(childComplexity int) int
-		Gain         func(childComplexity int) int
-		Imaging      func(childComplexity int) int
-		Offset       func(childComplexity int) int
+		Enabled        func(childComplexity int) int
+		Exposure       func(childComplexity int) int
+		ExposureSource func(childComplexity int) int
+		FilterName     func(childComplexity int) int
+		Gain           func(childComplexity int) int
+		Imaging        func(childComplexity int) int
+		Offset         func(childComplexity int) int
+		TemplateName   func(childComplexity int) int
 	}
 
 	TargetStats struct {
@@ -900,6 +907,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ProjectCover.Palette(childComplexity), true
+	case "ProjectCover.panels":
+		if e.ComplexityRoot.ProjectCover.Panels == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectCover.Panels(childComplexity), true
+	case "ProjectCover.panels_total":
+		if e.ComplexityRoot.ProjectCover.PanelsTotal == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectCover.PanelsTotal(childComplexity), true
 	case "ProjectCover.preview_url":
 		if e.ComplexityRoot.ProjectCover.PreviewURL == nil {
 			break
@@ -925,6 +944,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ProjectStats.LastImageDate(childComplexity), true
+	case "ProjectStats.plans":
+		if e.ComplexityRoot.ProjectStats.Plans == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStats.Plans(childComplexity), true
+	case "ProjectStats.plans_met":
+		if e.ComplexityRoot.ProjectStats.PlansMet == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectStats.PlansMet(childComplexity), true
 
 	case "Query.commit":
 		if e.ComplexityRoot.Query.Commit == nil {
@@ -1207,12 +1238,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Target.Subframes(childComplexity), true
 
-	case "TargetFilterStats.exposure_time":
-		if e.ComplexityRoot.TargetFilterStats.ExposureTime == nil {
+	case "TargetFilterStats.enabled":
+		if e.ComplexityRoot.TargetFilterStats.Enabled == nil {
 			break
 		}
 
-		return e.ComplexityRoot.TargetFilterStats.ExposureTime(childComplexity), true
+		return e.ComplexityRoot.TargetFilterStats.Enabled(childComplexity), true
+	case "TargetFilterStats.exposure":
+		if e.ComplexityRoot.TargetFilterStats.Exposure == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TargetFilterStats.Exposure(childComplexity), true
+	case "TargetFilterStats.exposure_source":
+		if e.ComplexityRoot.TargetFilterStats.ExposureSource == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TargetFilterStats.ExposureSource(childComplexity), true
 	case "TargetFilterStats.filter_name":
 		if e.ComplexityRoot.TargetFilterStats.FilterName == nil {
 			break
@@ -1237,6 +1280,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.TargetFilterStats.Offset(childComplexity), true
+	case "TargetFilterStats.template_name":
+		if e.ComplexityRoot.TargetFilterStats.TemplateName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.TargetFilterStats.TemplateName(childComplexity), true
 
 	case "TargetStats.filters":
 		if e.ComplexityRoot.TargetStats.Filters == nil {
@@ -1552,11 +1601,18 @@ type ProjectCover {
   mosaic: Boolean!
   "When the picture last changed; its link changes on every request."
   updated_at: String!
+  "For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter."
+  panels: Int
+  panels_total: Int
 }
 
 type ProjectStats {
   imaging: ImagingStats!
   last_image_date: Int
+  "Enabled exposure plans."
+  plans: Int!
+  "Enabled exposure plans whose accepted images reached their desired count."
+  plans_met: Int!
 }
 `, BuiltIn: false},
 	{Name: "../../../graph/target.graphqls", Input: `extend type Query {
@@ -1610,9 +1666,17 @@ type TargetStats {
   quality: [FilterQuality!]!
 }
 
+"One exposure plan of the target, with its images counted by plan."
 type TargetFilterStats {
   filter_name: String!
-  exposure_time: Int
+  "The exposure template the plan uses."
+  template_name: String
+  "The plan's exposure in seconds: its own when set, else the template's default."
+  exposure: Float
+  "plan or template: where the exposure comes from."
+  exposure_source: String
+  "Null when the plan has no enabled value."
+  enabled: Boolean
   gain: Int
   offset: Int
   imaging: ImagingStats!
@@ -1969,6 +2033,10 @@ func (ec *executionContext) childFields_ProjectCover(ctx context.Context, field 
 		return ec.fieldContext_ProjectCover_mosaic(ctx, field)
 	case "updated_at":
 		return ec.fieldContext_ProjectCover_updated_at(ctx, field)
+	case "panels":
+		return ec.fieldContext_ProjectCover_panels(ctx, field)
+	case "panels_total":
+		return ec.fieldContext_ProjectCover_panels_total(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ProjectCover", field.Name)
 }
@@ -1979,6 +2047,10 @@ func (ec *executionContext) childFields_ProjectStats(ctx context.Context, field 
 		return ec.fieldContext_ProjectStats_imaging(ctx, field)
 	case "last_image_date":
 		return ec.fieldContext_ProjectStats_last_image_date(ctx, field)
+	case "plans":
+		return ec.fieldContext_ProjectStats_plans(ctx, field)
+	case "plans_met":
+		return ec.fieldContext_ProjectStats_plans_met(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ProjectStats", field.Name)
 }
@@ -2065,8 +2137,14 @@ func (ec *executionContext) childFields_TargetFilterStats(ctx context.Context, f
 	switch field.Name {
 	case "filter_name":
 		return ec.fieldContext_TargetFilterStats_filter_name(ctx, field)
-	case "exposure_time":
-		return ec.fieldContext_TargetFilterStats_exposure_time(ctx, field)
+	case "template_name":
+		return ec.fieldContext_TargetFilterStats_template_name(ctx, field)
+	case "exposure":
+		return ec.fieldContext_TargetFilterStats_exposure(ctx, field)
+	case "exposure_source":
+		return ec.fieldContext_TargetFilterStats_exposure_source(ctx, field)
+	case "enabled":
+		return ec.fieldContext_TargetFilterStats_enabled(ctx, field)
 	case "gain":
 		return ec.fieldContext_TargetFilterStats_gain(ctx, field)
 	case "offset":

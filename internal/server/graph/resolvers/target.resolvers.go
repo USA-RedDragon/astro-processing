@@ -197,79 +197,81 @@ func (r *targetStatsResolver) Filters(ctx context.Context, obj *model.TargetStat
 		return nil, fmt.Errorf("could not find parent target for imaging stats: %w", err)
 	}
 
-	type exposureTemplateStats struct {
-		ExposureTemplateID int
-		FilterName         string
-		DefaultExposure    *float64
-		Gain               *int
-		Offset             *int
-		AcquiredCount      int64
-		AcceptedCount      int64
-		RejectedCount      int64
-		DesiredCount       int64
+	type planStats struct {
+		PlanID          int
+		FilterName      *string
+		TemplateName    *string
+		PlanExposure    *float64
+		DefaultExposure *float64
+		Enabled         *int
+		Gain            *int32
+		Offset          *int32
+		AcquiredCount   int64
+		AcceptedCount   int64
+		RejectedCount   int64
+		Desired         *int64
 	}
 
-	var templateStats []exposureTemplateStats
+	var rows []planStats
 
-	// Start from the exposure plans so filters with no images yet still show
-	// up, and so desired comes from the plans rather than from image rows.
 	imageCounts := db.Table("acquiredimage").
 		Select(`"exposureId" as exposure_id,
 			COUNT(*) as acquired,
 			SUM(CASE WHEN "gradingStatus" = 1 THEN 1 ELSE 0 END) as accepted,
 			SUM(CASE WHEN "gradingStatus" = 2 THEN 1 ELSE 0 END) as rejected`).
 		Where("\"targetId\" = ?", target.ID).
-		// A bare column name here gets quoted again by gorm, so group by the alias.
 		Group("exposure_id")
 
 	if err := db.Table("exposureplan as ep").
-		Select(`et."Id" as exposure_template_id,
+		Select(`ep."Id" as plan_id,
 			et.filtername as filter_name,
+			et.name as template_name,
+			ep.exposure as plan_exposure,
 			et.defaultexposure as default_exposure,
+			ep.enabled as enabled,
 			et.gain,
 			et.offset,
-			COALESCE(SUM(ai.acquired), 0) as acquired_count,
-			COALESCE(SUM(ai.accepted), 0) as accepted_count,
-			COALESCE(SUM(ai.rejected), 0) as rejected_count,
-			COALESCE(SUM(ep.desired), 0) as desired_count`).
-		Joins("INNER JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
+			COALESCE(ai.acquired, 0) as acquired_count,
+			COALESCE(ai.accepted, 0) as accepted_count,
+			COALESCE(ai.rejected, 0) as rejected_count,
+			ep.desired as desired`).
+		Joins("LEFT JOIN exposuretemplate et ON ep.\"exposureTemplateId\" = et.\"Id\"").
 		Joins("LEFT JOIN (?) ai ON ai.exposure_id = ep.\"Id\"", imageCounts).
 		Where("ep.targetid = ?", target.ID).
-		Group("et.\"Id\", et.filtername, et.defaultexposure, et.gain, et.offset").
-		Order("MIN(ep.\"Id\")").
-		Scan(&templateStats).Error; err != nil {
-		return nil, fmt.Errorf("failed to get filter stats: %w", err)
+		Order("ep.\"Id\"").
+		Scan(&rows).Error; err != nil {
+		return nil, fmt.Errorf("failed to get plan stats: %w", err)
 	}
 
-	var stats []*model.TargetFilterStats
-	for _, ts := range templateStats {
-		var exposureTime *int32
-		if ts.DefaultExposure != nil {
-			v := int32(*ts.DefaultExposure)
-			exposureTime = &v
-		}
-		var gain *int32
-		if ts.Gain != nil {
-			v := int32(*ts.Gain)
-			gain = &v
-		}
-		var offset *int32
-		if ts.Offset != nil {
-			v := int32(*ts.Offset)
-			offset = &v
-		}
-		stats = append(stats, &model.TargetFilterStats{
-			FilterName:   ts.FilterName,
-			ExposureTime: exposureTime,
-			Gain:         gain,
-			Offset:       offset,
+	stats := make([]*model.TargetFilterStats, 0, len(rows))
+	for _, ps := range rows {
+		st := &model.TargetFilterStats{
+			TemplateName: ps.TemplateName,
+			Gain:         ps.Gain,
+			Offset:       ps.Offset,
 			Imaging: &model.ImagingStats{
-				AcceptedImages: int32(ts.AcceptedCount),
-				AcquiredImages: int32(ts.AcquiredCount),
-				RejectedImages: int32(ts.RejectedCount),
-				DesiredImages:  int32(ts.DesiredCount),
+				AcceptedImages: int32(ps.AcceptedCount),
+				AcquiredImages: int32(ps.AcquiredCount),
+				RejectedImages: int32(ps.RejectedCount),
 			},
-		})
+		}
+		if ps.FilterName != nil {
+			st.FilterName = *ps.FilterName
+		}
+		if ps.Desired != nil {
+			st.Imaging.DesiredImages = int32(*ps.Desired)
+		}
+		if ps.Enabled != nil {
+			on := *ps.Enabled != 0
+			st.Enabled = &on
+		}
+		switch {
+		case ps.PlanExposure != nil && *ps.PlanExposure > 0:
+			st.Exposure, st.ExposureSource = ps.PlanExposure, optional("plan")
+		case ps.DefaultExposure != nil:
+			st.Exposure, st.ExposureSource = ps.DefaultExposure, optional("template")
+		}
+		stats = append(stats, st)
 	}
 	return stats, nil
 }

@@ -1072,27 +1072,96 @@ func (ec *executionContext) fieldContext_TargetFilterStats_filter_name(_ context
 	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _TargetFilterStats_exposure_time(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
+func (ec *executionContext) _TargetFilterStats_template_name(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_TargetFilterStats_exposure_time(ctx, field)
+			return ec.fieldContext_TargetFilterStats_template_name(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.ExposureTime, nil
+			return obj.TemplateName, nil
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_TargetFilterStats_exposure_time(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type Int does not have child fields"))
+func (ec *executionContext) fieldContext_TargetFilterStats_template_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TargetFilterStats_exposure(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TargetFilterStats_exposure(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Exposure, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TargetFilterStats_exposure(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _TargetFilterStats_exposure_source(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TargetFilterStats_exposure_source(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ExposureSource, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TargetFilterStats_exposure_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _TargetFilterStats_enabled(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_TargetFilterStats_enabled(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Enabled, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_TargetFilterStats_enabled(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("TargetFilterStats", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
 func (ec *executionContext) _TargetFilterStats_gain(ctx context.Context, field graphql.CollectedField, obj *model.TargetFilterStats) (ret graphql.Marshaler) {
@@ -1832,8 +1901,23 @@ func (ec *executionContext) _TargetFilterStats(ctx context.Context, sel ast.Sele
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
-		case "exposure_time":
-			out.Values[i] = ec._TargetFilterStats_exposure_time(ctx, field, obj)
+		case "template_name":
+			out.Values[i] = ec._TargetFilterStats_template_name(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "exposure":
+			out.Values[i] = ec._TargetFilterStats_exposure(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "exposure_source":
+			out.Values[i] = ec._TargetFilterStats_exposure_source(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "enabled":
+			out.Values[i] = ec._TargetFilterStats_enabled(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

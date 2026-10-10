@@ -180,6 +180,18 @@ func (r *projectStatsResolver) LastImageDate(ctx context.Context, obj *model.Pro
 	return nil, nil
 }
 
+// Plans is the resolver for the plans field.
+func (r *projectStatsResolver) Plans(ctx context.Context, obj *model.ProjectStats) (int32, error) {
+	total, _, err := r.planCounts(ctx)
+	return total, err
+}
+
+// PlansMet is the resolver for the plans_met field.
+func (r *projectStatsResolver) PlansMet(ctx context.Context, obj *model.ProjectStats) (int32, error) {
+	_, met, err := r.planCounts(ctx)
+	return met, err
+}
+
 // Mosaics is the resolver for the mosaics field.
 func (r *projectResolver) Mosaics(ctx context.Context, obj *model.Project) ([]*model.Mosaic, error) {
 	if r.worker == nil {
@@ -213,7 +225,7 @@ func (r *projectResolver) Cover(ctx context.Context, obj *model.Project) (*model
 	}
 	if c, ok := covers.Mosaics[obj.Name]; ok {
 		return &model.ProjectCover{Palette: c.Palette, Filter: c.Filter, PreviewURL: c.PreviewURL, Mosaic: true,
-			UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339)}, nil
+			UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339), Panels: c.Panels, PanelsTotal: c.PanelsTotal}, nil
 	}
 	var names []string
 	if err := r.db.WithContext(ctx).Model(&targetscheduler.Target{}).Where("projectid = ?", obj.ID).

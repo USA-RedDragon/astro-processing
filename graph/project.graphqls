@@ -72,9 +72,16 @@ type ProjectCover {
   mosaic: Boolean!
   "When the picture last changed; its link changes on every request."
   updated_at: String!
+  "For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter."
+  panels: Int
+  panels_total: Int
 }
 
 type ProjectStats {
   imaging: ImagingStats!
   last_image_date: Int
+  "Enabled exposure plans."
+  plans: Int!
+  "Enabled exposure plans whose accepted images reached their desired count."
+  plans_met: Int!
 }

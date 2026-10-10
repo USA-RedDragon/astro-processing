@@ -49,9 +49,17 @@ type TargetStats {
   quality: [FilterQuality!]!
 }
 
+"One exposure plan of the target, with its images counted by plan."
 type TargetFilterStats {
   filter_name: String!
-  exposure_time: Int
+  "The exposure template the plan uses."
+  template_name: String
+  "The plan's exposure in seconds: its own when set, else the template's default."
+  exposure: Float
+  "plan or template: where the exposure comes from."
+  exposure_source: String
+  "Null when the plan has no enabled value."
+  enabled: Boolean
   gain: Int
   offset: Int
   imaging: ImagingStats!

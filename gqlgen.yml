@@ -81,3 +81,7 @@ models:
         resolver: true
       last_image_date:
         resolver: true
+      plans:
+        resolver: true
+      plans_met:
+        resolver: true

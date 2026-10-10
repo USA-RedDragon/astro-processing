@@ -182,6 +182,9 @@ type ProjectCover struct {
 	Mosaic     bool   `json:"mosaic"`
 	// When the picture last changed; its link changes on every request.
 	UpdatedAt string `json:"updated_at"`
+	// For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter.
+	Panels      *int32 `json:"panels,omitempty"`
+	PanelsTotal *int32 `json:"panels_total,omitempty"`
 }
 
 type ProjectOrderBy struct {
@@ -192,6 +195,10 @@ type ProjectOrderBy struct {
 type ProjectStats struct {
 	Imaging       *ImagingStats `json:"imaging"`
 	LastImageDate *int32        `json:"last_image_date,omitempty"`
+	// Enabled exposure plans.
+	Plans int32 `json:"plans"`
+	// Enabled exposure plans whose accepted images reached their desired count.
+	PlansMet int32 `json:"plans_met"`
 }
 
 type Query struct {
@@ -254,12 +261,20 @@ type Target struct {
 	Masters []*FilterMaster `json:"masters"`
 }
 
+// One exposure plan of the target, with its images counted by plan.
 type TargetFilterStats struct {
-	FilterName   string        `json:"filter_name"`
-	ExposureTime *int32        `json:"exposure_time,omitempty"`
-	Gain         *int32        `json:"gain,omitempty"`
-	Offset       *int32        `json:"offset,omitempty"`
-	Imaging      *ImagingStats `json:"imaging"`
+	FilterName string `json:"filter_name"`
+	// The exposure template the plan uses.
+	TemplateName *string `json:"template_name,omitempty"`
+	// The plan's exposure in seconds: its own when set, else the template's default.
+	Exposure *float64 `json:"exposure,omitempty"`
+	// plan or template: where the exposure comes from.
+	ExposureSource *string `json:"exposure_source,omitempty"`
+	// Null when the plan has no enabled value.
+	Enabled *bool         `json:"enabled,omitempty"`
+	Gain    *int32        `json:"gain,omitempty"`
+	Offset  *int32        `json:"offset,omitempty"`
+	Imaging *ImagingStats `json:"imaging"`
 }
 
 type TargetOrderBy struct {

@@ -25,6 +25,8 @@ type ProjectResolver interface {
 type ProjectStatsResolver interface {
 	Imaging(ctx context.Context, obj *model.ProjectStats) (*model.ImagingStats, error)
 	LastImageDate(ctx context.Context, obj *model.ProjectStats) (*int32, error)
+	Plans(ctx context.Context, obj *model.ProjectStats) (int32, error)
+	PlansMet(ctx context.Context, obj *model.ProjectStats) (int32, error)
 }
 
 // endregion ************************** generated!.gotpl **************************
@@ -761,6 +763,52 @@ func (ec *executionContext) fieldContext_ProjectCover_updated_at(_ context.Conte
 	return graphql.NewScalarFieldContext("ProjectCover", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _ProjectCover_panels(ctx context.Context, field graphql.CollectedField, obj *model.ProjectCover) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectCover_panels(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Panels, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectCover_panels(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectCover", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ProjectCover_panels_total(ctx context.Context, field graphql.CollectedField, obj *model.ProjectCover) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectCover_panels_total(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PanelsTotal, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectCover_panels_total(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectCover", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _ProjectStats_imaging(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -813,6 +861,52 @@ func (ec *executionContext) _ProjectStats_last_image_date(ctx context.Context, f
 	)
 }
 func (ec *executionContext) fieldContext_ProjectStats_last_image_date(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStats", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ProjectStats_plans(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStats_plans(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.ProjectStats().Plans(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStats_plans(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectStats", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _ProjectStats_plans_met(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectStats_plans_met(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.ProjectStats().PlansMet(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectStats_plans_met(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ProjectStats", field, true, true, errors.New("field of type Int does not have child fields"))
 }
 
@@ -1192,6 +1286,16 @@ func (ec *executionContext) _ProjectCover(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "panels":
+			out.Values[i] = ec._ProjectCover_panels(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "panels_total":
+			out.Values[i] = ec._ProjectCover_panels_total(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -1274,6 +1378,82 @@ func (ec *executionContext) _ProjectStats(ctx context.Context, sel ast.Selection
 				}()
 				res = ec._ProjectStats_last_image_date(ctx, field, obj)
 				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "plans":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ProjectStats_plans(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "plans_met":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._ProjectStats_plans_met(ctx, field, obj)
+				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res

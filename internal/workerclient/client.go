@@ -177,6 +177,8 @@ type Cover struct {
 	PreviewURL       string    `json:"preview_url"`
 	EffectiveSeconds float64   `json:"effective_seconds"`
 	UpdatedAt        time.Time `json:"updated_at"`
+	Panels           *int32    `json:"panels"`
+	PanelsTotal      *int32    `json:"panels_total"`
 }
 
 // Covers holds the best preview per target (by object name) and per mosaic
