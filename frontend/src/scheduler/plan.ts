@@ -695,20 +695,24 @@ export function pausePayload(mount: 'track' | 'park', resume: ResumeMode, at: st
 }
 
 export function historyBadge(
-  r: Pick<CommandRecord, 'status' | 'applied_at'>,
+  r: Pick<CommandRecord, 'status' | 'applied_at' | 'transport'>,
   applies: string,
+  reachable?: string,
 ): { label: string; tone: Tone } {
   switch (r.status) {
     case 'pending':
       return { label: 'Applies ' + (applies || 'at the next plan'), tone: 'info' }
     case 'queued':
-      return { label: 'Queued · PC unreachable', tone: 'warn' }
+      if (r.transport === 'queue') return { label: 'Queued in the database queue', tone: 'warn' }
+      if (reachable === 'offline') return { label: 'Queued · PC unreachable', tone: 'warn' }
+      if (reachable === 'unconfigured') return { label: 'Queued · scheduler API not set up', tone: 'warn' }
+      return { label: 'Queued · not yet delivered', tone: 'warn' }
     case 'applied':
       return { label: 'Applied' + (r.applied_at ? ' ' + hm(r.applied_at) : ''), tone: 'ok' }
     case 'saved':
       return { label: 'Saved in the app', tone: 'ok' }
     case 'cancelled':
-      return { label: 'Cancelled before it applied', tone: '' }
+      return { label: 'Cancelled', tone: '' }
     case 'conflict':
       return { label: 'Conflict · not applied', tone: 'bad' }
     case 'rejected':

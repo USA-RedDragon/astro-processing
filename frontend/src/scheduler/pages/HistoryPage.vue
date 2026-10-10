@@ -107,7 +107,7 @@ function clear() {
 const shown = computed(() => records.value.filter(matchesWho))
 
 function whoLine(r: CommandRecord): string {
-  const parts = [r.author]
+  const parts = [r.author || 'unknown user']
   if (r.destination === 'app') parts.push('app only')
   else if (r.transport === 'api') parts.push('sent over the API')
   else if (r.transport === 'queue') parts.push('sent through the database queue')
@@ -116,7 +116,7 @@ function whoLine(r: CommandRecord): string {
 }
 
 function badgeOf(r: CommandRecord) {
-  return historyBadge(r, r.status === 'pending' ? whenApplies(r) : '')
+  return historyBadge(r, r.status === 'pending' ? whenApplies(r) : '', shell.scheduler.reachable)
 }
 
 const entries = computed(() =>
@@ -128,7 +128,7 @@ const entries = computed(() =>
       undo: undoState(r),
       diffs: (r.diffs ?? []).map((d) => ({
         field: multi ? `${d.object.name} · ${d.field}` : d.field,
-        before: show(d.before),
+        before: d.before === null || d.before === undefined ? 'not recorded' : show(d.before),
         after: show(d.after),
       })),
       note: [r.message, r.note].filter(Boolean).join(' · '),
@@ -149,6 +149,15 @@ async function act(r: CommandRecord, isCancel: boolean) {
     busy.value = null
   }
 }
+
+const editingText = computed(() => {
+  const w = shell.scheduler.web_editing
+  if (w === true)
+    return 'Web editing is on, so the Target Scheduler editor on the observatory PC is read-only.'
+  if (w === false)
+    return 'Web editing is off, so edits made in Target Scheduler on the observatory PC do not show here.'
+  return ''
+})
 
 const pendingN = computed(() => shell.waiting.filter((c) => c.status === 'pending').length)
 const queuedN = computed(() => shell.waiting.filter((c) => c.status === 'queued').length)
@@ -172,8 +181,7 @@ const waitingLabel = computed(() => {
 <template>
   <main class="page wide">
     <PageHead context="Plan" title="History">
-      Every change to the scheduler. When web editing is on, the Target Scheduler editor on the
-      observatory PC is read-only, so every entry has a before-value. Undo sends the reverse change;
+      Every change to the scheduler made from here. {{ editingText }} Undo sends the reverse change;
       it never rewrites the past.
     </PageHead>
 

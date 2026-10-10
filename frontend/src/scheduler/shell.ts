@@ -132,7 +132,7 @@ export async function undo(id: string) {
     const r = await undoCommand(id)
     if (r.id === id) {
       upsertWaiting(r)
-      showToast({ text: 'Cancelled · ' + r.title, sub: 'It never reached the observatory.' })
+      showToast({ text: 'Cancelled · ' + r.title, sub: r.message })
     } else {
       upsertWaiting(r)
       const o = describeOutcome(r)
@@ -149,7 +149,7 @@ export async function cancel(id: string) {
   try {
     const r = await cancelCommand(id)
     upsertWaiting(r)
-    showToast({ text: 'Cancelled · ' + r.title, sub: 'It never reached the observatory.' })
+    showToast({ text: 'Cancelled · ' + r.title, sub: r.message })
     return r
   } catch (e) {
     errorToast(e, 'Could not cancel')
