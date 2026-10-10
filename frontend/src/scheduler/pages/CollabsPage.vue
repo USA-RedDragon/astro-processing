@@ -121,8 +121,8 @@ function region(c: Collab) {
   const fr = rigFrame(view.value?.rig)
   const fw = fr?.w ?? 0
   const fh = fr?.h ?? 0
-  const diag = Math.hypot(fw, fh)
-  const s = Math.min(360 / Math.max(r.width, diag), 240 / Math.max(r.height, diag))
+  const diag = Math.max(Math.hypot(fw, fh), Math.hypot(r.width, r.height))
+  const s = 240 / diag
   return {
     rw: r.width * s,
     rh: r.height * s,
@@ -338,6 +338,7 @@ function bestMonths(c: Collab) {
               stroke="var(--warn)"
               stroke-width="2"
               stroke-dasharray="6 4"
+              :transform="`rotate(${-region(c).rot} 200 140)`"
             />
             <text
               :x="200 - region(c).rw / 2 + 6"
