@@ -3,49 +3,9 @@ import {
   type CalibrationBasis,
   type CalibrationMatch,
   type CalibrationRow,
-  type DarkLibrary,
-  type DarkLibraryGap,
 } from '../graphql/graphql';
 
-const fmt = (v: number): string => String(Math.round(v * 100) / 100).replace('-', '−');
-
-function list(values: string[]): string {
-  if (values.length <= 1) return values.join('');
-  return `${values.slice(0, -1).join(', ')} and ${values[values.length - 1]}`;
-}
-
-export function ladderText(lib: Pick<DarkLibrary, 'ladder' | 'set_temp_exact_c' | 'set_temp_scale_max_c'>): string {
-  if (lib.ladder.length === 0) return 'Not reported: the stacker did not send its dark ladder.';
-  let text = `Configured dark ladder: ${lib.ladder.map(fmt).join(', ')} °C.`;
-  if (lib.set_temp_exact_c != null) {
-    text += ` A dark set counts at a setpoint when within ${fmt(lib.set_temp_exact_c)} °C of it.`;
-  }
-  if (lib.set_temp_scale_max_c != null) {
-    text += ` Lights use the darks with the nearest setpoint up to ${fmt(lib.set_temp_scale_max_c)} °C away, scaled.`;
-  }
-  return text;
-}
-
-export function minFramesText(lib: Pick<DarkLibrary, 'min_frames'>): string {
-  if (lib.min_frames == null) return 'Not reported: the stacker did not send its minimum frames per set.';
-  return `The stacker builds a master from ${lib.min_frames} or more frames and sets no recommended count.`;
-}
-
-export function captureText(gaps: Pick<DarkLibraryGap, 'exposure' | 'set_temp'>[]): string {
-  if (gaps.length === 0) return '';
-  const exposures = [...new Set(gaps.filter((g) => g.exposure != null).map((g) => g.exposure as number))].sort(
-    (a, b) => a - b,
-  );
-  const setpoints = [...new Set(gaps.map((g) => g.set_temp))].sort((a, b) => a - b);
-  const parts = exposures.map((e) => `${fmt(e)} s`);
-  if (gaps.some((g) => g.exposure == null)) parts.push('lights with no recorded exposure');
-  return `The lights in the gaps need darks of ${list(parts)} at ${list(setpoints.map(fmt))} °C.`;
-}
-
-export function otherExposuresText(g: Pick<DarkLibraryGap, 'other_exposures'>): string {
-  if (g.other_exposures.length === 0) return 'none';
-  return `${list(g.other_exposures.map((e) => `${fmt(e)} s`))}, scaled`;
-}
+export const fmt = (v: number): string => String(Math.round(v * 100) / 100).replace('-', '−');
 
 export function darkText(
   r: Pick<CalibrationRow, 'exposure' | 'set_temp'>,

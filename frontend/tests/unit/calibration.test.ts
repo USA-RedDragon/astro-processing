@@ -1,48 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { CalibrationQuality, CalibrationSource } from '@/graphql/graphql'
-import {
-  captureText,
-  darkText,
-  importedText,
-  importedTitle,
-  ladderText,
-  minFramesText,
-  otherExposuresText,
-} from '@/lib/calibration'
+import { darkText, fmt, importedText, importedTitle } from '@/lib/calibration'
 
-describe('dark library header', () => {
-  it('builds the ladder text from the stacker values', () => {
-    expect(ladderText({ ladder: [-25, -15, -5, 5], set_temp_exact_c: 1, set_temp_scale_max_c: 10 })).toBe(
-      'Configured dark ladder: −25, −15, −5, 5 °C. A dark set counts at a setpoint when within 1 °C of it. ' +
-        'Lights use the darks with the nearest setpoint up to 10 °C away, scaled.',
-    )
-    expect(ladderText({ ladder: [] })).toMatch(/^Not reported/)
-  })
-
-  it('states the real minimum and no invented count', () => {
-    expect(minFramesText({ min_frames: 3 })).toBe(
-      'The stacker builds a master from 3 or more frames and sets no recommended count.',
-    )
-    expect(minFramesText({ min_frames: null })).toMatch(/^Not reported/)
-  })
-
-  it('lists the exposures and setpoints the gaps need', () => {
-    expect(
-      captureText([
-        { exposure: 600, set_temp: -15 },
-        { exposure: 300, set_temp: -25 },
-        { exposure: 600, set_temp: -25 },
-      ]),
-    ).toBe('The lights in the gaps need darks of 300 s and 600 s at −25 and −15 °C.')
-    expect(captureText([{ exposure: null, set_temp: 5 }])).toBe(
-      'The lights in the gaps need darks of lights with no recorded exposure at 5 °C.',
-    )
-    expect(captureText([])).toBe('')
-  })
-
-  it('says which darks stand in at the setpoint', () => {
-    expect(otherExposuresText({ other_exposures: [] })).toBe('none')
-    expect(otherExposuresText({ other_exposures: [120, 300] })).toBe('120 s and 300 s, scaled')
+describe('fmt', () => {
+  it('uses a true minus sign and two decimals at most', () => {
+    expect(fmt(-20)).toBe('−20')
+    expect(fmt(4.126)).toBe('4.13')
   })
 })
 
