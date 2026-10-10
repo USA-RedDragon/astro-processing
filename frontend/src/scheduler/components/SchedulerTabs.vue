@@ -25,6 +25,7 @@ import {
 import { submitCommand } from '../api/commands'
 import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
 import { onEvent } from '../api/events'
+import FaintSignalOverlay from './FaintSignalOverlay.vue'
 import { api, query } from '../api/client'
 
 interface GoalMaskInfo {
@@ -381,10 +382,6 @@ const master = computed(() => {
   const w = weakest.value?.stackFilter
   return masters.value.find((m) => m.filter === w) ?? masters.value[0]
 })
-const aspect = computed(() =>
-  master.value && master.value.width > 0 ? master.value.height / master.value.width : 2 / 3,
-)
-const viewH = computed(() => Math.round(1000 * aspect.value))
 
 const region = computed<Point[] | undefined>(
   () => goals.value.find((g) => (g.goal?.region?.length ?? 0) >= 3)?.goal?.region,
@@ -392,19 +389,7 @@ const region = computed<Point[] | undefined>(
 const drawing = ref(false)
 const pts = ref<Point[]>([])
 
-function drawClick(e: MouseEvent) {
-  if (!drawing.value) return
-  const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
-  pts.value.push({
-    x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
-    y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)),
-  })
-}
-
 const shownPts = computed(() => (drawing.value ? pts.value : (region.value ?? [])))
-const polyPoints = computed(() =>
-  shownPts.value.map((q) => `${q.x * 1000},${q.y * viewH.value}`).join(' '),
-)
 
 function saveRegion() {
   const t = target.value
@@ -932,43 +917,14 @@ function numInput(e: Event): number {
                 : autoBand
             }}</span>
           </div>
-          <svg
-            :viewBox="`0 0 1000 ${viewH}`"
-            role="img"
-            aria-label="Master preview with the hand-drawn region outlined"
-            class="canvas"
-            :style="{ aspectRatio: `1000 / ${viewH}`, cursor: drawing ? 'crosshair' : 'default' }"
-            @click="drawClick"
-          >
-            <rect x="0" y="0" width="1000" :height="viewH" fill="var(--sky)" />
-            <image
-              v-if="master"
-              :href="master.preview_url"
-              x="0"
-              y="0"
-              width="1000"
-              :height="viewH"
-              preserveAspectRatio="none"
-            />
-            <text v-else x="24" :y="viewH / 2" font-size="28" fill="var(--muted-foreground)">
-              No master preview yet
-            </text>
-            <polygon
-              v-if="shownPts.length > 1"
-              :points="polyPoints"
-              fill="oklch(0.9 0.12 90 / 0.14)"
-              stroke="oklch(0.9 0.12 90)"
-              stroke-width="3"
-            />
-            <circle
-              v-for="(q, i) in drawing ? pts : []"
-              :key="i"
-              :cx="q.x * 1000"
-              :cy="q.y * viewH"
-              r="8"
-              fill="oklch(0.9 0.12 90)"
-            />
-          </svg>
+          <FaintSignalOverlay
+            :object="target?.name"
+            :master="master"
+            :polygon="shownPts"
+            :drawing="drawing"
+            :region-set="!!region"
+            @point="(q) => pts.push(q)"
+          />
           <p v-if="drawing" role="status" class="small" style="margin: 0; color: var(--warn)">
             {{
               pts.length < 3
@@ -1392,12 +1348,6 @@ function numInput(e: Event): number {
 .bar > div {
   height: 100%;
   background: var(--foreground);
-}
-.canvas {
-  width: 100%;
-  display: block;
-  border-radius: 0.5rem;
-  background: var(--sky);
 }
 .facts {
   margin: 0;
