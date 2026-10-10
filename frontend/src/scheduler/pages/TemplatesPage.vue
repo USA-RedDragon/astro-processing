@@ -8,6 +8,7 @@ import {
   getPlanning,
   uuid,
   type ApplySetDraft,
+  type Plan,
   type Snapshot,
   type Template,
 } from '../api/planning'
@@ -53,11 +54,18 @@ const allTargets = computed(() =>
       id: t.id,
       name: t.name,
       project: p.name,
-      set: t.exposureSet,
+      set: plansText(t.plans),
       state: p.state,
     })),
   ),
 )
+function plansText(plans: Plan[]): string {
+  const on = plans.filter((p) => p.enabled)
+  if (!plans.length) return 'No exposure plans'
+  if (!on.length) return 'All plans off'
+  return on.map((p) => `${p.template} ${p.exposure} s`).join(' · ')
+}
+
 const shownTargets = computed(() => {
   const q = filterQ.value.trim().toLowerCase()
   const list = allTargets.value.filter(
@@ -102,7 +110,7 @@ async function refreshDraft() {
 }
 
 function effectOf(id: number): string {
-  if (!picked[id]) return '—'
+  if (!picked[id]) return 'Not selected'
   const e = draft.value?.effects.find((x) => x.targetId === id)
   return e ? e.effect : draftError.value ? '' : '…'
 }
@@ -237,13 +245,19 @@ async function applyBulk() {
   }
 }
 
-const clone = reactive({ open: false, source: null as Template | null, name: '', exp: 0, gain: 0 })
+const clone = reactive({
+  open: false,
+  source: null as Template | null,
+  name: '',
+  exp: 0,
+  gain: null as number | string | null,
+})
 
 function openClone(t: Template) {
   clone.source = t
   clone.name = t.name + ' copy'
   clone.exp = t.defaultExposure
-  clone.gain = t.gain ?? 0
+  clone.gain = t.gain
   clone.open = true
 }
 
@@ -261,7 +275,7 @@ async function createClone() {
       guid: uuid(),
       name: clone.name.trim(),
       defaultexposure: clone.exp,
-      gain: clone.gain,
+      gain: typeof clone.gain === 'number' ? clone.gain : undefined,
     })
     clone.open = false
     notifyCommand(r)
@@ -343,7 +357,7 @@ function moonText(t: Template): string {
             <tr>
               <th style="width: 2rem"><span class="sr-only">Apply</span></th>
               <th>Target</th>
-              <th>Current set</th>
+              <th>Enabled plans now</th>
               <th>What happens</th>
             </tr>
           </thead>
@@ -464,10 +478,10 @@ function moonText(t: Template): string {
                 <span class="swatch" :style="{ background: filterColor(t.filter) }" />{{ t.filter }}
               </td>
               <td style="text-align: right">{{ t.defaultExposure }} s</td>
-              <td style="text-align: right">{{ t.gain ?? '—' }}</td>
+              <td style="text-align: right">{{ t.gain ?? 'camera default' }}</td>
               <td style="white-space: nowrap">{{ t.twilight }}</td>
               <td style="white-space: nowrap">{{ moonText(t) }}</td>
-              <td class="muted">{{ t.maximumHumidity ? t.maximumHumidity + '%' : '—' }}</td>
+              <td class="muted">{{ t.maximumHumidity ? t.maximumHumidity + '%' : 'No limit' }}</td>
               <td style="text-align: right; white-space: nowrap">
                 {{ t.usedByPlans }} {{ t.usedByPlans === 1 ? 'plan' : 'plans' }} · {{ t.usedByTargets }}
                 {{ t.usedByTargets === 1 ? 'target' : 'targets' }}
@@ -486,8 +500,9 @@ function moonText(t: Template): string {
         </table>
       </div>
       <p class="xsmall muted" style="margin: 0">
-        Moon avoidance is separation / width in days, with moon-down relaxing it where shown. Edit
-        selects one template for the bar above.
+        Moon avoidance is separation / width in days, with moon-down relaxing it where shown. Used by
+        counts every plan on the template, disabled plans and inactive or closed projects included.
+        Edit selects one template for the bar above.
       </p>
     </section>
 
@@ -505,7 +520,12 @@ function moonText(t: Template): string {
           /></label>
           <label class="field" style="flex: 1 1 5rem"
             ><span>Gain</span
-            ><input v-model.number="clone.gain" class="input num" type="number" min="0"
+            ><input
+              v-model.number="clone.gain"
+              class="input num"
+              type="number"
+              min="0"
+              placeholder="camera default"
           /></label>
         </div>
         <p class="small muted">
