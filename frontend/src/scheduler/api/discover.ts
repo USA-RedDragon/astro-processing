@@ -120,7 +120,14 @@ export interface Tonight {
   siteResolved: boolean
 }
 
-export type Completion = 'done' | 'in-progress' | 'measuring' | 'not-started'
+export type Completion = 'done' | 'in-progress' | 'measuring' | 'being-added' | 'not-started'
+
+export interface Adding {
+  commandId: string
+  status: string
+  appliesAt?: string
+  message?: string
+}
 
 export interface CatalogueEntry {
   index: number
@@ -130,6 +137,7 @@ export interface CatalogueEntry {
   completionBasis: string
   doneByGoal: boolean
   scheduled: boolean
+  adding?: Adding
   tally: Tally
   hours: Record<string, number>
   subjects: SubjectRef[]
@@ -146,6 +154,7 @@ export interface CatalogueSummary {
   doneByCounts: number
   inProgress: number
   measuring: number
+  beingAdded: number
   notStarted: number
   scheduled: number
   upTonight: number

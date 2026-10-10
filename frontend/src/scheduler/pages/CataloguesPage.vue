@@ -52,6 +52,7 @@ const statusLabel: Record<string, string> = {
   done: 'Done',
   'in-progress': 'In progress',
   measuring: 'Measuring',
+  'being-added': 'Being added',
   'not-started': 'Not started',
 }
 
@@ -167,7 +168,9 @@ function cellStyle(e: CatalogueEntry) {
           ? '1px solid var(--prog)'
           : s === 'measuring'
             ? '1px dashed var(--prog)'
-            : '1px dashed var(--border)',
+            : s === 'being-added'
+              ? '1px dashed var(--warn)'
+              : '1px dashed var(--border)',
     boxShadow: e.tonight?.up ? 'inset 0 -3px 0 var(--warn)' : 'none',
     opacity: hidden(e) ? 0.18 : 1,
     outline:
@@ -203,7 +206,14 @@ function window(e: CatalogueEntry): string {
   return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)} above ${t.minAltitude}° (${t.minAltitudeSource})`
 }
 
+function addingText(e: CatalogueEntry): string {
+  const a = e.adding
+  if (!a) return ''
+  return a.appliesAt ? `applies at ${hm(a.appliesAt)}` : `command ${a.status}`
+}
+
 function measuredText(e: CatalogueEntry): string {
+  if (e.adding) return addingText(e)
   const t = e.tally
   if (!t.filters) return e.scheduled ? 'scheduled, nothing captured yet' : 'no frames yet'
   const parts = [`${t.measured} of ${t.filters} masters measured`]
@@ -329,7 +339,8 @@ async function decide(m: ReviewItem, after: Decision) {
           <span style="font-size: 1.5rem; font-weight: 600; line-height: 1.1">{{ c.done }}</span>
           <span class="xsmall muted"
             >done · {{ c.inProgress }} in progress · {{ c.measuring }} measuring ·
-            {{ c.notStarted }} not started</span
+            <template v-if="c.beingAdded">{{ c.beingAdded }} being added · </template
+            >{{ c.notStarted }} not started</span
           >
         </span>
         <span class="bar" aria-hidden="true">
@@ -365,6 +376,7 @@ async function decide(m: ReviewItem, after: Decision) {
               <option>All</option>
               <option>Not started</option>
               <option>Measuring</option>
+              <option>Being added</option>
               <option>In progress</option>
               <option>Done</option>
             </select>
@@ -384,6 +396,9 @@ async function decide(m: ReviewItem, after: Decision) {
             class="key"
             style="background: var(--prog-bg); border: 1px dashed var(--prog)"
           />Measuring</span
+        >
+        <span class="row" style="gap: 0.375rem"
+          ><span class="key" style="border: 1px dashed var(--warn)" />Being added</span
         >
         <span class="row" style="gap: 0.375rem"
           ><span class="key" style="border: 1px dashed var(--muted-foreground)" />Not started</span
