@@ -25,6 +25,8 @@ import { onEvent } from '../api/events'
 import { errorToast, notifyCommand } from '../shell'
 import { filterColor, pct, r1 } from '../api/planning'
 import { filterShort } from '../plan'
+import { MONTHS } from '../api/discover'
+import { shortDate } from '../format'
 
 const props = defineProps<{ projectId?: string }>()
 const route = useRoute()
@@ -309,9 +311,9 @@ const seamRows = computed<SeamRow[]>(() => {
           ? `star flux ratio ${fx(s.starFluxRatio, 2)}`
           : '',
         s.colourMismatch !== null && s.colourMismatch !== undefined
-          ? `colour mismatch ${fx(s.colourMismatch, 3)}${s.colourReference ? ' against ' + s.colourReference : ''}`
+          ? `colour mismatch ${Math.round(s.colourMismatch * 100)}%${s.colourReference ? ' against ' + s.colourReference.split(',').join(', ') : ''}`
           : '',
-        s.measuredAt ? 'measured ' + new Date(s.measuredAt).toLocaleDateString('en-GB') : '',
+        s.measuredAt ? 'measured ' + shortDate(s.measuredAt) : '',
       ]
         .filter(Boolean)
         .join(' · '),
@@ -409,14 +411,15 @@ const basisText = computed(() => {
   const parts: string[] = []
   if (b.hoursPerClearNight !== null && b.clearNightsPerSeason !== null)
     parts.push(
-      `${r1(b.hoursPerClearNight)} h per clear night × ${Math.round(b.clearNightsPerSeason)} clear nights a season`,
+      `${b.hoursPerClearNight < 1 ? b.hoursPerClearNight.toFixed(2) : r1(b.hoursPerClearNight)} h per clear night × ${Math.round(b.clearNightsPerSeason)} clear nights a season`,
     )
   if (b.historyFrom && b.historyTo)
     parts.push(
       `from ${b.historyNights} imaging nights, ${monthYear(b.historyFrom)} to ${monthYear(b.historyTo)}`,
     )
   if (b.projectNights) parts.push(`${b.projectNights} of them on this mosaic`)
-  if (b.usableMonths !== null) parts.push(`${b.usableMonths} usable months`)
+  if (b.usableMonths?.length)
+    parts.push(`usable in ${b.usableMonths.map((m) => MONTHS[m - 1] ?? String(m)).join(', ')}`)
   return (
     'Based on ' +
     parts.join(', ') +
@@ -848,7 +851,7 @@ const tabs = computed<[Tab, string][]>(() => [
                 </td>
                 <td style="text-align: right">{{ n.tiles }}</td>
                 <td class="muted">
-                  {{ n.measuredAt ? new Date(n.measuredAt).toLocaleDateString('en-GB') : '—' }}
+                  {{ n.measuredAt ? shortDate(n.measuredAt) : '—' }}
                 </td>
               </tr>
             </tbody>

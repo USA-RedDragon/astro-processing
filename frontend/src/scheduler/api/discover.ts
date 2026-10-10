@@ -160,6 +160,7 @@ export interface SkyBasis {
   source: 'measured' | 'none'
   method: string | null
   filter: string | null
+  band?: string | null
   nights: number
   frames: number
   from: string | null
@@ -462,10 +463,12 @@ export function rigSource(r: Rig | null | undefined): string {
 
 export function skySource(mag: number | null | undefined, b: SkyBasis | null | undefined): string {
   if (mag === null || mag === undefined || !b || b.source === 'none')
-    return 'Brightness unknown: sky not measured yet' + (b?.reason ? ` (${b.reason})` : '') + '.'
-  const how = [b.method, b.filter ? 'in ' + b.filter : ''].filter(Boolean).join(' ')
+    return 'Sky brightness not measured yet' + (b?.reason ? `: ${b.reason}` : '') + '.'
+  const how = [b.filter ? 'from ' + b.filter + ' masters' : '', b.method ? `(${b.method})` : '']
+    .filter(Boolean)
+    .join(' ')
   const span = b.from && b.to ? `, ${monthYear(b.from)} to ${monthYear(b.to)}` : ''
-  return `Sky ${mag.toFixed(2)} mag/arcsec², measured${how ? ' ' + how : ''} from ${b.frames} ${b.frames === 1 ? 'frame' : 'frames'} over ${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${span}.`
+  return `Sky ${mag.toFixed(2)} ${b.band ? b.band + ' ' : ''}mag/arcsec², measured${how ? ' ' + how : ''}, ${b.frames} ${b.frames === 1 ? 'frame' : 'frames'} over ${b.nights} ${b.nights === 1 ? 'night' : 'nights'}${span}.`
 }
 
 export function halphaSource(m: HalphaMap | null | undefined): string {

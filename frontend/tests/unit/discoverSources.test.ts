@@ -40,7 +40,7 @@ describe('discover sources', () => {
   })
 
   it('never guesses the sky', () => {
-    expect(skySource(null, null)).toBe('Brightness unknown: sky not measured yet.')
+    expect(skySource(null, null)).toBe('Sky brightness not measured yet.')
     expect(
       skySource(20.8, {
         source: 'measured',
@@ -53,7 +53,7 @@ describe('discover sources', () => {
         perNight: [],
         reason: null,
       }),
-    ).toContain('20.80 mag/arcsec², measured median background in L from 40 frames over 3 nights')
+    ).toContain('20.80 mag/arcsec², measured from L masters (median background), 40 frames over 3 nights')
   })
 
   it('describes the H-alpha map state', () => {

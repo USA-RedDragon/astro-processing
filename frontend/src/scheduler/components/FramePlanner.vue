@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { rigSource } from '../api/discover'
+import { API_BASE, query } from '../api/client'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { frame, project, type Framing, type FramingOption, type SkyPoint } from '../api/mosaics'
 
@@ -195,20 +196,46 @@ const outline = computed(() => {
   return { rx: Math.max(3, min / 2), ry: Math.max(3, maj / 2), pa: props.object.pa || 0 }
 })
 
-const surveyUrl = computed(() => {
-  const q = new URLSearchParams({
-    hips: 'CDS/P/DSS2/color',
-    width: String(W),
-    height: String(H),
-    fov: view.value.fovDeg.toFixed(3),
-    projection: 'TAN',
-    coordsys: 'icrs',
-    ra: props.object.ra.toFixed(5),
-    dec: props.object.dec.toFixed(5),
-    rotation_angle: '0',
-    format: 'jpg',
-  })
-  return 'https://alasky.cds.unistra.fr/hips-image-services/hips2fits?' + q.toString()
+const surveyUrl = computed(
+  () =>
+    API_BASE +
+    '/sky/cutout' +
+    query({
+      ra: props.object.ra.toFixed(5),
+      dec: props.object.dec.toFixed(5),
+      fov: Math.min(30, Math.max(0.01, view.value.fovDeg)).toFixed(3),
+      rotation: 0,
+      width: W,
+      height: H,
+    }),
+)
+
+const basisText = computed(() => {
+  const f = framing.value
+  if (!f) return ''
+  const b = f.basis
+  const parts: string[] = []
+  if (b.hoursPerPanel !== null)
+    parts.push(
+      `${b.hoursPerPanel.toFixed(1)} h effective per panel (${b.hoursPerPanelSource ?? 'source unknown'}${b.targets ? `, ${b.targets} targets` : ''})`,
+    )
+  if (b.hoursPerClearNight !== null)
+    parts.push(
+      `${b.hoursPerClearNight.toFixed(1)} h per clear night from ${b.historyNights} imaging nights`,
+    )
+  if (b.clearNightsPerSeason !== null)
+    parts.push(`${Math.round(b.clearNightsPerSeason)} clear nights a season`)
+  const dark =
+    f.nightHours !== null
+      ? `${f.nightHours.toFixed(1)} usable dark hours a night${f.bestMonths.length ? ' in ' + f.bestMonths.join(', ') : ''}`
+      : 'usable dark hours unknown' + (f.siteKnown ? '' : ' until the site is known')
+  parts.push(dark)
+  return (
+    'Estimates use ' +
+    parts.join(', ') +
+    '.' +
+    (b.reason ? ' ' + b.reason.charAt(0).toUpperCase() + b.reason.slice(1) + '.' : '')
+  )
 })
 
 const panelCount = computed(() => shown.value?.panels.length ?? 0)
@@ -233,8 +260,8 @@ const rigText = computed(() => {
   if (!r) return 'unknown'
   const parts: string[] = []
   if (r.focalLength !== null) parts.push(`${Math.round(r.focalLength)} mm`)
-  if (r.basis.telescope) parts.push(r.basis.telescope)
-  if (r.basis.camera) parts.push(r.basis.camera)
+  if (r.pixelSize !== null) parts.push(`${r.pixelSize} µm pixels`)
+  if (r.widthPx !== null && r.heightPx !== null) parts.push(`${r.widthPx} × ${r.heightPx}`)
   return parts.join(' · ') || 'unknown'
 })
 
@@ -265,6 +292,16 @@ function useSuggested() {
           opacity="0.85"
           @error="surveyFailed = true"
         />
+        <text
+          v-if="survey && surveyFailed"
+          :x="W / 2"
+          :y="H - 12"
+          text-anchor="middle"
+          font-size="12"
+          fill="var(--muted-foreground)"
+        >
+          The sky survey image is not available right now.
+        </text>
         <ellipse
           :cx="W / 2"
           :cy="H / 2"
@@ -404,13 +441,8 @@ function useSuggested() {
         <button type="button" class="btn sm" @click="useCustom">Use this grid</button>
       </div>
       <p class="xsmall muted" style="margin: 0">
-        Nights assume about 40% effective-to-open-shutter time and
-        {{ framing ? framing.nightHours.toFixed(1) : 'an unknown number of' }} usable dark hours a
-        night{{
-          framing && framing.bestMonths.length
-            ? ' in ' + framing.bestMonths.join(', ')
-            : " in the object's best months"
-        }}. Every panel gets the same goal, measured per panel; the weakest sets completion.
+        {{ basisText }} Every panel gets the same goal, measured per panel; the weakest sets
+        completion.
       </p>
     </fieldset>
   </div>

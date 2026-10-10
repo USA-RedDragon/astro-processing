@@ -36,11 +36,21 @@ export interface FramingOption {
   overlapPct: number
   coverage: number
   panels: PlannedPanel[]
-  hours: number
-  nights: number
-  seasons: number
+  hours: number | null
+  nights: number | null
+  seasons: number | null
   cost: string
   recommended: boolean
+}
+
+export interface FramingBasis {
+  hoursPerPanel: number | null
+  hoursPerPanelSource: string | null
+  targets: number
+  hoursPerClearNight: number | null
+  clearNightsPerSeason: number | null
+  historyNights: number
+  reason: string | null
 }
 
 export interface Framing {
@@ -49,7 +59,8 @@ export interface Framing {
   rotation: number
   suggestedRotation: number
   overlap: number
-  nightHours: number
+  nightHours: number | null
+  basis: FramingBasis
   bestMonths: string[]
   siteKnown: boolean
   options: FramingOption[]
@@ -225,7 +236,7 @@ export interface SeasonBasis {
   hoursPerClearNight: number | null
   clearNightsPerSeason: number | null
   clearNightsPerMonth: { month: number; name: string; nights: number | null; years: number }[]
-  usableMonths: number | null
+  usableMonths: number[] | null
   historyFrom: string | null
   historyTo: string | null
   historyNights: number
