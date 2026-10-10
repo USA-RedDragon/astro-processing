@@ -52,10 +52,6 @@ type storageShadow struct {
 	DSN  *string `json:"dsn"  toml:"dsn"  yaml:"dsn"`
 }
 
-type qualityShadow struct {
-	Pedestal *float64 `json:"pedestal" toml:"pedestal" yaml:"pedestal"`
-}
-
 type workerShadow struct {
 	URL *string `json:"url" toml:"url" yaml:"url"`
 }
@@ -66,7 +62,6 @@ type configShadow struct {
 	Metrics  *metricsShadow `json:"metrics"   toml:"metrics"   yaml:"metrics"`
 	PProf    *pProfShadow   `json:"pprof"     toml:"pprof"     yaml:"pprof"`
 	Storage  *storageShadow `json:"storage"   toml:"storage"   yaml:"storage"`
-	Quality  *qualityShadow `json:"quality"   toml:"quality"   yaml:"quality"`
 	Worker   *workerShadow  `json:"worker"    toml:"worker"    yaml:"worker"`
 }
 
@@ -113,8 +108,6 @@ func configApplyDefaults(cfg *Config, sep string, set configulator.SetOrigin) er
 	set("storage.type", configulator.LayerDefault, "default tag")
 	cfg.Storage.DSN = ":memory:?_pragma=foreign_keys(1)"
 	set("storage.dsn", configulator.LayerDefault, "default tag")
-	cfg.Quality.Pedestal = 506.0
-	set("quality.pedestal", configulator.LayerDefault, "default tag")
 	return nil
 }
 
@@ -206,12 +199,6 @@ func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin
 		if s.Storage.DSN != nil {
 			cfg.Storage.DSN = *s.Storage.DSN
 			set("storage.dsn", configulator.LayerFile, file)
-		}
-	}
-	if s.Quality != nil {
-		if s.Quality.Pedestal != nil {
-			cfg.Quality.Pedestal = *s.Quality.Pedestal
-			set("quality.pedestal", configulator.LayerFile, file)
 		}
 	}
 	if s.Worker != nil {
@@ -359,19 +346,6 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 		cfg.Storage.DSN = v
 		set("storage.dsn", configulator.LayerEnv, n)
 	}
-	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "quality", "pedestal"); ok {
-		p, err := strconv.ParseFloat(v, 64)
-		if err != nil {
-			return &configulator.ParseError{
-				Err:    err,
-				Path:   "quality.pedestal",
-				Source: n,
-				Value:  v,
-			}
-		}
-		cfg.Quality.Pedestal = p
-		set("quality.pedestal", configulator.LayerEnv, n)
-	}
 	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "worker", "url"); ok {
 		cfg.Worker.URL = v
 		set("worker.url", configulator.LayerEnv, n)
@@ -406,7 +380,6 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 		"pprof" + o.Separator + "port",
 		"storage" + o.Separator + "type",
 		"storage" + o.Separator + "dsn",
-		"quality" + o.Separator + "pedestal",
 		"worker" + o.Separator + "url",
 	}
 	for i, name := range names {
@@ -443,8 +416,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.Var(impl.NewInt(9999), names[14], "Port to listen on")
 	fs.String(names[15], "sqlite", "Storage type. One of mysql, postgres, sqlite")
 	fs.String(names[16], ":memory:?_pragma=foreign_keys(1)", "Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)")
-	fs.Float64(names[17], 506.0, "Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background")
-	fs.String(names[18], "", "Base URL of pixinsight-worker, for calibration coverage. Empty disables it")
+	fs.String(names[17], "", "Base URL of pixinsight-worker, for calibration coverage. Empty disables it")
 	return nil
 }
 
@@ -653,18 +625,6 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ stri
 		cfg.Storage.DSN = v
 		set("storage.dsn", configulator.LayerCLI, "--"+n)
 	}
-	if n := "quality" + o.Separator + "pedestal"; fs.Changed(n) {
-		v, err := fs.GetFloat64(n)
-		if err != nil {
-			return &configulator.ParseError{
-				Err:    err,
-				Path:   "quality.pedestal",
-				Source: "--" + n,
-			}
-		}
-		cfg.Quality.Pedestal = v
-		set("quality.pedestal", configulator.LayerCLI, "--"+n)
-	}
 	if n := "worker" + o.Separator + "url"; fs.Changed(n) {
 		v, err := fs.GetString(n)
 		if err != nil {
@@ -785,25 +745,6 @@ func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 					return err
 				}
 				s.Storage = &sub
-			}
-		case "quality":
-			if dec.PeekKind() == jsontext.KindNull {
-				if _, err := dec.ReadToken(); err != nil {
-					return err
-				}
-			} else {
-				open, err := dec.ReadToken()
-				if err != nil {
-					return err
-				}
-				if open.Kind() != jsontext.KindBeginObject {
-					return configJSONError("quality", open, fmt.Errorf("expected an object, got %v", open.Kind()))
-				}
-				var sub qualityShadow
-				if err := sub.decodeJSON(dec, "quality"); err != nil {
-					return err
-				}
-				s.Quality = &sub
 			}
 		case "worker":
 			if dec.PeekKind() == jsontext.KindNull {
@@ -1270,45 +1211,6 @@ func (s *storageShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 
 // decodeJSON decodes the members of an object whose opening brace has
 // been read. path is the object's dotted path.
-func (s *qualityShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
-	for {
-		tok, err := dec.ReadToken()
-		if err != nil {
-			return err
-		}
-		if tok.Kind() == jsontext.KindEndObject {
-			return nil
-		}
-		switch key := tok.String(); key {
-		case "pedestal":
-			v, err := dec.ReadToken()
-			if err != nil {
-				return err
-			}
-			switch v.Kind() {
-			case jsontext.KindNull:
-			case jsontext.KindNumber:
-				num, err := v.Float()
-				if err != nil {
-					return configJSONError(path+".pedestal", v, err)
-				}
-				s.Pedestal = &num
-			default:
-				return configJSONError(path+".pedestal", v, fmt.Errorf("expected a number, got %v", v.Kind()))
-			}
-		default:
-			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
-				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
-			}
-			if err := dec.SkipValue(); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-// decodeJSON decodes the members of an object whose opening brace has
-// been read. path is the object's dotted path.
 func (s *workerShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	for {
 		tok, err := dec.ReadToken()
@@ -1374,7 +1276,6 @@ func (c Config) PrintConfig() string {
 	fmt.Fprintf(&b, "pprof.port = %v\n", c.PProf.Port)
 	fmt.Fprintf(&b, "storage.type = %v\n", c.Storage.Type)
 	fmt.Fprintf(&b, "storage.dsn = %v\n", c.Storage.DSN)
-	fmt.Fprintf(&b, "quality.pedestal = %v\n", c.Quality.Pedestal)
 	fmt.Fprintf(&b, "worker.url = %v\n", c.Worker.URL)
 	return b.String()
 }

@@ -80,6 +80,8 @@ type Master struct {
 	CometPreviewURL  string    `json:"comet_preview_url"`
 	CometURL         string    `json:"comet_url"`
 	CometXISFURL     string    `json:"comet_xisf_url"`
+	MinScore         *float64  `json:"min_score"`
+	LowestScore      *float64  `json:"lowest_score"`
 }
 
 type Client struct {
@@ -135,13 +137,32 @@ type Sub struct {
 	Filter      string     `json:"filter"`
 	Exposure    *float64   `json:"exposure"`
 	Status      string     `json:"status"`
-	Score       float64    `json:"score"`
-	Weight      float64    `json:"weight"`
+	Score       *float64   `json:"score"`
+	Weight      *float64   `json:"weight"`
 	Error       string     `json:"error"`
 	ProcessedAt *time.Time `json:"processed_at"`
 	// Photometry is pending, measured or failed: whether the stacker's own
 	// star photometry is in the sub's transparency yet.
-	Photometry string `json:"photometry"`
+	Photometry string   `json:"photometry"`
+	Scoring    *Scoring `json:"scoring"`
+	NoScoring  string   `json:"no_scoring"`
+}
+
+type Scoring struct {
+	MinScore            float64  `json:"min_score"`
+	TargetBest          *float64 `json:"target_best"`
+	Cut                 *float64 `json:"cut"`
+	ReferenceWeight     *float64 `json:"reference_weight"`
+	ReferenceSubs       int32    `json:"reference_subs"`
+	ReferencePercentile float64  `json:"reference_percentile"`
+	Transparency        *float64 `json:"transparency"`
+	TransparencySource  string   `json:"transparency_source"`
+	TransparencyMissing string   `json:"transparency_missing"`
+	PedestalADU         *float64 `json:"pedestal_adu"`
+	PedestalSource      string   `json:"pedestal_source"`
+	PedestalBasis       string   `json:"pedestal_basis"`
+	SkyADU              *float64 `json:"sky_adu"`
+	Unmeasured          string   `json:"unmeasured"`
 }
 
 // Subs returns one target's lights with the stacker's status, score and

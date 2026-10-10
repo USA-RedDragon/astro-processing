@@ -87,24 +87,38 @@ type ComplexityRoot struct {
 		FittedURL       func(childComplexity int) int
 		Height          func(childComplexity int) int
 		LinearURL       func(childComplexity int) int
+		LowestScore     func(childComplexity int) int
 		MasterURL       func(childComplexity int) int
+		MinScore        func(childComplexity int) int
+		ObjectLights    func(childComplexity int) int
 		PreviewURL      func(childComplexity int) int
 		Subs            func(childComplexity int) int
+		TargetSubs      func(childComplexity int) int
 		UpdatedAt       func(childComplexity int) int
 		Width           func(childComplexity int) int
 		XisfURL         func(childComplexity int) int
 	}
 
 	FilterQuality struct {
-		EffectiveHours func(childComplexity int) int
-		ExposureTime   func(childComplexity int) int
-		FilterName     func(childComplexity int) int
-		MedianHfr      func(childComplexity int) int
-		MedianSky      func(childComplexity int) int
-		NominalHours   func(childComplexity int) int
-		Pending        func(childComplexity int) int
-		Stacked        func(childComplexity int) int
-		Subframes      func(childComplexity int) int
+		BelowCut            func(childComplexity int) int
+		Cut                 func(childComplexity int) int
+		EffectiveHours      func(childComplexity int) int
+		ExposureTime        func(childComplexity int) int
+		FilterName          func(childComplexity int) int
+		MedianHfr           func(childComplexity int) int
+		MedianSky           func(childComplexity int) int
+		MinScore            func(childComplexity int) int
+		NominalHours        func(childComplexity int) int
+		Pending             func(childComplexity int) int
+		ReferencePercentile func(childComplexity int) int
+		ReferenceSubs       func(childComplexity int) int
+		ReferenceWeight     func(childComplexity int) int
+		RejectedInScheduler func(childComplexity int) int
+		SkyBasis            func(childComplexity int) int
+		Stacked             func(childComplexity int) int
+		Subframes           func(childComplexity int) int
+		TargetBest          func(childComplexity int) int
+		Unmeasured          func(childComplexity int) int
 	}
 
 	ImagingStats struct {
@@ -196,26 +210,36 @@ type ComplexityRoot struct {
 	}
 
 	Subframe struct {
-		AcquiredDate     func(childComplexity int) int
-		Airmass          func(childComplexity int) int
-		Eccentricity     func(childComplexity int) int
-		ExposureTime     func(childComplexity int) int
-		FileName         func(childComplexity int) int
-		FilterName       func(childComplexity int) int
-		Fwhm             func(childComplexity int) int
-		GradingStatus    func(childComplexity int) int
-		GuidingRmsArcsec func(childComplexity int) int
-		Hfr              func(childComplexity int) int
-		ID               func(childComplexity int) int
-		Photometry       func(childComplexity int) int
-		PreviewURL       func(childComplexity int) int
-		RejectReason     func(childComplexity int) int
-		Score            func(childComplexity int) int
-		Sky              func(childComplexity int) int
-		StackReason      func(childComplexity int) int
-		StackStatus      func(childComplexity int) int
-		Stars            func(childComplexity int) int
-		Weight           func(childComplexity int) int
+		AcquiredDate        func(childComplexity int) int
+		Airmass             func(childComplexity int) int
+		Cut                 func(childComplexity int) int
+		Eccentricity        func(childComplexity int) int
+		ExposureTime        func(childComplexity int) int
+		FileName            func(childComplexity int) int
+		FilterName          func(childComplexity int) int
+		Fwhm                func(childComplexity int) int
+		GradingStatus       func(childComplexity int) int
+		GuidingRmsArcsec    func(childComplexity int) int
+		Hfr                 func(childComplexity int) int
+		ID                  func(childComplexity int) int
+		PedestalAdu         func(childComplexity int) int
+		PedestalBasis       func(childComplexity int) int
+		PedestalSource      func(childComplexity int) int
+		Photometry          func(childComplexity int) int
+		PreviewURL          func(childComplexity int) int
+		RejectReason        func(childComplexity int) int
+		Score               func(childComplexity int) int
+		ScoreMissing        func(childComplexity int) int
+		Sky                 func(childComplexity int) int
+		SkyMissing          func(childComplexity int) int
+		StackReason         func(childComplexity int) int
+		StackStatus         func(childComplexity int) int
+		Stars               func(childComplexity int) int
+		TargetBest          func(childComplexity int) int
+		Transparency        func(childComplexity int) int
+		TransparencyMissing func(childComplexity int) int
+		TransparencySource  func(childComplexity int) int
+		Weight              func(childComplexity int) int
 	}
 
 	Target struct {
@@ -511,12 +535,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterMaster.LinearURL(childComplexity), true
+	case "FilterMaster.lowest_score":
+		if e.ComplexityRoot.FilterMaster.LowestScore == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.LowestScore(childComplexity), true
 	case "FilterMaster.master_url":
 		if e.ComplexityRoot.FilterMaster.MasterURL == nil {
 			break
 		}
 
 		return e.ComplexityRoot.FilterMaster.MasterURL(childComplexity), true
+	case "FilterMaster.min_score":
+		if e.ComplexityRoot.FilterMaster.MinScore == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.MinScore(childComplexity), true
+	case "FilterMaster.object_lights":
+		if e.ComplexityRoot.FilterMaster.ObjectLights == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.ObjectLights(childComplexity), true
 	case "FilterMaster.preview_url":
 		if e.ComplexityRoot.FilterMaster.PreviewURL == nil {
 			break
@@ -529,6 +571,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterMaster.Subs(childComplexity), true
+	case "FilterMaster.target_subs":
+		if e.ComplexityRoot.FilterMaster.TargetSubs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.TargetSubs(childComplexity), true
 	case "FilterMaster.updated_at":
 		if e.ComplexityRoot.FilterMaster.UpdatedAt == nil {
 			break
@@ -548,6 +596,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.FilterMaster.XisfURL(childComplexity), true
 
+	case "FilterQuality.below_cut":
+		if e.ComplexityRoot.FilterQuality.BelowCut == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.BelowCut(childComplexity), true
+	case "FilterQuality.cut":
+		if e.ComplexityRoot.FilterQuality.Cut == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.Cut(childComplexity), true
 	case "FilterQuality.effective_hours":
 		if e.ComplexityRoot.FilterQuality.EffectiveHours == nil {
 			break
@@ -578,6 +638,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterQuality.MedianSky(childComplexity), true
+	case "FilterQuality.min_score":
+		if e.ComplexityRoot.FilterQuality.MinScore == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.MinScore(childComplexity), true
 	case "FilterQuality.nominal_hours":
 		if e.ComplexityRoot.FilterQuality.NominalHours == nil {
 			break
@@ -590,6 +656,36 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterQuality.Pending(childComplexity), true
+	case "FilterQuality.reference_percentile":
+		if e.ComplexityRoot.FilterQuality.ReferencePercentile == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.ReferencePercentile(childComplexity), true
+	case "FilterQuality.reference_subs":
+		if e.ComplexityRoot.FilterQuality.ReferenceSubs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.ReferenceSubs(childComplexity), true
+	case "FilterQuality.reference_weight":
+		if e.ComplexityRoot.FilterQuality.ReferenceWeight == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.ReferenceWeight(childComplexity), true
+	case "FilterQuality.rejected_in_scheduler":
+		if e.ComplexityRoot.FilterQuality.RejectedInScheduler == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.RejectedInScheduler(childComplexity), true
+	case "FilterQuality.sky_basis":
+		if e.ComplexityRoot.FilterQuality.SkyBasis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.SkyBasis(childComplexity), true
 	case "FilterQuality.stacked":
 		if e.ComplexityRoot.FilterQuality.Stacked == nil {
 			break
@@ -602,6 +698,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterQuality.Subframes(childComplexity), true
+	case "FilterQuality.target_best":
+		if e.ComplexityRoot.FilterQuality.TargetBest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.TargetBest(childComplexity), true
+	case "FilterQuality.unmeasured":
+		if e.ComplexityRoot.FilterQuality.Unmeasured == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.Unmeasured(childComplexity), true
 
 	case "ImagingStats.accepted_images":
 		if e.ComplexityRoot.ImagingStats.AcceptedImages == nil {
@@ -1050,6 +1158,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.Airmass(childComplexity), true
+	case "Subframe.cut":
+		if e.ComplexityRoot.Subframe.Cut == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.Cut(childComplexity), true
 	case "Subframe.eccentricity":
 		if e.ComplexityRoot.Subframe.Eccentricity == nil {
 			break
@@ -1104,6 +1218,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.ID(childComplexity), true
+	case "Subframe.pedestal_adu":
+		if e.ComplexityRoot.Subframe.PedestalAdu == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.PedestalAdu(childComplexity), true
+	case "Subframe.pedestal_basis":
+		if e.ComplexityRoot.Subframe.PedestalBasis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.PedestalBasis(childComplexity), true
+	case "Subframe.pedestal_source":
+		if e.ComplexityRoot.Subframe.PedestalSource == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.PedestalSource(childComplexity), true
 	case "Subframe.photometry":
 		if e.ComplexityRoot.Subframe.Photometry == nil {
 			break
@@ -1128,12 +1260,24 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.Score(childComplexity), true
+	case "Subframe.score_missing":
+		if e.ComplexityRoot.Subframe.ScoreMissing == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.ScoreMissing(childComplexity), true
 	case "Subframe.sky":
 		if e.ComplexityRoot.Subframe.Sky == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Subframe.Sky(childComplexity), true
+	case "Subframe.sky_missing":
+		if e.ComplexityRoot.Subframe.SkyMissing == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.SkyMissing(childComplexity), true
 	case "Subframe.stack_reason":
 		if e.ComplexityRoot.Subframe.StackReason == nil {
 			break
@@ -1152,6 +1296,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.Stars(childComplexity), true
+	case "Subframe.target_best":
+		if e.ComplexityRoot.Subframe.TargetBest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.TargetBest(childComplexity), true
+	case "Subframe.transparency":
+		if e.ComplexityRoot.Subframe.Transparency == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.Transparency(childComplexity), true
+	case "Subframe.transparency_missing":
+		if e.ComplexityRoot.Subframe.TransparencyMissing == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.TransparencyMissing(childComplexity), true
+	case "Subframe.transparency_source":
+		if e.ComplexityRoot.Subframe.TransparencySource == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.TransparencySource(childComplexity), true
 	case "Subframe.weight":
 		if e.ComplexityRoot.Subframe.Weight == nil {
 			break
@@ -1489,6 +1657,14 @@ type FilterMaster {
   comet_preview_url: String
   comet_url: String
   comet_xisf_url: String
+  "The stacker's min score: subs under it times the target's best score in the filter are left out."
+  min_score: Float
+  "The lowest score of the subs in the master."
+  lowest_score: Float
+  "Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page."
+  object_lights: Int
+  "Subs in the master that are this Target Scheduler target's. Null outside a target page."
+  target_subs: Int
 }
 `, BuiltIn: false},
 	{Name: "../../../graph/common.graphqls", Input: `type ImagingStats {
@@ -1700,8 +1876,16 @@ type Subframe {
   grading_status: GradingStatus!
   reject_reason: String
   file_name: String
-  "ADU median above the camera pedestal, adjusted for the sub's offset."
+  "ADU median above the pedestal the stacker scored the sub with. Null when the stacker has no measure of it; sky_missing says why."
   sky: Float
+  "Why sky is null."
+  sky_missing: String
+  "The pedestal taken off the ADU median, in ADU. Null for a sub that came calibrated."
+  pedestal_adu: Float
+  "Where the pedestal comes from: bias (measured from a master bias), configured, or calibrated."
+  pedestal_source: String
+  "The pedestal's basis in words, such as which master bias it was measured from."
+  pedestal_basis: String
   hfr: Float
   fwhm: Float
   stars: Int
@@ -1714,13 +1898,26 @@ type Subframe {
   has processed the sub.
   """
   score: Float
+  "Why score is null."
+  score_missing: String
   "What the sub adds to its master, score × exposure in seconds. Null until processed."
   weight: Float
+  "The best score of this target's subs in the filter, as the stacker scores them now."
+  target_best: Float
+  "The stacker's cut: subs scoring under it are left out (min score × target_best)."
+  cut: Float
+  "The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured."
+  transparency: Float
+  "How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record)."
+  transparency_source: String
+  "Why transparency is not measured; the score then leaves it out."
+  transparency_missing: String
   """
   What the stacker made of the sub: pending (not processed yet), added,
-  low_score, moon, off_target, rejected (in Target Scheduler, not by the
-  stacker), no_metadata, calibration, registration, failed, dead,
-  recalibrate or duplicate.
+  low_score, unmeasured (an input to its score is missing), moon,
+  off_target, rejected (in Target Scheduler, not by the stacker),
+  no_metadata, calibration, registration, failed, dead, recalibrate,
+  duplicate, or unreachable (the stacker could not be asked).
   """
   stack_status: String!
   "Why the sub is not in its master, or what it waits for. Null for a stacked sub."
@@ -1747,7 +1944,24 @@ type FilterQuality {
   "The stacker's weights (score × exposure) of the subs it stacked: hours of good-conditions data in the master."
   effective_hours: Float!
   median_sky: Float
+  "What median_sky is measured against: the pedestals of its subs."
+  sky_basis: String
   median_hfr: Float
+  "Subs rejected in Target Scheduler, not by the stacker; left out of these counts."
+  rejected_in_scheduler: Int!
+  "Subs the stacker left out for a score under its cut."
+  below_cut: Int!
+  "Subs the stacker could not score for a missing input."
+  unmeasured: Int!
+  "The stacker's min score: the cut is this times the target's best score in the filter."
+  min_score: Float
+  "This target's best score in the filter, as the stacker scores it now."
+  target_best: Float
+  cut: Float
+  "The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target."
+  reference_weight: Float
+  reference_subs: Int
+  reference_percentile: Float
 }
 `, BuiltIn: false},
 }
@@ -1875,6 +2089,14 @@ func (ec *executionContext) childFields_FilterMaster(ctx context.Context, field 
 		return ec.fieldContext_FilterMaster_comet_url(ctx, field)
 	case "comet_xisf_url":
 		return ec.fieldContext_FilterMaster_comet_xisf_url(ctx, field)
+	case "min_score":
+		return ec.fieldContext_FilterMaster_min_score(ctx, field)
+	case "lowest_score":
+		return ec.fieldContext_FilterMaster_lowest_score(ctx, field)
+	case "object_lights":
+		return ec.fieldContext_FilterMaster_object_lights(ctx, field)
+	case "target_subs":
+		return ec.fieldContext_FilterMaster_target_subs(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type FilterMaster", field.Name)
 }
@@ -1897,8 +2119,28 @@ func (ec *executionContext) childFields_FilterQuality(ctx context.Context, field
 		return ec.fieldContext_FilterQuality_effective_hours(ctx, field)
 	case "median_sky":
 		return ec.fieldContext_FilterQuality_median_sky(ctx, field)
+	case "sky_basis":
+		return ec.fieldContext_FilterQuality_sky_basis(ctx, field)
 	case "median_hfr":
 		return ec.fieldContext_FilterQuality_median_hfr(ctx, field)
+	case "rejected_in_scheduler":
+		return ec.fieldContext_FilterQuality_rejected_in_scheduler(ctx, field)
+	case "below_cut":
+		return ec.fieldContext_FilterQuality_below_cut(ctx, field)
+	case "unmeasured":
+		return ec.fieldContext_FilterQuality_unmeasured(ctx, field)
+	case "min_score":
+		return ec.fieldContext_FilterQuality_min_score(ctx, field)
+	case "target_best":
+		return ec.fieldContext_FilterQuality_target_best(ctx, field)
+	case "cut":
+		return ec.fieldContext_FilterQuality_cut(ctx, field)
+	case "reference_weight":
+		return ec.fieldContext_FilterQuality_reference_weight(ctx, field)
+	case "reference_subs":
+		return ec.fieldContext_FilterQuality_reference_subs(ctx, field)
+	case "reference_percentile":
+		return ec.fieldContext_FilterQuality_reference_percentile(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type FilterQuality", field.Name)
 }
@@ -2073,6 +2315,14 @@ func (ec *executionContext) childFields_Subframe(ctx context.Context, field grap
 		return ec.fieldContext_Subframe_file_name(ctx, field)
 	case "sky":
 		return ec.fieldContext_Subframe_sky(ctx, field)
+	case "sky_missing":
+		return ec.fieldContext_Subframe_sky_missing(ctx, field)
+	case "pedestal_adu":
+		return ec.fieldContext_Subframe_pedestal_adu(ctx, field)
+	case "pedestal_source":
+		return ec.fieldContext_Subframe_pedestal_source(ctx, field)
+	case "pedestal_basis":
+		return ec.fieldContext_Subframe_pedestal_basis(ctx, field)
 	case "hfr":
 		return ec.fieldContext_Subframe_hfr(ctx, field)
 	case "fwhm":
@@ -2087,8 +2337,20 @@ func (ec *executionContext) childFields_Subframe(ctx context.Context, field grap
 		return ec.fieldContext_Subframe_airmass(ctx, field)
 	case "score":
 		return ec.fieldContext_Subframe_score(ctx, field)
+	case "score_missing":
+		return ec.fieldContext_Subframe_score_missing(ctx, field)
 	case "weight":
 		return ec.fieldContext_Subframe_weight(ctx, field)
+	case "target_best":
+		return ec.fieldContext_Subframe_target_best(ctx, field)
+	case "cut":
+		return ec.fieldContext_Subframe_cut(ctx, field)
+	case "transparency":
+		return ec.fieldContext_Subframe_transparency(ctx, field)
+	case "transparency_source":
+		return ec.fieldContext_Subframe_transparency_source(ctx, field)
+	case "transparency_missing":
+		return ec.fieldContext_Subframe_transparency_missing(ctx, field)
 	case "stack_status":
 		return ec.fieldContext_Subframe_stack_status(ctx, field)
 	case "stack_reason":

@@ -9,15 +9,6 @@ import (
 	"strconv"
 )
 
-// pedestalOffset is the camera offset the configured pedestal is measured
-// at, and pedestalPerOffset the ADU each unit of offset adds, as
-// astro-stacker's quality.PedestalAt has them: the ASI2600MM's offset-240
-// master bias sits at 2403 ADU, 1897 above offset 50's.
-const (
-	pedestalOffset    = 50
-	pedestalPerOffset = 10.0
-)
-
 // Float decodes a JSON number or a string such as "NaN", which is how
 // Target Scheduler writes metrics it could not measure.
 type Float float64
@@ -65,22 +56,4 @@ func ParseMetadata(raw string) (Metadata, error) {
 	var m Metadata
 	err := json.Unmarshal([]byte(raw), &m)
 	return m, err
-}
-
-// PedestalAt is the pedestal at a camera offset, from the pedestal at offset
-// 50. An unknown offset (0 or NaN) is taken as 50.
-func PedestalAt(pedestal, offset float64) float64 {
-	if !(offset > 0) {
-		return pedestal
-	}
-	return pedestal + (offset-pedestalOffset)*pedestalPerOffset
-}
-
-// Sky returns the background above the pedestal, or NaN if it is not positive.
-func Sky(aduMedian, pedestal float64) float64 {
-	s := aduMedian - pedestal
-	if !(s > 0) {
-		return math.NaN()
-	}
-	return s
 }

@@ -24,7 +24,6 @@ type Config struct {
 	Metrics  Metrics  `name:"metrics" description:"Prometheus metrics server configuration"`
 	PProf    PProf    `name:"pprof" description:"Go pprof profiling server configuration, for debugging and performance analysis"`
 	Storage  Storage  `name:"storage" description:"Storage configuration"`
-	Quality  Quality  `name:"quality" description:"Subframe quality scoring configuration"`
 	Worker   Worker   `name:"worker" description:"pixinsight-worker connection"`
 }
 
@@ -62,10 +61,6 @@ type PProf struct {
 type Storage struct {
 	Type types.StorageType `name:"type" description:"Storage type. One of mysql, postgres, sqlite" default:"sqlite"`
 	DSN  string            `name:"dsn" description:"Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)" default:":memory:?_pragma=foreign_keys(1)"`
-}
-
-type Quality struct {
-	Pedestal float64 `name:"pedestal" description:"Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background" default:"506"`
 }
 
 var (

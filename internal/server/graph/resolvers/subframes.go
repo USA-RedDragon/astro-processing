@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"math"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -25,23 +26,20 @@ const (
 // in Target Scheduler itself (its verdicts).
 const stackerReasonPrefix = "stacker:"
 
-// The stacker's statuses this package treats specially; the rest are shown
-// as they come. statusPending is ours: the stacker hasn't processed the sub.
 const (
-	statusPending    = "pending"
-	statusAdded      = "added"
-	statusRejected   = "rejected"
-	statusNoMetadata = "no_metadata"
-	statusDuplicate  = "duplicate"
+	statusPending     = "pending"
+	statusAdded       = "added"
+	statusRejected    = "rejected"
+	statusNoMetadata  = "no_metadata"
+	statusDuplicate   = "duplicate"
+	statusLowScore    = "low_score"
+	statusUnmeasured  = "unmeasured"
+	statusMoon        = "moon"
+	statusUnreachable = "unreachable"
 )
 
-// statusReason explains a stacker status that came without an error.
-func statusReason(status string) string {
+func statusMeaning(status string) string {
 	switch status {
-	case "low_score":
-		return "Scored below the stacker's cut against this target's best subs"
-	case "moon":
-		return "Breaks its filter's moon avoidance"
 	case "off_target":
 		return "The mount pointed elsewhere and the sub didn't register"
 	case statusNoMetadata:
@@ -58,6 +56,8 @@ func statusReason(status string) string {
 		return "Being calibrated again with a better dark"
 	case statusDuplicate:
 		return "The same file as an earlier light"
+	case statusMoon:
+		return "Breaks its filter's moon avoidance; the stacker recorded no separation when it left it out"
 	}
 	return ""
 }
@@ -76,13 +76,11 @@ type subframeRow struct {
 	Metadata      string
 }
 
-// subframe is an acquired image with what the stacker made of it; stack is
-// nil when the stacker has no light of that name.
 type subframe struct {
-	row   subframeRow
-	meta  submeta.Metadata
-	sky   float64
-	stack *workerclient.Sub
+	row         subframeRow
+	meta        submeta.Metadata
+	stack       *workerclient.Sub
+	unreachable string
 }
 
 func (s subframe) group() qualityGroup {
@@ -93,36 +91,61 @@ func (s subframe) group() qualityGroup {
 	return qualityGroup{filter: filter, exposure: math.Round(float64(s.meta.ExposureDuration))}
 }
 
-// fileName is the base name of the sub's file. NINA records Windows paths;
-// the base name is what matches files in the object store.
 func (s subframe) fileName() string {
 	return s.meta.FileName[strings.LastIndexAny(s.meta.FileName, `\/`)+1:]
 }
 
-// status is the stacker's status for the sub, or statusPending.
 func (s subframe) status() string {
+	if s.unreachable != "" {
+		return statusUnreachable
+	}
 	if s.stack == nil || s.stack.Status == "" {
 		return statusPending
 	}
 	return s.stack.Status
 }
 
-// scored reports whether the stacker's score means anything: it scores
-// neither subs Target Scheduler rejected, nor ones it has no record of, nor
-// duplicate files.
 func (s subframe) scored() bool {
 	switch s.status() {
-	case statusPending, statusRejected, statusNoMetadata, statusDuplicate:
+	case statusPending, statusRejected, statusNoMetadata, statusDuplicate, statusUnmeasured, statusUnreachable:
 		return false
 	}
-	return true
+	return s.stack.Score != nil
 }
 
-// rejectedInScheduler reports a sub rejected in Target Scheduler other than
-// by the stacker's verdicts, which the stacker leaves out without judging.
+func (s subframe) scoring() *workerclient.Scoring {
+	if s.stack == nil {
+		return nil
+	}
+	return s.stack.Scoring
+}
+
 func (s subframe) rejectedInScheduler() bool {
 	return s.row.GradingStatus == gradingRejected &&
 		(s.row.RejectReason == nil || !strings.HasPrefix(*s.row.RejectReason, stackerReasonPrefix))
+}
+
+func (s subframe) notInStacker() string {
+	switch {
+	case s.unreachable != "":
+		return "Stacker unreachable: " + s.unreachable
+	case s.stack == nil:
+		return "Not in the stacker's index yet"
+	case s.stack.Scoring == nil && s.stack.NoScoring != "":
+		return "The stacker has no score inputs for it: " + s.stack.NoScoring
+	case s.stack.Scoring == nil:
+		return "The stacker sent no score inputs"
+	}
+	return ""
+}
+
+func (s subframe) lowScoreReason() string {
+	sc := s.scoring()
+	if sc == nil || sc.Cut == nil || sc.TargetBest == nil || s.stack.Score == nil {
+		return ""
+	}
+	return fmt.Sprintf("score %.2f is under the cut %.2f as scored now: %g × the target's best %s score, %.2f",
+		*s.stack.Score, *sc.Cut, sc.MinScore, s.stack.Filter, *sc.TargetBest)
 }
 
 func (s subframe) reason() *string {
@@ -130,6 +153,8 @@ func (s subframe) reason() *string {
 	switch st := s.status(); st {
 	case statusAdded:
 		return nil
+	case statusUnreachable:
+		why = s.notInStacker()
 	case statusPending:
 		why = "Not processed by the stacker yet"
 		if s.stack == nil {
@@ -142,11 +167,53 @@ func (s subframe) reason() *string {
 		}
 	default:
 		why = s.stack.Error
+		switch {
+		case why != "":
+		case st == statusLowScore:
+			why = s.lowScoreReason()
+		case st == statusUnmeasured && s.scoring() != nil && s.scoring().Unmeasured != "":
+			why = "not measured: " + s.scoring().Unmeasured
+		default:
+			why = statusMeaning(st)
+		}
 		if why == "" {
-			why = statusReason(st)
+			why = "The stacker recorded no reason"
 		}
 	}
 	return optional(why)
+}
+
+func (s subframe) scoreMissing() *string {
+	if s.scored() {
+		return nil
+	}
+	switch st := s.status(); st {
+	case statusUnreachable:
+		return optional(s.notInStacker())
+	case statusPending:
+		return s.reason()
+	case statusRejected:
+		return optional("Rejected in Target Scheduler; the stacker doesn't score it")
+	case statusDuplicate:
+		return optional("A duplicate of an earlier light; not scored")
+	case statusUnmeasured, statusNoMetadata:
+		return s.reason()
+	}
+	return optional("The stacker recorded no score")
+}
+
+func (s subframe) sky() (*float64, *string) {
+	if why := s.notInStacker(); why != "" {
+		return nil, &why
+	}
+	sc := s.scoring()
+	if sc.SkyADU != nil {
+		return sc.SkyADU, nil
+	}
+	if sc.Unmeasured != "" {
+		return nil, optional(sc.Unmeasured)
+	}
+	return nil, optional("No sky above the pedestal")
 }
 
 func (r *Resolver) loadSubframes(db *gorm.DB, targetID int) ([]subframe, error) {
@@ -164,36 +231,26 @@ func (r *Resolver) loadSubframes(db *gorm.DB, targetID int) ([]subframe, error) 
 	for _, row := range rows {
 		meta, err := submeta.ParseMetadata(row.Metadata)
 		if err != nil {
-			// Keep the sub so counts stay honest.
 			nan := submeta.Float(math.NaN())
 			meta = submeta.Metadata{ExposureDuration: nan, HFR: nan, ADUMedian: nan}
 		}
-		subs = append(subs, subframe{
-			row:  row,
-			meta: meta,
-			sky:  submeta.Sky(float64(meta.ADUMedian), submeta.PedestalAt(r.config.Quality.Pedestal, float64(meta.Offset))),
-		})
+		subs = append(subs, subframe{row: row, meta: meta})
 	}
 	return subs, nil
 }
 
-// stackerSubs is the stacker's lights of a target by file name. It is nil
-// when the stacker is not configured or can't be reached, so every sub
-// shows as pending.
-func (r *Resolver) stackerSubs(ctx context.Context, object string) map[string]*workerclient.Sub {
+func (r *Resolver) stackerSubs(ctx context.Context, object string) ([]workerclient.Sub, string) {
 	if r.worker == nil {
-		return nil
+		return nil, "no stacker is configured"
 	}
 	subs, err := r.worker.Subs(ctx, object)
 	if err != nil {
 		slog.Warn("Could not load the stacker's subs", "target", object, "error", err)
-		return nil
+		return nil, err.Error()
 	}
-	return indexStackerSubs(subs)
+	return subs, ""
 }
 
-// indexStackerSubs keys the stacker's lights by file name. Of a file
-// indexed twice, the original wins over the duplicate.
 func indexStackerSubs(subs []workerclient.Sub) map[string]*workerclient.Sub {
 	out := make(map[string]*workerclient.Sub, len(subs))
 	for i := range subs {
@@ -207,14 +264,20 @@ func indexStackerSubs(subs []workerclient.Sub) map[string]*workerclient.Sub {
 	return out
 }
 
-// targetSubframes loads a target's subs with the stacker's verdict on each.
-func (r *Resolver) targetSubframes(ctx context.Context, targetID int, name string) ([]subframe, error) {
+func (r *Resolver) targetSubframes(ctx context.Context, targetID int, name string) ([]subframe, []workerclient.Sub, error) {
 	subs, err := r.loadSubframes(r.db.WithContext(ctx), targetID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	matchStacker(subs, r.stackerSubs(ctx, name))
-	return subs, nil
+	stacker, unreachable := r.stackerSubs(ctx, name)
+	if unreachable != "" {
+		for i := range subs {
+			subs[i].unreachable = unreachable
+		}
+		return subs, nil, nil
+	}
+	matchStacker(subs, indexStackerSubs(stacker))
+	return subs, stacker, nil
 }
 
 func matchStacker(subs []subframe, stacker map[string]*workerclient.Sub) {
@@ -258,7 +321,6 @@ func toModelSubframe(s subframe) *model.Subframe {
 		GradingStatus:    gradingStatus(s.row.GradingStatus),
 		RejectReason:     s.row.RejectReason,
 		FileName:         optional(s.fileName()),
-		Sky:              finite(s.sky),
 		Hfr:              finite(float64(s.meta.HFR)),
 		Fwhm:             finite(float64(s.meta.FWHM)),
 		Stars:            stars,
@@ -268,12 +330,22 @@ func toModelSubframe(s subframe) *model.Subframe {
 		StackStatus:      s.status(),
 		StackReason:      s.reason(),
 	}
+	out.Sky, out.SkyMissing = s.sky()
+	out.ScoreMissing = s.scoreMissing()
 	if s.stack != nil {
 		out.Photometry = optional(s.stack.Photometry)
 	}
 	if s.scored() {
-		out.Score = finite(s.stack.Score)
-		out.Weight = finite(s.stack.Weight)
+		out.Score, out.Weight = s.stack.Score, s.stack.Weight
+	}
+	if sc := s.scoring(); sc != nil {
+		out.PedestalAdu = sc.PedestalADU
+		out.PedestalSource = optional(sc.PedestalSource)
+		out.PedestalBasis = optional(sc.PedestalBasis)
+		out.Transparency = sc.Transparency
+		out.TransparencySource = optional(sc.TransparencySource)
+		out.TransparencyMissing = optional(sc.TransparencyMissing)
+		out.TargetBest, out.Cut = sc.TargetBest, sc.Cut
 	}
 	return out
 }
@@ -296,43 +368,70 @@ func median(vals []float64) *float64 {
 	return &m
 }
 
-// summarizeQuality totals a target's subs per filter and exposure. Effective
-// hours are the stacker's weights of the subs it stacked, as its masters
-// count them.
 func summarizeQuality(subs []subframe) []*model.FilterQuality {
 	type acc struct {
-		out *model.FilterQuality
-		sky []float64
-		hfr []float64
+		out   *model.FilterQuality
+		sky   []float64
+		hfr   []float64
+		bases []string
 	}
 	groups := map[qualityGroup]*acc{}
 	var order []qualityGroup
-	for _, s := range subs {
-		st := s.status()
-		if s.rejectedInScheduler() || st == statusRejected || st == statusDuplicate {
-			continue
-		}
-		g := s.group()
+	get := func(g qualityGroup) *acc {
 		a, ok := groups[g]
 		if !ok {
 			a = &acc{out: &model.FilterQuality{FilterName: g.filter, ExposureTime: g.exposure}}
 			groups[g] = a
 			order = append(order, g)
 		}
+		return a
+	}
+	for _, s := range subs {
+		st := s.status()
+		if st == statusDuplicate {
+			continue
+		}
+		a := get(s.group())
+		if s.rejectedInScheduler() || st == statusRejected {
+			a.out.RejectedInScheduler++
+			continue
+		}
+		g := s.group()
 		a.out.Subframes++
 		if !math.IsNaN(g.exposure) {
 			a.out.NominalHours += g.exposure / 3600
 		}
 		switch st {
-		case statusPending:
+		case statusPending, statusUnreachable:
 			a.out.Pending++
 		case statusAdded:
 			a.out.Stacked++
-			if w := s.stack.Weight; w > 0 {
-				a.out.EffectiveHours += w / 3600
+			if w := s.stack.Weight; w != nil && *w > 0 {
+				a.out.EffectiveHours += *w / 3600
+			}
+		case statusLowScore:
+			a.out.BelowCut++
+		case statusUnmeasured:
+			a.out.Unmeasured++
+		}
+		if sky, _ := s.sky(); sky != nil {
+			a.sky = append(a.sky, *sky)
+		}
+		if sc := s.scoring(); sc != nil {
+			if sc.PedestalBasis != "" && !slices.Contains(a.bases, sc.PedestalBasis) {
+				a.bases = append(a.bases, sc.PedestalBasis)
+			}
+			if a.out.MinScore == nil {
+				a.out.MinScore = &sc.MinScore
+			}
+			if a.out.TargetBest == nil && sc.TargetBest != nil {
+				a.out.TargetBest, a.out.Cut = sc.TargetBest, sc.Cut
+			}
+			if a.out.ReferenceWeight == nil && sc.ReferenceWeight != nil {
+				n, pct := sc.ReferenceSubs, sc.ReferencePercentile
+				a.out.ReferenceWeight, a.out.ReferenceSubs, a.out.ReferencePercentile = sc.ReferenceWeight, &n, &pct
 			}
 		}
-		a.sky = append(a.sky, s.sky)
 		a.hfr = append(a.hfr, float64(s.meta.HFR))
 	}
 	sort.Slice(order, func(i, j int) bool {
@@ -346,7 +445,29 @@ func summarizeQuality(subs []subframe) []*model.FilterQuality {
 		a := groups[g]
 		a.out.MedianSky = median(a.sky)
 		a.out.MedianHfr = median(a.hfr)
+		if len(a.bases) > 0 {
+			a.out.SkyBasis = optional("ADU median less the pedestal: " + strings.Join(a.bases, "; "))
+		}
 		out = append(out, a.out)
 	}
 	return out
+}
+
+func scopeMasters(masters []*model.FilterMaster, subs []subframe, stacker []workerclient.Sub) {
+	lights := map[string]int32{}
+	for _, s := range stacker {
+		if s.Status != statusDuplicate {
+			lights[s.Filter]++
+		}
+	}
+	mine := map[string]int32{}
+	for _, s := range subs {
+		if s.status() == statusAdded {
+			mine[s.stack.Filter]++
+		}
+	}
+	for _, m := range masters {
+		n, k := lights[m.Filter], mine[m.Filter]
+		m.ObjectLights, m.TargetSubs = &n, &k
+	}
 }

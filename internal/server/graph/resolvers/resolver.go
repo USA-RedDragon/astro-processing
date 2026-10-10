@@ -118,6 +118,7 @@ func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterM
 			XisfURL:   optional(m.XISFURL),
 			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
 			CometPreviewURL: optional(m.CometPreviewURL), CometURL: optional(m.CometURL), CometXisfURL: optional(m.CometXISFURL),
+			MinScore: m.MinScore, LowestScore: m.LowestScore,
 		})
 	}
 	return out, nil

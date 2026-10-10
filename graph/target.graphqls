@@ -83,8 +83,16 @@ type Subframe {
   grading_status: GradingStatus!
   reject_reason: String
   file_name: String
-  "ADU median above the camera pedestal, adjusted for the sub's offset."
+  "ADU median above the pedestal the stacker scored the sub with. Null when the stacker has no measure of it; sky_missing says why."
   sky: Float
+  "Why sky is null."
+  sky_missing: String
+  "The pedestal taken off the ADU median, in ADU. Null for a sub that came calibrated."
+  pedestal_adu: Float
+  "Where the pedestal comes from: bias (measured from a master bias), configured, or calibrated."
+  pedestal_source: String
+  "The pedestal's basis in words, such as which master bias it was measured from."
+  pedestal_basis: String
   hfr: Float
   fwhm: Float
   stars: Int
@@ -97,13 +105,26 @@ type Subframe {
   has processed the sub.
   """
   score: Float
+  "Why score is null."
+  score_missing: String
   "What the sub adds to its master, score × exposure in seconds. Null until processed."
   weight: Float
+  "The best score of this target's subs in the filter, as the stacker scores them now."
+  target_best: Float
+  "The stacker's cut: subs scoring under it are left out (min score × target_best)."
+  cut: Float
+  "The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured."
+  transparency: Float
+  "How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record)."
+  transparency_source: String
+  "Why transparency is not measured; the score then leaves it out."
+  transparency_missing: String
   """
   What the stacker made of the sub: pending (not processed yet), added,
-  low_score, moon, off_target, rejected (in Target Scheduler, not by the
-  stacker), no_metadata, calibration, registration, failed, dead,
-  recalibrate or duplicate.
+  low_score, unmeasured (an input to its score is missing), moon,
+  off_target, rejected (in Target Scheduler, not by the stacker),
+  no_metadata, calibration, registration, failed, dead, recalibrate,
+  duplicate, or unreachable (the stacker could not be asked).
   """
   stack_status: String!
   "Why the sub is not in its master, or what it waits for. Null for a stacked sub."
@@ -130,5 +151,22 @@ type FilterQuality {
   "The stacker's weights (score × exposure) of the subs it stacked: hours of good-conditions data in the master."
   effective_hours: Float!
   median_sky: Float
+  "What median_sky is measured against: the pedestals of its subs."
+  sky_basis: String
   median_hfr: Float
+  "Subs rejected in Target Scheduler, not by the stacker; left out of these counts."
+  rejected_in_scheduler: Int!
+  "Subs the stacker left out for a score under its cut."
+  below_cut: Int!
+  "Subs the stacker could not score for a missing input."
+  unmeasured: Int!
+  "The stacker's min score: the cut is this times the target's best score in the filter."
+  min_score: Float
+  "This target's best score in the filter, as the stacker scores it now."
+  target_best: Float
+  cut: Float
+  "The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target."
+  reference_weight: Float
+  reference_subs: Int
+  reference_percentile: Float
 }

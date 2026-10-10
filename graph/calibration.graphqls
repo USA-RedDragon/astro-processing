@@ -105,4 +105,12 @@ type FilterMaster {
   comet_preview_url: String
   comet_url: String
   comet_xisf_url: String
+  "The stacker's min score: subs under it times the target's best score in the filter are left out."
+  min_score: Float
+  "The lowest score of the subs in the master."
+  lowest_score: Float
+  "Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page."
+  object_lights: Int
+  "Subs in the master that are this Target Scheduler target's. Null outside a target page."
+  target_subs: Int
 }

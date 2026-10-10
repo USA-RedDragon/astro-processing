@@ -86,6 +86,14 @@ type FilterMaster struct {
 	CometPreviewURL *string `json:"comet_preview_url,omitempty"`
 	CometURL        *string `json:"comet_url,omitempty"`
 	CometXisfURL    *string `json:"comet_xisf_url,omitempty"`
+	// The stacker's min score: subs under it times the target's best score in the filter are left out.
+	MinScore *float64 `json:"min_score,omitempty"`
+	// The lowest score of the subs in the master.
+	LowestScore *float64 `json:"lowest_score,omitempty"`
+	// Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page.
+	ObjectLights *int32 `json:"object_lights,omitempty"`
+	// Subs in the master that are this Target Scheduler target's. Null outside a target page.
+	TargetSubs *int32 `json:"target_subs,omitempty"`
 }
 
 type FilterQuality struct {
@@ -101,7 +109,24 @@ type FilterQuality struct {
 	// The stacker's weights (score × exposure) of the subs it stacked: hours of good-conditions data in the master.
 	EffectiveHours float64  `json:"effective_hours"`
 	MedianSky      *float64 `json:"median_sky,omitempty"`
-	MedianHfr      *float64 `json:"median_hfr,omitempty"`
+	// What median_sky is measured against: the pedestals of its subs.
+	SkyBasis  *string  `json:"sky_basis,omitempty"`
+	MedianHfr *float64 `json:"median_hfr,omitempty"`
+	// Subs rejected in Target Scheduler, not by the stacker; left out of these counts.
+	RejectedInScheduler int32 `json:"rejected_in_scheduler"`
+	// Subs the stacker left out for a score under its cut.
+	BelowCut int32 `json:"below_cut"`
+	// Subs the stacker could not score for a missing input.
+	Unmeasured int32 `json:"unmeasured"`
+	// The stacker's min score: the cut is this times the target's best score in the filter.
+	MinScore *float64 `json:"min_score,omitempty"`
+	// This target's best score in the filter, as the stacker scores it now.
+	TargetBest *float64 `json:"target_best,omitempty"`
+	Cut        *float64 `json:"cut,omitempty"`
+	// The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target.
+	ReferenceWeight     *float64 `json:"reference_weight,omitempty"`
+	ReferenceSubs       *int32   `json:"reference_subs,omitempty"`
+	ReferencePercentile *float64 `json:"reference_percentile,omitempty"`
 }
 
 type ImagingStats struct {
@@ -214,8 +239,16 @@ type Subframe struct {
 	GradingStatus GradingStatus `json:"grading_status"`
 	RejectReason  *string       `json:"reject_reason,omitempty"`
 	FileName      *string       `json:"file_name,omitempty"`
-	// ADU median above the camera pedestal, adjusted for the sub's offset.
-	Sky              *float64 `json:"sky,omitempty"`
+	// ADU median above the pedestal the stacker scored the sub with. Null when the stacker has no measure of it; sky_missing says why.
+	Sky *float64 `json:"sky,omitempty"`
+	// Why sky is null.
+	SkyMissing *string `json:"sky_missing,omitempty"`
+	// The pedestal taken off the ADU median, in ADU. Null for a sub that came calibrated.
+	PedestalAdu *float64 `json:"pedestal_adu,omitempty"`
+	// Where the pedestal comes from: bias (measured from a master bias), configured, or calibrated.
+	PedestalSource *string `json:"pedestal_source,omitempty"`
+	// The pedestal's basis in words, such as which master bias it was measured from.
+	PedestalBasis    *string  `json:"pedestal_basis,omitempty"`
 	Hfr              *float64 `json:"hfr,omitempty"`
 	Fwhm             *float64 `json:"fwhm,omitempty"`
 	Stars            *int32   `json:"stars,omitempty"`
@@ -226,12 +259,25 @@ type Subframe struct {
 	// filter and exposure, times its transparency squared. Null until the stacker
 	// has processed the sub.
 	Score *float64 `json:"score,omitempty"`
+	// Why score is null.
+	ScoreMissing *string `json:"score_missing,omitempty"`
 	// What the sub adds to its master, score × exposure in seconds. Null until processed.
 	Weight *float64 `json:"weight,omitempty"`
+	// The best score of this target's subs in the filter, as the stacker scores them now.
+	TargetBest *float64 `json:"target_best,omitempty"`
+	// The stacker's cut: subs scoring under it are left out (min score × target_best).
+	Cut *float64 `json:"cut,omitempty"`
+	// The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured.
+	Transparency *float64 `json:"transparency,omitempty"`
+	// How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record).
+	TransparencySource *string `json:"transparency_source,omitempty"`
+	// Why transparency is not measured; the score then leaves it out.
+	TransparencyMissing *string `json:"transparency_missing,omitempty"`
 	// What the stacker made of the sub: pending (not processed yet), added,
-	// low_score, moon, off_target, rejected (in Target Scheduler, not by the
-	// stacker), no_metadata, calibration, registration, failed, dead,
-	// recalibrate or duplicate.
+	// low_score, unmeasured (an input to its score is missing), moon,
+	// off_target, rejected (in Target Scheduler, not by the stacker),
+	// no_metadata, calibration, registration, failed, dead, recalibrate,
+	// duplicate, or unreachable (the stacker could not be asked).
 	StackStatus string `json:"stack_status"`
 	// Why the sub is not in its master, or what it waits for. Null for a stacked sub.
 	StackReason *string `json:"stack_reason,omitempty"`

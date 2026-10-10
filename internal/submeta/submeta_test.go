@@ -28,24 +28,3 @@ func TestParseMetadataRejectsGarbage(t *testing.T) {
 		t.Error("expected an error")
 	}
 }
-
-func TestSky(t *testing.T) {
-	t.Parallel()
-	if got := submeta.Sky(620, 506); got != 114 {
-		t.Errorf("Sky = %v, want 114", got)
-	}
-	if got := submeta.Sky(500, 506); !math.IsNaN(got) {
-		t.Errorf("Sky below pedestal = %v, want NaN", got)
-	}
-}
-
-func TestPedestalAt(t *testing.T) {
-	t.Parallel()
-	for _, c := range []struct{ offset, want float64 }{
-		{50, 506}, {0, 506}, {math.NaN(), 506}, {240, 2406},
-	} {
-		if got := submeta.PedestalAt(506, c.offset); got != c.want {
-			t.Errorf("PedestalAt(506, %v) = %v, want %v", c.offset, got, c.want)
-		}
-	}
-}

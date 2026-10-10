@@ -95,7 +95,7 @@ func (r *targetResolver) Stats(ctx context.Context, obj *model.Target) (*model.T
 
 // Subframes is the resolver for the subframes field.
 func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*model.Subframe, error) {
-	subs, err := r.targetSubframes(ctx, obj.ID, obj.Name)
+	subs, _, err := r.targetSubframes(ctx, obj.ID, obj.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func (r *targetStatsResolver) Quality(ctx context.Context, obj *model.TargetStat
 	if err != nil {
 		return nil, fmt.Errorf("could not find parent target for quality stats: %w", err)
 	}
-	subs, err := r.targetSubframes(ctx, target.ID, target.Name)
+	subs, _, err := r.targetSubframes(ctx, target.ID, target.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +310,18 @@ func (r *targetResolver) Masters(ctx context.Context, obj *model.Target) ([]*mod
 	if r.worker == nil {
 		return []*model.FilterMaster{}, nil
 	}
-	return r.masters(ctx, obj.Name)
+	masters, err := r.masters(ctx, obj.Name)
+	if err != nil || len(masters) == 0 {
+		return masters, err
+	}
+	subs, stacker, err := r.targetSubframes(ctx, obj.ID, obj.Name)
+	if err != nil {
+		return nil, err
+	}
+	if stacker != nil {
+		scopeMasters(masters, subs, stacker)
+	}
+	return masters, nil
 }
 
 // Target returns graph.TargetResolver implementation.

@@ -43,10 +43,6 @@ storage:
   type: "sqlite"
   # Data source name for the storage, for example file:database.db?_pragma=foreign_keys(1)&journal_mode=WAL (sqlite), host=localhost user=username dbname=database password=password sslmode=disable (postgres) or username:password@tcp(localhost:3306)/database?charset=utf8&parseTime=True (mysql)
   dsn: ":memory:?_pragma=foreign_keys(1)"
-# Subframe quality scoring configuration
-quality:
-  # Camera pedestal in ADU at offset 50, adjusted for each sub's offset and subtracted from its ADU median to show the sky background
-  pedestal: 506
 # pixinsight-worker connection
 worker:
   # Base URL of pixinsight-worker, for calibration coverage. Empty disables it

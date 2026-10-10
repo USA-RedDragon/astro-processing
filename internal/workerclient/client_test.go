@@ -71,7 +71,8 @@ func TestSubs(t *testing.T) {
 			return
 		}
 		_, _ = w.Write([]byte(`[{"file":"a.fits","filter":"L","exposure":300,"status":"low_score","score":0.04,"weight":0,
-			"processed_at":"2026-10-07T21:00:00Z","photometry":"measured"},{"file":"b.fits","filter":"L","score":0,"weight":0,"photometry":"pending"}]`))
+			"processed_at":"2026-10-07T21:00:00Z","photometry":"measured"},{"file":"b.fits","filter":"L","score":null,"weight":null,"photometry":"pending",
+			"scoring":{"min_score":0.3,"cut":0.24,"pedestal_adu":503,"pedestal_source":"bias","sky_adu":80}}]`))
 	}))
 	defer srv.Close()
 
@@ -79,8 +80,9 @@ func TestSubs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(subs) != 2 || subs[0].Status != "low_score" || subs[0].Score != 0.04 || subs[0].Photometry != "measured" ||
-		subs[0].ProcessedAt == nil || subs[1].Status != "" || subs[1].ProcessedAt != nil {
+	if len(subs) != 2 || subs[0].Status != "low_score" || subs[0].Score == nil || *subs[0].Score != 0.04 || subs[0].Photometry != "measured" ||
+		subs[0].ProcessedAt == nil || subs[1].Status != "" || subs[1].ProcessedAt != nil ||
+		subs[1].Score != nil || subs[1].Scoring == nil || *subs[1].Scoring.Cut != 0.24 || subs[1].Scoring.PedestalSource != "bias" {
 		t.Errorf("got %+v", subs)
 	}
 }

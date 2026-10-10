@@ -1215,6 +1215,98 @@ func (ec *executionContext) fieldContext_FilterMaster_comet_xisf_url(_ context.C
 	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _FilterMaster_min_score(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_min_score(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinScore, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_min_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_lowest_score(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_lowest_score(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LowestScore, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_lowest_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_object_lights(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_object_lights(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ObjectLights, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_object_lights(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_target_subs(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_target_subs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TargetSubs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_target_subs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _Mosaic_filter(ctx context.Context, field graphql.CollectedField, obj *model.Mosaic) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2243,6 +2335,26 @@ func (ec *executionContext) _FilterMaster(ctx context.Context, sel ast.Selection
 			}
 		case "comet_xisf_url":
 			out.Values[i] = ec._FilterMaster_comet_xisf_url(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "min_score":
+			out.Values[i] = ec._FilterMaster_min_score(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "lowest_score":
+			out.Values[i] = ec._FilterMaster_lowest_score(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "object_lights":
+			out.Values[i] = ec._FilterMaster_object_lights(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "target_subs":
+			out.Values[i] = ec._FilterMaster_target_subs(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
