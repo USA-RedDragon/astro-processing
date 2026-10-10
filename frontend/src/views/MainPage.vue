@@ -110,7 +110,9 @@
       <div v-if="!listView && otherTargets.length > 0" class="px-4 space-y-4">
         <div>
           <h2 class="text-xl font-semibold">Other targets</h2>
-          <p class="text-sm text-muted-foreground">Imaged outside Target Scheduler.</p>
+          <p class="text-sm text-muted-foreground">
+            Lights Target Scheduler did not record, with no Target Scheduler target.
+          </p>
         </div>
         <div class="info">
           <div v-for="(column, c) in otherColumns" :key="c" class="flex flex-col gap-4 min-w-0">
@@ -144,6 +146,7 @@ const GET_OTHER_TARGETS_QUERY = `
     otherTargets {
       name
       lights
+      recorded
       stacked
       nights
       first_night

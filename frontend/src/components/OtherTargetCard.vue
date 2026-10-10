@@ -29,6 +29,9 @@
         {{ target.lights }} lights &middot; {{ target.stacked }} stacked &middot;
         {{ target.nights }} {{ target.nights === 1 ? 'night' : 'nights' }}
       </div>
+      <div class="text-muted-foreground tabular-nums">
+        {{ unrecorded }}
+      </div>
       <div v-if="target.first_night" class="text-muted-foreground">
         {{ nights }}
       </div>
@@ -41,6 +44,7 @@ import type { PropType } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { status } from '@/lib/events';
+import { unrecordedLights } from '@/lib/otherTargets';
 import type { OtherTarget } from '../graphql/graphql';
 
 export default {
@@ -59,6 +63,9 @@ export default {
     nights(): string {
       const { first_night: first, last_night: last } = this.target;
       return first === last ? `${first}` : `${first} to ${last}`;
+    },
+    unrecorded(): string {
+      return unrecordedLights(this.target);
     },
     processing(): boolean {
       return status.workers.some((w) => w.object === this.target.name);

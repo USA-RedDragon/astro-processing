@@ -10,8 +10,8 @@
       <h1 class="text-2xl font-semibold mt-1">{{ target.name }}</h1>
       <p class="text-sm text-muted-foreground mt-1 tabular-nums">
         {{ target.lights }} lights, {{ target.stacked }} stacked, over {{ target.nights }}
-        {{ target.nights === 1 ? 'night' : 'nights' }}. Imaged outside Target Scheduler, so subs are scored from
-        their own sky and star sizes.
+        {{ target.nights === 1 ? 'night' : 'nights' }}. {{ unrecorded }}; lights without its record are scored
+        from their own sky and star sizes.
       </p>
     </div>
 
@@ -26,6 +26,7 @@ import API from '@/lib/API';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
 import { onEvent, onReconnect, status } from '@/lib/events';
+import { unrecordedLights } from '@/lib/otherTargets';
 import type { FilterMaster, OtherTarget } from '../graphql/graphql';
 
 const GET_OTHER_TARGET_QUERY = `
@@ -33,6 +34,7 @@ const GET_OTHER_TARGET_QUERY = `
     otherTarget(name: $name) {
       name
       lights
+      recorded
       stacked
       nights
       first_night
@@ -75,6 +77,9 @@ export default {
   computed: {
     name(): string {
       return String(this.$route.params.name ?? '');
+    },
+    unrecorded(): string {
+      return this.target ? unrecordedLights(this.target) : '';
     },
     updatingFilters(): string[] {
       return status.workers.filter((w) => w.object === this.name).map((w) => w.filter);
