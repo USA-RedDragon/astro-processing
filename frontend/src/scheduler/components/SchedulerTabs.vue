@@ -26,10 +26,21 @@ import {
   type Plan,
   type Point,
   type ProjectDetail,
+  type ProjectSettingValues,
   type StackMaster,
   type Target,
 } from '../api/planning'
 import { submitCommand } from '../api/commands'
+import {
+  SETTINGS,
+  flatsLabel,
+  flatsOptions,
+  projectSettings,
+  settingChanges,
+  settingErrors,
+  settingText,
+  type SettingKey,
+} from '../projectSettings'
 import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
@@ -594,10 +605,34 @@ const optDraft = reactive<{
   minimumTime?: number
   minimumAltitude?: number
 }>({})
+const schedDraft = reactive<Partial<ProjectSettingValues>>({})
+const sched = computed(() => (p.value ? projectSettings(p.value) : null))
+const schedValues = computed<ProjectSettingValues | null>(() =>
+  sched.value ? { ...sched.value, ...schedDraft } : null,
+)
+const schedChanges = computed(() =>
+  sched.value ? settingChanges(sched.value, schedDraft) : [],
+)
+const schedErrors = computed<Partial<Record<SettingKey, string>>>(() => {
+  if (!schedValues.value || !p.value || !schedChanges.value.length) return {}
+  return settingErrors(schedValues.value, optDraft.minimumAltitude ?? p.value.minimumAltitude)
+})
+const schedInvalid = computed(() => Object.keys(schedErrors.value).length > 0)
+
+function setSched(key: SettingKey, v: number | boolean) {
+  ;(schedDraft as Record<SettingKey, number | boolean>)[key] = v
+}
+
+function inputNum(e: Event): number {
+  const v = (e.target as HTMLInputElement).value.trim()
+  return v === '' ? NaN : Number(v)
+}
+
 const optDirty = computed(() => {
   const pr = p.value
   if (!pr) return false
   return (
+    schedChanges.value.length > 0 ||
     (optDraft.priority !== undefined && optDraft.priority !== pr.priority) ||
     (optDraft.state !== undefined && optDraft.state !== pr.state) ||
     (optDraft.minimumTime !== undefined && optDraft.minimumTime !== pr.minimumTime) ||
@@ -610,11 +645,12 @@ function resetOpts() {
   delete optDraft.state
   delete optDraft.minimumTime
   delete optDraft.minimumAltitude
+  Object.keys(schedDraft).forEach((k) => delete schedDraft[k as SettingKey])
 }
 
 async function saveOpts() {
   const pr = p.value
-  if (!pr) return
+  if (!pr || schedInvalid.value) return
   const changes: { field: string; before: unknown; after: unknown }[] = []
   if (optDraft.priority !== undefined && optDraft.priority !== pr.priority)
     changes.push({
@@ -636,6 +672,7 @@ async function saveOpts() {
       before: pr.minimumAltitude,
       after: optDraft.minimumAltitude,
     })
+  changes.push(...schedChanges.value)
   resetOpts()
   if (!changes.length) return
   try {
@@ -1288,9 +1325,69 @@ function numInput(e: Event): number {
             />
           </label>
         </div>
+        <div v-if="sched && schedValues" class="sched" aria-labelledby="sched-h">
+          <h3 id="sched-h" class="small" style="margin: 0">Scheduling</h3>
+          <p class="xsmall muted" style="margin: 0.125rem 0 0">
+            Target Scheduler's acquisition settings for this project.
+          </p>
+          <div class="optgrid" style="margin-top: 0.75rem">
+            <div v-for="s in SETTINGS" :key="s.key" class="field">
+              <label v-if="s.kind === 'bool'" class="field">
+                <span>{{ s.label }}</span>
+                <span class="row small" style="height: 2.25rem; flex-wrap: nowrap">
+                  <input
+                    type="checkbox"
+                    class="size-4 accent-primary"
+                    :checked="!!schedValues[s.key]"
+                    @change="setSched(s.key, ($event.target as HTMLInputElement).checked)"
+                  />
+                  {{ schedValues[s.key] ? 'On' : 'Off' }}
+                </span>
+              </label>
+              <label v-else-if="s.kind === 'flats'" class="field">
+                <span>{{ s.label }}</span>
+                <select
+                  class="input"
+                  :value="schedValues.flatsHandling"
+                  @change="setSched(s.key, Number(($event.target as HTMLSelectElement).value))"
+                >
+                  <option v-for="v in flatsOptions(sched.flatsHandling)" :key="v" :value="v">
+                    {{ flatsLabel(v) }}
+                  </option>
+                </select>
+              </label>
+              <label v-else class="field">
+                <span>{{ s.label }}{{ s.unit ? ', ' + s.unit : '' }}</span>
+                <input
+                  class="input num"
+                  type="number"
+                  :min="s.min"
+                  :max="s.max"
+                  :step="s.kind === 'int' ? 1 : 0.1"
+                  :value="Number.isNaN(schedValues[s.key]) ? '' : schedValues[s.key]"
+                  :aria-invalid="!!schedErrors[s.key]"
+                  @change="setSched(s.key, inputNum($event))"
+                />
+              </label>
+              <span v-if="schedErrors[s.key]" class="xsmall" style="color: var(--bad)">{{
+                schedErrors[s.key]
+              }}</span>
+              <span v-else class="xsmall muted"
+                >{{ schedDraft[s.key] !== undefined && schedDraft[s.key] !== sched[s.key]
+                  ? 'Now ' + settingText(s, sched[s.key]) + '. '
+                  : s.kind === 'bool' || s.kind === 'flats'
+                    ? ''
+                    : settingText(s, schedValues[s.key]) + '. '
+                }}{{ s.help }}</span
+              >
+            </div>
+          </div>
+        </div>
         <div v-if="optDirty" class="row" style="justify-content: flex-end">
           <button type="button" class="btn" @click="resetOpts">Reset</button>
-          <button type="button" class="btn primary" @click="saveOpts">Save options</button>
+          <button type="button" class="btn primary" :disabled="schedInvalid" @click="saveOpts">
+            Save options
+          </button>
         </div>
       </section>
     </template>
@@ -1413,6 +1510,10 @@ function numInput(e: Event): number {
   background: var(--secondary);
   border-radius: 0.5rem;
   padding: 0.75rem;
+}
+.sched {
+  border-top: 1px solid var(--border);
+  padding-top: 0.875rem;
 }
 .optgrid {
   display: grid;
