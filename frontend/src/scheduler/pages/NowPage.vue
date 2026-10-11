@@ -638,8 +638,6 @@ const cross = (x: number, y: number, r: number) =>
       <template #title>
         <span class="clock num ml-2">{{ clock(shell.now) }}</span>
       </template>
-      What the observatory is doing right now. Edits and skips apply when the current exposure
-      finishes, then the scheduler re-plans.
       <template #actions>
         <span v-if="pausedChip" role="status" class="badge warn">
           {{ pausedChip }} ·
