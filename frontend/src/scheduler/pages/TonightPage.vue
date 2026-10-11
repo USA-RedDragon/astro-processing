@@ -847,7 +847,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                   {{ fmtScore(p.scores[c.rule]) }}
                 </td>
                 <td style="text-align: right; font-weight: 600">
-                  {{ p.total === null ? '—' : p.total.toFixed(2) }}
+                  {{ p.totalText }}
                 </td>
                 <td class="muted" style="white-space: nowrap">{{ p.runner }}</td>
                 <td class="muted">{{ p.ends }}</td>

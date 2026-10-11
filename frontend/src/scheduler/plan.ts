@@ -257,6 +257,12 @@ export function hourTicks(t0: number, t1: number, step = HOUR): number[] {
   return out
 }
 
+export function scorePair(a: number, b: number): [string, string] {
+  let d = 2
+  while (d < 4 && a.toFixed(d) === b.toFixed(d)) d++
+  return [a.toFixed(d), b.toFixed(d)]
+}
+
 export interface RuleColumn {
   rule: string
   weight: number
@@ -268,6 +274,7 @@ export interface PickRow {
   project: string
   scores: Record<string, number>
   total: number | null
+  totalText: string
   runner: string
   ends: string
 }
@@ -286,14 +293,20 @@ export function pickTable(blocks: PlanBlock[] | null | undefined): {
       if (!columns.some((c) => c.rule === s.rule)) columns.push({ rule: s.rule, weight: s.weight })
       scores[s.rule] = s.weight * s.score
     }
+    const total =
+      p.total ?? (p.scores?.length ? p.scores.reduce((a, s) => a + s.weight * s.score, 0) : null)
+    const pair =
+      total !== null && p.runner_up ? scorePair(total, p.runner_up.total) : null
     rows.push({
       time: hm(p.start),
       target: p.target_name ?? '',
       project: p.project_name ?? '',
       scores,
-      total:
-        p.total ?? (p.scores?.length ? p.scores.reduce((a, s) => a + s.weight * s.score, 0) : null),
-      runner: p.runner_up ? `${p.runner_up.target_name} · ${p.runner_up.total.toFixed(2)}` : '—',
+      total,
+      totalText: pair ? pair[0] : total === null ? '—' : total.toFixed(2),
+      runner: p.runner_up
+        ? `${p.runner_up.target_name} · ${pair ? pair[1] : p.runner_up.total.toFixed(2)}`
+        : '—',
       ends: r.reason ? `${capitalise(r.reason)} at ${hm(r.end)}` : `Until ${hm(r.end)}`,
     })
   }
@@ -885,9 +898,15 @@ export function leftOutView(l: LeftOut): LeftOutView {
   const reason = l.reason ?? ''
   const span = l.at ? (l.until && l.until !== l.at ? `${hm(l.at)}–${hm(l.until)}` : hm(l.at)) : ''
   let why: string
-  if (reason === 'lower score' && l.winner_name && l.total !== undefined && l.winner_total !== undefined)
-    why = `Outscored by ${l.winner_name} (${l.winner_total.toFixed(2)} vs ${l.total.toFixed(2)}) at ${hm(l.at)}`
-  else if (l.after_night)
+  if (
+    reason === 'lower score' &&
+    l.winner_name &&
+    l.total !== undefined &&
+    l.winner_total !== undefined
+  ) {
+    const [w, t] = scorePair(l.winner_total, l.total)
+    why = `Outscored by ${l.winner_name} (${w} vs ${t}) at ${hm(l.at)}`
+  } else if (l.after_night)
     why = `${capitalise(reason)} at ${hm(l.at)}, the planner's last pass after the night`
   else why = span ? `${capitalise(reason)}, ${span}` : capitalise(reason)
   const other = (l.reasons ?? [])

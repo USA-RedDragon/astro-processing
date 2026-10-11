@@ -27,6 +27,7 @@ import {
   signedHours,
   skipPayload,
   stepDecimals,
+  scorePair,
   subChart,
   ticksBefore,
   fitLabel,
@@ -434,6 +435,20 @@ describe('left out', () => {
     expect(v.name).toBe("Barnard · Barnard's E")
     expect(v.why).toMatch(/^Outscored by M31 \(0\.81 vs 0\.72\) at \d\d:\d\d$/)
     expect(v.other).toMatch(/^not yet visible \d\d:\d\d–\d\d:\d\d$/)
+  })
+  it('adds decimals until near-tied scores differ', () => {
+    const v = leftOutView({
+      target_name: 'IC 1318 Panel 13',
+      reason: 'lower score',
+      at: at(3),
+      winner_name: 'IC 1318 Panel 8',
+      winner_total: 1.808990623536353,
+      total: 1.8084697902030198,
+    })
+    expect(v.why).toMatch(/^Outscored by IC 1318 Panel 8 \(1\.809 vs 1\.808\) at /)
+    expect(scorePair(0.7268, 0.7262)).toEqual(['0.727', '0.726'])
+    expect(scorePair(0.9, 0.5)).toEqual(['0.90', '0.50'])
+    expect(scorePair(1, 1)).toEqual(['1.0000', '1.0000'])
   })
   it('labels a reason seen only after the night', () => {
     const v = leftOutView({ target_name: 'M33', reason: 'not visible', at: at(11), after_night: true })
