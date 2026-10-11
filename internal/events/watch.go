@@ -47,32 +47,41 @@ type fingerprint struct {
 // WatchScheduler polls the Target Scheduler tables every interval and
 // publishes a Change naming the tables that changed since the last poll.
 func (r *Relay) WatchScheduler(ctx context.Context, db *gorm.DB, interval time.Duration) {
-	postgres := db.Name() == "postgres"
-	queries := fingerprints()
+	queries := map[string]string{}
+	for _, f := range fingerprints() {
+		queries[f.table] = f.portable
+		if db.Name() == "postgres" {
+			queries[f.table] = f.postgres
+		}
+	}
+	r.watch(ctx, db, queries, interval)
+}
+
+func (r *Relay) watch(ctx context.Context, db *gorm.DB, queries map[string]string, interval time.Duration) {
 	var prev map[string]string
 	for {
 		cur := map[string]string{}
-		for _, f := range queries {
-			q := f.portable
-			if postgres {
-				q = f.postgres
-			}
+		for table, q := range queries {
 			var v *string
 			if err := db.WithContext(ctx).Raw(q).Scan(&v).Error; err != nil {
 				if ctx.Err() != nil {
 					return
 				}
-				slog.Debug("Could not fingerprint table", "table", f.table, "error", err)
+				slog.Debug("Could not fingerprint table", "table", table, "error", err)
+				if p, ok := prev[table]; ok {
+					cur[table] = p
+				}
 				continue
 			}
+			cur[table] = ""
 			if v != nil {
-				cur[f.table] = *v
+				cur[table] = *v
 			}
 		}
 		if prev != nil {
 			var changed []string
 			for t, v := range cur {
-				if prev[t] != v {
+				if p, ok := prev[t]; !ok || p != v {
 					changed = append(changed, t)
 				}
 			}

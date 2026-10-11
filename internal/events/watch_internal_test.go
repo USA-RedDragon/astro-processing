@@ -46,3 +46,39 @@ func TestWatchSchedulerReportsChangedTables(t *testing.T) {
 		t.Fatal("no change event")
 	}
 }
+
+func TestWatchReportsATableEmptied(t *testing.T) {
+	t.Parallel()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxOpenConns(1)
+	if err := db.Exec(`CREATE TABLE flathistory ("Id" INTEGER PRIMARY KEY)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Exec(`INSERT INTO flathistory VALUES (1)`).Error; err != nil {
+		t.Fatal(err)
+	}
+	relay := NewRelay()
+	ch := make(chan []byte, 8)
+	relay.mu.Lock()
+	relay.subs[ch] = struct{}{}
+	relay.mu.Unlock()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go relay.watch(ctx, db, map[string]string{"flathistory": `SELECT group_concat("Id") FROM flathistory`}, 20*time.Millisecond)
+	time.Sleep(60 * time.Millisecond)
+	if err := db.Exec(`DELETE FROM flathistory`).Error; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case msg := <-ch:
+		if !strings.Contains(string(msg), `"tables":["flathistory"]`) {
+			t.Fatalf("got %s", msg)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("no change event when the last row was deleted")
+	}
+}
