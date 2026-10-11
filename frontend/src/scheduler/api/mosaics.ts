@@ -106,6 +106,8 @@ export interface PanelFilter {
   done?: boolean
   doneReason?: 'goal' | 'plateau' | 'plan'
   lowConfidence?: boolean
+  measured: boolean
+  notMeasured?: string
 }
 
 export interface MosaicPanel {
@@ -122,7 +124,7 @@ export interface MosaicPanel {
   rotation: number
   footprint: Footprint | null
   filters: PanelFilter[] | null
-  progress: number
+  progress: number | null
   weakest: string
   pastGoal: boolean
 }
@@ -218,10 +220,11 @@ export interface MosaicDetail {
   rigKnown: boolean
   filters: string[] | null
   panels: MosaicPanel[] | null
-  complete: number
-  average: number
+  complete: number | null
+  average: number | null
   weakestPanel: number
   weakestFilter: string
+  notMeasured?: string
   effectiveHours: number
   hoursLeft: HoursLeft
   balancing: {
@@ -245,10 +248,11 @@ export interface MosaicSummary {
   projectGuid: string
   panels: number
   adopted: boolean
-  complete: number
-  average: number
+  complete: number | null
+  average: number | null
   weakestPanel: number
   weakestFilter: string
+  notMeasured?: string
   seamWarnings: number
   balancing: boolean
 }

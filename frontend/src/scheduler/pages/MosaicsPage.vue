@@ -30,7 +30,7 @@ import {
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
 import { errorToast, notifyCommand } from '../shell'
-import { filterColor, objectLinkText, pct, r1 } from '../api/planning'
+import { filterColor, floorPct, objectLinkText, pct, r1 } from '../api/planning'
 import { filterShort } from '../plan'
 import { MONTHS } from '../api/discover'
 import { shortDate } from '../format'
@@ -140,23 +140,38 @@ function pf(p: MosaicPanel, f: string): PanelFilter | undefined {
   return (p.filters ?? []).find((x) => x.filter === f)
 }
 
+function mosaicListProgress(m: MosaicSummary): string {
+  if (!m.weakestPanel) return 'no data yet'
+  if (m.complete === null) return `Panel ${m.weakestPanel} ${m.weakestFilter} not measured`
+  if (m.complete >= 1) return 'enough data'
+  return `${floorPct(m.complete)} · Panel ${m.weakestPanel} ${m.weakestFilter} least complete`
+}
+
 function shown(p: MosaicPanel): PanelFilter | undefined {
   if (filter.value === 'weakest') return pf(p, p.weakest)
   return pf(p, filter.value)
 }
 
-function placeholder(x?: PanelFilter): boolean {
-  return !!x && x.source === 'ts' && (x.desired ?? 0) <= 1
+function fValue(x?: PanelFilter): number | null {
+  if (!x) return null
+  if (x.done) return 1
+  return x.measured ? Math.min(0.999, Math.max(0, x.progress)) : null
 }
 
 function metric(x?: PanelFilter): string {
   if (!x) return 'no data'
+  if (x.done) return 'enough data'
+  if (!x.measured) return 'not measured'
   if (x.source === 'goal' && x.snr) return 'SNR ' + r1(x.snr)
-  if (x.source === 'ts') return `${x.accepted ?? 0}/${x.desired ?? 0}${placeholder(x) ? '*' : ''}`
-  return r1(x.effectiveHours) + ' h'
+  return floorPct(fValue(x) ?? 0)
 }
 
 const EPS = 1e-9
+
+function sameValue(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return a === b
+  return Math.abs(a - b) < EPS
+}
 
 const weakestPairs = computed(() => {
   const d = detail.value
@@ -164,8 +179,7 @@ const weakestPairs = computed(() => {
   const out: { panel: number; filter: string }[] = []
   for (const p of panels.value)
     for (const f of p.filters ?? [])
-      if (Math.abs(Math.min(1, f.progress) - d.complete) < EPS)
-        out.push({ panel: p.number, filter: f.filter })
+      if (sameValue(fValue(f), d.complete)) out.push({ panel: p.number, filter: f.filter })
   return out
 })
 
@@ -177,7 +191,7 @@ const weakestPanels = computed(() => {
   const d = detail.value
   if (!d) return new Set<number>()
   const set = new Set(
-    panels.value.filter((p) => Math.abs(p.progress - d.complete) < EPS).map((p) => p.number),
+    panels.value.filter((p) => sameValue(p.progress, d.complete)).map((p) => p.number),
   )
   return set.size < panels.value.length ? set : new Set<number>()
 })
@@ -199,14 +213,6 @@ const panelLinks = computed(() =>
   ),
 )
 
-const placeholders = computed(() =>
-  panels.value.flatMap((p) =>
-    (p.filters ?? [])
-      .filter((f) => placeholder(f))
-      .map((f) => `Panel ${p.number} ${f.filter}`),
-  ),
-)
-
 const plateaus = computed(() =>
   panels.value.flatMap((p) =>
     (p.filters ?? [])
@@ -222,10 +228,10 @@ function shade(v: number): string {
 const tiles = computed(() => {
   const d = detail.value
   if (!d) return []
-  const maxP = Math.max(0.0001, ...panels.value.map((p) => Math.min(1, shown(p)?.progress ?? 0)))
+  const maxP = Math.max(0.0001, ...panels.value.map((p) => fValue(shown(p)) ?? 0))
   return panels.value.map((p) => {
     const x = shown(p)
-    const v = Math.min(1, x?.progress ?? 0)
+    const v = fValue(x) ?? 0
     const rel = v / maxP
     const weakest = weakestPanels.value.has(p.number)
     return {
@@ -243,8 +249,8 @@ const tiles = computed(() => {
         (weakest ? ' · holds the mosaic back' : p.pastGoal ? ' · past its goal' : ''),
       bars: (p.filters ?? []).map((f) => ({
         f: f.filter,
-        w: pct(Math.min(1, f.progress)),
-        v: metric(f),
+        w: floorPct(fValue(f) ?? 0),
+        v: f.measured || f.done ? metric(f) : '—',
         color: filterColor(f.filter),
       })),
     }
@@ -305,19 +311,26 @@ const stats = computed(() => {
   const d = detail.value
   if (!d) return null
   const pairs = weakestPairs.value
+  const value = d.complete === null ? 'Not measured' : floorPct(d.complete)
   let completeNote = 'No panel has data yet'
-  if (pairs.length && pairs.length === pairCount.value && pairCount.value > 1)
-    completeNote = `Every panel and filter is at ${pct(d.complete)}`
+  if (d.complete === null && d.weakestPanel)
+    completeNote = `Set by Panel ${d.weakestPanel} ${d.weakestFilter}: ${d.notMeasured || 'not measured yet'}`
+  else if (pairs.length && pairs.length === pairCount.value && pairCount.value > 1)
+    completeNote = d.complete === 1 ? 'Every panel and filter has enough data' : `Every panel and filter is at ${value}`
   else if (pairs.length === 1) {
     const w = panels.value.find((p) => p.number === pairs[0]!.panel)
     const wf = w ? pf(w, pairs[0]!.filter) : undefined
     completeNote = `Set by the weakest panel: Panel ${pairs[0]!.panel} ${pairs[0]!.filter}${wf ? ', ' + metric(wf) : ''}`
   } else if (pairs.length > 1)
-    completeNote = `Tied at ${pct(d.complete)}: ${joinList(pairs.map((x) => `Panel ${x.panel} ${x.filter}`))}`
+    completeNote = `Tied at ${value}: ${joinList(pairs.map((x) => `Panel ${x.panel} ${x.filter}`))}`
   return {
-    complete: pct(d.complete),
+    complete: d.complete === 1 ? 'Enough data' : value,
     completeNote,
-    average: pct(d.average),
+    average: d.average === null ? '—' : floorPct(d.average),
+    averageNote:
+      d.average === null
+        ? 'not every panel is measured yet'
+        : 'secondary only; the weakest panel sets completion',
     effective: r1(d.effectiveHours) + ' h effective so far',
   }
 })
@@ -801,7 +814,7 @@ const tabs = computed<[Tab, string][]>(() => [
             @change="pick(($event.target as HTMLSelectElement).value)"
           >
             <option v-for="m in list" :key="m.projectGuid" :value="m.projectGuid">
-              {{ m.project }} · {{ m.panels }} panels · {{ pct(m.complete)
+              {{ m.project }} · {{ m.panels }} panels · {{ mosaicListProgress(m)
               }}{{ m.seamWarnings ? ' · ' + m.seamWarnings + ' seam warnings' : '' }}
             </option>
           </select>
@@ -828,14 +841,14 @@ const tabs = computed<[Tab, string][]>(() => [
     <template v-if="tab === 'panels' && detail && stats">
       <div class="stats">
         <div class="stat warn">
-          <div class="xsmall muted">Mosaic complete</div>
+          <div class="xsmall muted">Mosaic complete, weakest panel</div>
           <div class="big num">{{ stats.complete }}</div>
           <div class="xsmall">{{ stats.completeNote }}</div>
         </div>
         <div class="stat">
           <div class="xsmall muted">Average panel</div>
           <div class="big num">{{ stats.average }}</div>
-          <div class="xsmall muted">{{ stats.effective }}</div>
+          <div class="xsmall muted">{{ stats.averageNote }} · {{ stats.effective }}</div>
         </div>
         <div class="stat">
           <div class="xsmall muted">Left to do</div>
@@ -913,17 +926,13 @@ const tabs = computed<[Tab, string][]>(() => [
           </div>
           <div class="row xsmall muted" style="gap: 0.75rem">
             <span
-              >Progress is the goal model's value where the stacker has measured the panel,
-              otherwise accepted ÷ desired from the scheduler.</span
+              >Progress is each filter's measured progress toward its goal. A filter with no goal
+              measurement yet reads as not measured, and a plateau stop counts as enough data.</span
             >
             <span v-if="weakestPanels.size" class="row" style="gap: 0.375rem"
               ><span class="swatch" /> Holds the mosaic back</span
             >
           </div>
-          <p v-if="placeholders.length" class="xsmall muted" style="margin: 0">
-            * The scheduler plan for {{ joinList(placeholders) }} asks for only 1 sub, which looks
-            like a placeholder plan, so its 100% means one accepted sub.
-          </p>
           <p v-if="plateaus.length" class="xsmall muted" style="margin: 0">
             Stopped at a plateau, where more time barely improves the result:
             {{ joinList(plateaus) }} of the goal.
