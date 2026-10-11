@@ -3,6 +3,7 @@ package resolvers
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -33,20 +34,22 @@ type coverCache struct {
 	mu     sync.Mutex
 	at     time.Time
 	covers *workerclient.Covers
+	err    error
 }
 
 func (r *Resolver) cachedCovers(ctx context.Context) (*workerclient.Covers, error) {
 	r.covers.mu.Lock()
 	defer r.covers.mu.Unlock()
-	if r.covers.covers != nil && time.Since(r.covers.at) < 5*time.Second {
-		return r.covers.covers, nil
+	if !r.covers.at.IsZero() && time.Since(r.covers.at) < 5*time.Second {
+		return r.covers.covers, r.covers.err
 	}
-	c, err := r.worker.Covers(ctx)
+	c, err := r.worker.Covers(context.WithoutCancel(ctx))
 	if err != nil {
-		return nil, err
+		slog.Warn("Could not load cover previews", "error", err)
+		c = nil
 	}
-	r.covers.covers, r.covers.at = c, time.Now()
-	return c, nil
+	r.covers.covers, r.covers.err, r.covers.at = c, err, time.Now()
+	return c, err
 }
 
 func NewResolver(cfg *config.Config, version string, commit string) (*Resolver, error) {
