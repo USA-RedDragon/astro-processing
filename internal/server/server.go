@@ -35,7 +35,10 @@ type Server struct {
 	config        *config.Config
 }
 
-const defTimeout = 5 * time.Second
+const (
+	defTimeout   = 5 * time.Second
+	queryTimeout = 60 * time.Second
+)
 
 func graphqlHandler(cfg *config.Config, version string, commit string, relay *events.Relay) (gin.HandlerFunc, error) {
 	resolver, err := resolvers.NewResolver(cfg, version, commit)
@@ -119,7 +122,7 @@ func NewServer(config *config.Config, version string, commit string) (*Server, e
 	server := &http.Server{
 		Addr:              fmt.Sprintf("%s:%d", config.HTTP.Bind, config.HTTP.Port),
 		ReadHeaderTimeout: defTimeout,
-		WriteTimeout:      writeTimeout,
+		WriteTimeout:      queryTimeout,
 		Handler:           r,
 	}
 	server.RegisterOnShutdown(relay.Close)
