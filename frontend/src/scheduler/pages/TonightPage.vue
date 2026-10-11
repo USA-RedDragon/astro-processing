@@ -116,7 +116,7 @@ const nightLabel = computed(() => {
   return d
 })
 
-})
+const summary = computed(() => planSummary(preview.value))
 const tiles = computed(() => {
   const s = summary.value
   const from = isNaN(s.start) ? '' : ` from ${hm(s.start)}`
