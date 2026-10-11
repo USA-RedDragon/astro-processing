@@ -304,6 +304,34 @@ export function capitalise(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s
 }
 
+let measureCtx: CanvasRenderingContext2D | null | undefined
+
+function textWidth(text: string, size: number, weight: number): number {
+  if (measureCtx === undefined) {
+    try {
+      measureCtx =
+        typeof document === 'undefined'
+          ? null
+          : (document.createElement('canvas').getContext('2d') ?? null)
+    } catch {
+      measureCtx = null
+    }
+  }
+  if (!measureCtx) return text.length * size * 0.62
+  measureCtx.font = `${weight} ${size}px ${getComputedStyle(document.body).fontFamily}`
+  return measureCtx.measureText(text).width
+}
+
+export function fitLabel(text: string, w: number, size: number, weight = 400): string {
+  const room = w - 16
+  if (textWidth(text, size, weight) <= room) return text
+  for (let n = text.length - 1; n >= 3; n--) {
+    const t = text.slice(0, n).trimEnd() + '…'
+    if (textWidth(t, size, weight) <= room) return t
+  }
+  return ''
+}
+
 export function weightText(w: number): string {
   return String(Number(w.toFixed(2)))
 }

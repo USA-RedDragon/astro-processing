@@ -28,6 +28,7 @@ import {
   skipPayload,
   stepDecimals,
   subChart,
+  fitLabel,
   weightText,
   twilightBands,
   undoState,
@@ -186,6 +187,12 @@ describe('summary and pick table', () => {
     expect(weightText(0.6666667)).toBe('0.67')
     expect(weightText(1)).toBe('1')
     expect(weightText(0)).toBe('0')
+  })
+
+  it('fits bar labels inside the bar or drops them', () => {
+    expect(fitLabel('Lowers Nebula', 38, 11)).toBe('')
+    expect(fitLabel('IC 1318 Panel 15', 140, 13)).toBe('IC 1318 Panel…')
+    expect(fitLabel('Caldwell 14', 280, 13)).toBe('Caldwell 14')
   })
 })
 

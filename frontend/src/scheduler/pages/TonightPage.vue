@@ -21,6 +21,7 @@ import {
   editsFor,
   fieldValue,
   filterColor,
+  fitLabel,
   hourTicks,
   ms,
   nightRange,
@@ -169,6 +170,7 @@ const LABEL_W = 150
 const range = computed(() => nightRange(preview.value))
 const sc = computed(() => (range.value ? scale(range.value[0], range.value[1], LABEL_W, W) : null))
 const bands = computed(() => (sc.value ? twilightBands(preview.value?.twilight, sc.value) : []))
+const tickAnchor = (x: number, size: number) => (x > W - size * 1.6 ? 'end' : 'middle')
 const ticks = computed(() =>
   sc.value
     ? hourTicks(sc.value.t0, sc.value.t1).map((t) => ({ x: sc.value!.x(t), label: hm(t) }))
@@ -473,11 +475,6 @@ interface CompareBar extends Bar {
   label: string
 }
 
-function fitLabel(text: string, w: number, size: number): string {
-  const room = Math.floor((w - 16) / (size * 0.62))
-  if (room < 4) return ''
-  return text.length <= room ? text : text.slice(0, room - 1) + '…'
-}
 
 const compare = computed(() => {
   const order = compareOrder.value
@@ -487,7 +484,7 @@ const compare = computed(() => {
     list.map((b) => {
       const changed = overlap(b, other) < 0.9
       const why = after && changed && b.reason ? ' · ' + b.reason : ''
-      return { ...b, changed, label: b.wait ? '' : fitLabel(b.name + why, b.w, 20) }
+      return { ...b, changed, label: b.wait ? '' : fitLabel(b.name + why, b.w, 20, changed ? 600 : 400) }
     })
   return { current: mark(cur, wi, false), whatIf: mark(wi, cur, true) }
 })
@@ -601,7 +598,15 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               :opacity="b.opacity"
             />
             <g font-size="11" fill="var(--muted-foreground)" text-anchor="middle">
-              <text v-for="t in ticks" :key="'t' + t.x" :x="t.x" y="14">{{ t.label }}</text>
+              <text
+                v-for="t in ticks"
+                :key="'t' + t.x"
+                :x="t.x"
+                y="14"
+                :text-anchor="tickAnchor(t.x, 11)"
+              >
+                {{ t.label }}
+              </text>
             </g>
             <g stroke="var(--border)" stroke-width="1">
               <line
@@ -718,7 +723,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                       font-weight="600"
                       fill="var(--foreground)"
                     >
-                      {{ b.name }}
+                      {{ fitLabel(b.name, b.w, b.w > 90 ? 13 : 11, 600) }}
                     </text>
                     <text
                       v-if="b.sub && b.w > 70"
@@ -727,7 +732,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                       font-size="11"
                       fill="var(--muted-foreground)"
                     >
-                      {{ b.sub }}
+                      {{ fitLabel(b.sub, b.w, 11) }}
                     </text>
                   </template>
                 </a>
@@ -753,7 +758,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                     font-weight="600"
                     :fill="b.wait ? 'var(--muted-foreground)' : 'var(--foreground)'"
                   >
-                    {{ b.name }}
+                    {{ fitLabel(b.name, b.w, b.w > 90 ? 13 : 11, 600) }}
                   </text>
                   <text
                     v-if="b.sub && b.w > 70"
@@ -762,7 +767,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                     font-size="11"
                     fill="var(--muted-foreground)"
                   >
-                    {{ b.sub }}
+                    {{ fitLabel(b.sub, b.w, 11) }}
                   </text>
                 </template>
               </g>
@@ -1018,7 +1023,13 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               :aria-label="compareLabel"
             >
               <g font-size="22" fill="var(--muted-foreground)" text-anchor="middle">
-                <text v-for="t in compareTicks" :key="'ct' + t.x" :x="t.x" y="20">
+                <text
+                  v-for="t in compareTicks"
+                  :key="'ct' + t.x"
+                  :x="t.x"
+                  y="20"
+                  :text-anchor="tickAnchor(t.x, 22)"
+                >
                   {{ t.label }}
                 </text>
               </g>
