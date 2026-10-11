@@ -16,6 +16,7 @@ import {
 } from '../api/scheduler'
 import { clock, hm, longDate, mmss, nightOf } from '../format'
 import {
+  abortBlockedReason,
   abortPayload,
   angleText,
   capitalise,
@@ -187,10 +188,10 @@ const pauseBlocked = computed(() => {
 
 const abortBlocked = computed(() => {
   if (blockedReason.value) return blockedReason.value
-  if (!exposure.value) return 'No exposure is running.'
-  if (!abortPayload(exposure.value)) return 'The scheduler did not report which exposure is running.'
-  return ''
+  return abortBlockedReason(exposure.value)
 })
+
+const abortSyncClients = computed(() => !!exposure.value?.sync_clients)
 
 const blockedLine = computed(() => {
   if (!skipBlocked.value) return ''
@@ -839,6 +840,9 @@ const cross = (x: number, y: number, r: number) =>
             >
           </p>
           <div class="abort-row">
+            <span v-if="exposure?.abort_blocked" class="xsmall muted abort-why">{{
+              exposure.abort_blocked
+            }}</span>
             <button
               type="button"
               class="btn sm danger abort-btn"
@@ -1512,6 +1516,10 @@ const cross = (x: number, y: number, r: number) =>
           The flat panel, roof and power are not touched. If this exposure ends before the abort
           arrives, the next one is left alone.
         </p>
+        <p v-if="abortSyncClients" class="small muted">
+          Sync clients take this exposure too. The abort does not stop their cameras, so the
+          scheduler waits for them to finish their exposures before it moves on.
+        </p>
         <div class="actions">
           <button type="button" class="btn" @click="abortFor = null">Cancel</button>
           <button type="button" class="btn danger" :disabled="busy" @click="confirmAbort">
@@ -1616,8 +1624,15 @@ const cross = (x: number, y: number, r: number) =>
 }
 .abort-row {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.5rem 0.75rem;
   margin-top: 0.625rem;
+}
+.abort-why {
+  flex: 1 1 14rem;
+  text-align: right;
 }
 .pause-btn {
   background: color-mix(in oklch, var(--input) 30%, transparent);

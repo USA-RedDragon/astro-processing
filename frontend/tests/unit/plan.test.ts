@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CommandRecord } from '@/scheduler/api/commands'
 import type { PlanBlock, Preview, SchedProject, TonightSub } from '@/scheduler/api/scheduler'
 import {
+  abortBlockedReason,
   abortPayload,
   angleText,
   addChange,
@@ -437,6 +438,18 @@ describe('commands', () => {
     expect(abortPayload({ started_at: started, filter: 'Ha' }, 'Panel 2')).toBeNull()
     expect(abortPayload({ plan_id: 40, filter: 'Ha' }, 'Panel 2')).toBeNull()
     expect(abortPayload(null, 'Panel 2')).toBeNull()
+  })
+
+  it('says why Abort now is off, including on a sync client', () => {
+    const started = '2026-10-10T06:45:00.1234567Z'
+    expect(abortBlockedReason({ plan_id: 40, started_at: started })).toBe('')
+    expect(abortBlockedReason(null)).toBe('No exposure is running.')
+    expect(abortBlockedReason({ started_at: started })).toBe(
+      'The scheduler did not report which exposure is running.',
+    )
+    const sync =
+      'This PC is a sync client. Its exposures are started by the sync server and cannot be aborted from the web.'
+    expect(abortBlockedReason({ plan_id: 40, started_at: started, abort_blocked: sync })).toBe(sync)
   })
 })
 

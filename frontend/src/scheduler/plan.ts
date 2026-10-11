@@ -776,6 +776,16 @@ export function abortPayload(
   return p
 }
 
+export function abortBlockedReason(
+  exposure: Pick<SchedulerExposure, 'plan_id' | 'started_at' | 'abort_blocked'> | null | undefined,
+): string {
+  if (!exposure) return 'No exposure is running.'
+  if (exposure.abort_blocked) return exposure.abort_blocked
+  if (!exposure.plan_id || !exposure.started_at)
+    return 'The scheduler did not report which exposure is running.'
+  return ''
+}
+
 export function historyBadge(
   r: Pick<CommandRecord, 'status' | 'applied_at' | 'transport'>,
   applies: string,

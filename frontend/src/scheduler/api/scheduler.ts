@@ -33,6 +33,8 @@ export interface SchedulerExposure {
   started_at?: string
   ends_at?: string
   number?: number
+  abort_blocked?: string
+  sync_clients?: boolean
 }
 
 export interface SchedulerTarget {
