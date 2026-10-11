@@ -329,10 +329,10 @@ async function decide(m: ReviewItem, after: Decision) {
   <main class="page wide">
     <PageHead context="Discover" title="Catalogue completion">
       <span>
-        Catalogue objects inside your plate-solved frames, judged the way Target Scheduler judges
-        your targets: by a goal where one is set, otherwise by subs against desired. Measuring means
-        a filter with a goal has no measurement yet. Only names that point outside your frames wait
-        for you below.
+        Catalogue objects inside your plate-solved frames. Done means Target Scheduler has finished
+        every filter. Progress is the least complete filter against its measured goal, never an
+        average. Measuring means a filter with a goal has no measurement yet. Only names that point
+        outside your frames wait for you below.
       </span>
       <template #actions>
         <div v-if="overview?.night" class="xsmall muted num" style="text-align: right">
@@ -422,7 +422,7 @@ async function decide(m: ReviewItem, after: Decision) {
               background: linear-gradient(to right, var(--prog-bg) 50%, transparent 50%);
               border: 1px solid var(--prog);
             "
-          />In progress, filled to its goal progress</span
+          />In progress, filled to its least complete filter's goal progress</span
         >
         <span class="row" style="gap: 0.375rem"
           ><span

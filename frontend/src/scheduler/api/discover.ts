@@ -100,10 +100,11 @@ export interface SubjectRef {
 }
 
 export interface Progress {
-  percent: number
+  percent: number | null
   target: string
   leastFilter?: string
-  leastPercent: number
+  notMeasured?: string
+  enough: boolean
 }
 
 export interface Tally {
@@ -157,18 +158,18 @@ export interface CatalogueEntry {
 const floorPct = (v: number) => `${Math.floor(Math.min(1, Math.max(0, v)) * 100)}%`
 
 export function progressFill(e: Pick<CatalogueEntry, 'status' | 'progress'>): number | null {
-  if (e.status !== 'in-progress' || !e.progress) return null
+  if (e.status !== 'in-progress' || !e.progress || e.progress.percent === null) return null
   return Math.min(1, Math.max(0, e.progress.percent))
 }
 
 export function progressText(e: Pick<CatalogueEntry, 'status' | 'progress'>): string {
-  if (e.status !== 'in-progress') return ''
+  if (e.status !== 'in-progress' && e.status !== 'measuring') return ''
   const p = e.progress
   if (!p) return 'progress unknown'
-  const least = p.leastFilter
-    ? `, least complete ${p.leastFilter} at ${floorPct(p.leastPercent)}`
-    : ''
-  return `${floorPct(p.percent)} complete${least}`
+  const f = p.leastFilter ?? 'a filter'
+  if (p.percent === null)
+    return `needs more · ${f} not measured yet${p.notMeasured ? ` (${p.notMeasured})` : ''}`
+  return `${floorPct(p.percent)} · ${f} least complete`
 }
 
 export interface CatalogueSummary {
