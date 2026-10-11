@@ -69,7 +69,9 @@ describe('settingError', () => {
 
   it('needs maximum altitude above the minimum unless off', () => {
     expect(settingError(spec('maximumAltitude'), 0, 30)).toBe('')
-    expect(settingError(spec('maximumAltitude'), 30, 30)).toMatch(/above the minimum altitude \(30°\)/)
+    expect(settingError(spec('maximumAltitude'), 30, 30)).toMatch(
+      /above the minimum altitude \(30°\)/,
+    )
     expect(settingError(spec('maximumAltitude'), 31, 30)).toBe('')
     expect(settingError(spec('maximumAltitude'), 95, 30)).toMatch(/0 to 90/)
   })
@@ -111,6 +113,22 @@ describe('projectSettings and settingChanges', () => {
     expect(projectSettings(project)).toEqual({ ...vals, enableGrader: true })
   })
 
+  it('keeps settings Target Scheduler has no value for as null and sends null as their before', () => {
+    const unset = { ...project, ditherEvery: null, smartExposureOrder: null } as unknown as Project
+    const cur = projectSettings(unset)!
+    expect(cur).toEqual({
+      ...vals,
+      ditherEvery: null,
+      smartExposureOrder: null,
+      enableGrader: true,
+    })
+    expect(settingText(spec('ditherEvery'), cur.ditherEvery)).toBe('Not set')
+    expect(settingErrors(cur, 25)).toEqual({})
+    expect(settingChanges(cur, { ditherEvery: 2 })).toEqual([
+      { field: 'ditherevery', before: null, after: 2 },
+    ])
+  })
+
   it('returns null when an older stacker leaves the fields out', () => {
     expect(projectSettings({ grader: false } as Project)).toBeNull()
   })
@@ -137,7 +155,9 @@ describe('defaults', () => {
 
   it('explains the basis', () => {
     expect(defaultsBasisText(d)).toBe('Most common among 79 projects on this profile')
-    expect(defaultsBasisText({ ...d, projects: 1 })).toBe('Most common among 1 project on this profile')
+    expect(defaultsBasisText({ ...d, projects: 1 })).toBe(
+      'Most common among 1 project on this profile',
+    )
     expect(defaultsBasisText({ ...d, basis: 'target-scheduler', projects: 0 })).toMatch(
       /^Target Scheduler defaults/,
     )

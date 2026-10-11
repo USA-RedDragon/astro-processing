@@ -234,14 +234,14 @@ export interface Project {
   ruleWeights: RuleWeight[]
   goalDriven: boolean
   grader: boolean
-  ditherEvery?: number
-  filterSwitchFrequency?: number
-  flatsHandling?: number
-  smartExposureOrder?: boolean
-  meridianWindow?: number
-  useCustomHorizon?: boolean
-  horizonOffset?: number
-  maximumAltitude?: number
+  ditherEvery?: number | null
+  filterSwitchFrequency?: number | null
+  flatsHandling?: number | null
+  smartExposureOrder?: boolean | null
+  meridianWindow?: number | null
+  useCustomHorizon?: boolean | null
+  horizonOffset?: number | null
+  maximumAltitude?: number | null
   completion: { delayGrading: number; exposureThrottle: number; source: string }
 }
 

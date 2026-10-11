@@ -2,6 +2,10 @@ import type { Project, ProjectSettingDefaults, ProjectSettingValues } from './ap
 
 export type SettingKey = keyof ProjectSettingValues
 
+export type ProjectSettingCurrent = { [K in SettingKey]: ProjectSettingValues[K] | null }
+
+export const NOT_SET = 'Not set'
+
 export interface SettingSpec {
   key: SettingKey
   field: string
@@ -120,7 +124,8 @@ export function validFlats(v: number): boolean {
   )
 }
 
-export function settingText(spec: SettingSpec, v: number | boolean): string {
+export function settingText(spec: SettingSpec, v: number | boolean | null): string {
+  if (v === null) return NOT_SET
   if (spec.kind === 'bool') return v ? 'On' : 'Off'
   const n = Number(v)
   if (spec.kind === 'flats') return flatsLabel(n)
@@ -136,9 +141,10 @@ export function settingText(spec: SettingSpec, v: number | boolean): string {
 
 export function settingError(
   spec: SettingSpec,
-  v: number | boolean,
+  v: number | boolean | null,
   minimumAltitude?: number | null,
 ): string {
+  if (v === null) return ''
   if (spec.kind === 'bool') return typeof v === 'boolean' ? '' : `${spec.label} must be on or off`
   if (typeof v !== 'number' || !Number.isFinite(v)) return `${spec.label} must be a number`
   if (spec.kind === 'flats')
@@ -160,7 +166,7 @@ export function settingError(
 }
 
 export function settingErrors(
-  vals: ProjectSettingValues,
+  vals: ProjectSettingCurrent,
   minimumAltitude?: number | null,
 ): Partial<Record<SettingKey, string>> {
   const out: Partial<Record<SettingKey, string>> = {}
@@ -171,7 +177,7 @@ export function settingErrors(
   return out
 }
 
-export function projectSettings(p: Project): ProjectSettingValues | null {
+export function projectSettings(p: Project): ProjectSettingCurrent | null {
   const v = {
     ditherEvery: p.ditherEvery,
     filterSwitchFrequency: p.filterSwitchFrequency,
@@ -183,13 +189,11 @@ export function projectSettings(p: Project): ProjectSettingValues | null {
     maximumAltitude: p.maximumAltitude,
     enableGrader: p.grader,
   }
-  return Object.values(v).some((x) => x === undefined || x === null)
-    ? null
-    : (v as ProjectSettingValues)
+  return Object.values(v).some((x) => x === undefined) ? null : (v as ProjectSettingCurrent)
 }
 
 export function settingChanges(
-  before: ProjectSettingValues,
+  before: ProjectSettingCurrent,
   draft: Partial<ProjectSettingValues>,
 ): { field: string; before: unknown; after: unknown }[] {
   const out: { field: string; before: unknown; after: unknown }[] = []

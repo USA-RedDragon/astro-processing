@@ -35,6 +35,7 @@ import { submitCommand } from '../api/commands'
 import {
   MINIMUM_ALTITUDE_RANGE,
   MINIMUM_TIME_RANGE,
+  NOT_SET,
   SETTINGS,
   flatsLabel,
   flatsOptions,
@@ -45,6 +46,7 @@ import {
   settingError,
   settingErrors,
   settingText,
+  type ProjectSettingCurrent,
   type SettingKey,
 } from '../projectSettings'
 import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
@@ -613,7 +615,7 @@ const optDraft = reactive<{
 }>({})
 const schedDraft = reactive<Partial<ProjectSettingValues>>({})
 const sched = computed(() => (p.value ? projectSettings(p.value) : null))
-const schedValues = computed<ProjectSettingValues | null>(() =>
+const schedValues = computed<ProjectSettingCurrent | null>(() =>
   sched.value ? { ...sched.value, ...schedDraft } : null,
 )
 const schedChanges = computed(() =>
@@ -1381,17 +1383,24 @@ function numInput(e: Event): number {
                     :checked="!!schedValues[s.key]"
                     @change="setSched(s.key, ($event.target as HTMLInputElement).checked)"
                   />
-                  {{ schedValues[s.key] ? 'On' : 'Off' }}
+                  {{ settingText(s, schedValues[s.key]) }}
                 </span>
               </label>
               <label v-else-if="s.kind === 'flats'" class="field">
                 <span>{{ s.label }}</span>
                 <select
                   class="input"
-                  :value="schedValues.flatsHandling"
+                  :value="schedValues.flatsHandling ?? ''"
                   @change="setSched(s.key, Number(($event.target as HTMLSelectElement).value))"
                 >
-                  <option v-for="v in flatsOptions(sched.flatsHandling)" :key="v" :value="v">
+                  <option v-if="schedValues.flatsHandling === null" value="" disabled>
+                    {{ NOT_SET }}
+                  </option>
+                  <option
+                    v-for="v in flatsOptions(sched.flatsHandling ?? undefined)"
+                    :key="v"
+                    :value="v"
+                  >
                     {{ flatsLabel(v) }}
                   </option>
                 </select>
@@ -1404,7 +1413,12 @@ function numInput(e: Event): number {
                   :min="s.min"
                   :max="s.max"
                   :step="s.kind === 'int' ? 1 : 0.1"
-                  :value="Number.isNaN(schedValues[s.key]) ? '' : schedValues[s.key]"
+                  :value="
+                    schedValues[s.key] === null || Number.isNaN(schedValues[s.key])
+                      ? ''
+                      : schedValues[s.key]
+                  "
+                  :placeholder="schedValues[s.key] === null ? NOT_SET : undefined"
                   :aria-invalid="!!schedErrors[s.key]"
                   @change="setSched(s.key, inputNum($event))"
                 />
