@@ -368,6 +368,7 @@ export interface Adoption {
     target?: string
     separationDeg: number | null
     nearest?: string
+    within?: number
     coords?: boolean
     nameMatch?: boolean
     projectNamed?: string
@@ -431,6 +432,49 @@ export function adoptionDecision(a: Adoption, choice: 'accepted' | 'rejected'): 
     before: a.status,
     after: a.status === choice ? 'proposed' : choice,
   }
+}
+
+export function undoAuto(a: Adoption): AdoptionDecision {
+  return { id: a.id, subject: a.subject, title: a.project, before: 'auto', after: 'proposed' }
+}
+
+export function splitAdoptions(rows: Adoption[]) {
+  return {
+    open: rows.filter((a) => a.status === 'proposed'),
+    auto: rows.filter((a) => a.status === 'auto'),
+    decided: rows.filter((a) => a.status === 'accepted' || a.status === 'rejected'),
+  }
+}
+
+export function openLabel(n: number): string {
+  if (n === 0) return 'No decisions open'
+  return `${n} ${n === 1 ? 'decision' : 'decisions'} open`
+}
+
+function subs(n: number): string {
+  return n === 1 ? '1 sub' : `${n} subs`
+}
+
+export function autoOutcome(a: Adoption): string {
+  if (a.kind === 'frames' && a.frames) {
+    return a.frames.target
+      ? `Attached ${subs(a.frames.count)} to ${a.frames.target}.`
+      : `Kept ${subs(a.frames.count)} separate. Their hours count on their own.`
+  }
+  if (a.kind === 'mosaic') return `Adopted as a ${a.panels?.length ?? 0}-panel mosaic.`
+  return a.suggestion
+}
+
+export function autoReason(a: Adoption): string {
+  const f = a.frames
+  if (a.kind !== 'frames' || !f) return a.rule.replace(/^High: /, '')
+  if (!f.target)
+    return a.suggestion.replace(/\s*Keep them separate and count their hours on their own\.$/, '')
+  const sep =
+    f.separationDeg === null
+      ? ''
+      : ` is ${f.separationDeg.toFixed(2)}° from the subs' mount position,`
+  return `${f.target}${sep} the only Target Scheduler target within 0.5°, and the names match.`
 }
 
 export function keepOrder(before: Adoption[], after: Adoption[]): Adoption[] {

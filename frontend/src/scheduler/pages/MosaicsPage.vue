@@ -5,7 +5,12 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   adopt,
   adoptionDecision,
+  autoOutcome,
+  autoReason,
   keepOrder,
+  openLabel,
+  splitAdoptions,
+  undoAuto,
   getHistory,
   getMosaic,
   getSeasons,
@@ -704,7 +709,8 @@ async function applyStrategy() {
   }
 }
 
-const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed').length)
+const adoptionGroups = computed(() => splitAdoptions(adoptions.value))
+const openAdoptions = computed(() => adoptionGroups.value.open.length)
 const cleanOpen = computed(() => adoptions.value.filter((a) => a.status === 'proposed' && a.clean))
 const deciding = reactive(new Set<number>())
 
@@ -751,8 +757,16 @@ function adoptionTimes(a: Adoption): string {
   const parts: string[] = []
   if (a.foundAt) parts.push('found ' + shortDate(a.foundAt))
   if (a.wordedAt && a.wordedAt !== a.foundAt) parts.push('wording last changed ' + shortDate(a.wordedAt))
-  if (a.decidedAt)
-    parts.push(`decided ${shortDate(a.decidedAt)}${a.decidedBy ? ' by ' + a.decidedBy : ''}`)
+  if (a.decidedAt) {
+    const verb =
+      a.status === 'auto'
+        ? 'decided automatically'
+        : a.status === 'proposed'
+          ? 'reopened'
+          : 'decided'
+    const who = a.status !== 'auto' && a.decidedBy ? ' by ' + a.decidedBy : ''
+    parts.push(`${verb} ${shortDate(a.decidedAt)}${who}`)
+  }
   return parts.join(' · ')
 }
 
@@ -767,7 +781,7 @@ function statusBadge(a: Adoption): { text: string; cls: string } | null {
     case 'rejected':
       return { text: 'Rejected', cls: '' }
     case 'auto':
-      return { text: 'Adopted', cls: 'ok' }
+      return { text: 'Automatic', cls: 'ok' }
   }
   return a.clean ? { text: 'Clean', cls: 'info' } : null
 }
@@ -1267,16 +1281,17 @@ const tabs = computed<[Tab, string][]>(() => [
         <div style="max-width: 72ch">
           <h2 id="adopt-h">Adoption review</h2>
           <p class="small muted" style="margin: 0.25rem 0 0">
-            Mosaics and subs from before this page existed. Accept or Reject saves that row at once;
-            press it again to make the row undecided. Clean cases are panels named after their
-            project and numbered 1 to N. Adoption only writes the app's own tables; no scheduler
-            row is changed or deleted, and every decision can be undone from the toast or History.
+            Mosaics and subs from before this page existed. Rows the evidence settles are decided
+            automatically and listed under Decided automatically; only the rows left here need you.
+            Accept or Reject saves that row at once; press it again to make the row undecided.
+            Adoption only writes the app's own tables; no scheduler row is changed or deleted, and
+            every decision can be undone from the toast or History.
           </p>
         </div>
         <div class="row">
-          <span class="badge warn"
-            >{{ openAdoptions }} {{ openAdoptions === 1 ? 'decision' : 'decisions' }} open</span
-          >
+          <span class="badge" :class="openAdoptions ? 'warn' : 'ok'">{{
+            openLabel(openAdoptions)
+          }}</span>
           <button
             v-if="cleanOpen.length"
             type="button"
@@ -1291,8 +1306,11 @@ const tabs = computed<[Tab, string][]>(() => [
           </button>
         </div>
       </div>
+      <p v-if="adoptions.length && !openAdoptions" class="small" style="margin: 0.75rem 0 0">
+        No decisions open. Nothing here needs you.
+      </p>
       <ul class="adopt">
-        <li v-for="a in adoptions" :key="a.id">
+        <li v-for="a in adoptions.filter((x) => x.status !== 'auto')" :key="a.id">
           <div
             style="min-width: 0; display: flex; flex-direction: column; gap: 0.125rem"
             class="small"
@@ -1338,6 +1356,33 @@ const tabs = computed<[Tab, string][]>(() => [
           </div>
         </li>
       </ul>
+      <details v-if="adoptionGroups.auto.length" class="auto-decided">
+        <summary class="small">Decided automatically ({{ adoptionGroups.auto.length }})</summary>
+        <p class="xsmall muted" style="margin: 0.5rem 0 0">
+          Undo moves a row back to the open decisions and removes the links or panels it made.
+        </p>
+        <ul class="adopt">
+          <li v-for="a in adoptionGroups.auto" :key="a.id">
+            <div
+              style="min-width: 0; display: flex; flex-direction: column; gap: 0.125rem"
+              class="small"
+            >
+              <span style="font-weight: 600; font-size: 0.875rem">{{ adoptionTitle(a) }}</span>
+              <span>{{ autoOutcome(a) }}</span>
+              <span class="muted">Why: {{ autoReason(a) }}</span>
+              <span v-if="adoptionTimes(a)" class="xsmall muted">{{ adoptionTimes(a) }}</span>
+            </div>
+            <button
+              type="button"
+              class="btn"
+              :disabled="deciding.has(a.id)"
+              @click="sendAdoption([undoAuto(a)])"
+            >
+              Undo
+            </button>
+          </li>
+        </ul>
+      </details>
       <p v-if="!adoptions.length" class="empty">
         Nothing to review. Press Check again to look for mosaics and unmatched subs.
       </p>
@@ -1546,6 +1591,15 @@ const tabs = computed<[Tab, string][]>(() => [
   .adopt li {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.auto-decided {
+  margin-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+}
+.auto-decided summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 .adopt .btn.on {
   border-color: var(--foreground);
