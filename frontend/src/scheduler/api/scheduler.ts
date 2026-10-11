@@ -374,6 +374,10 @@ export interface PowerReport extends SourceState {
   low_battery?: boolean
   on_battery_seconds?: number
   runtime_seconds?: number
+  charge_low?: number
+  runtime_low_seconds?: number
+  last_on_battery?: string
+  battery_history_from?: string
 }
 
 export interface SyncReport extends SourceState {

@@ -113,6 +113,14 @@ export function hmDuration(seconds: number): string {
   return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
 }
 
+export const UPS_UNSAFE_SECONDS = 5
+export const UPS_SHUTDOWN_SECONDS = 60
+
+export interface ShutdownStep {
+  when: string
+  what: string
+}
+
 export interface PowerView {
   label: string
   tone: Tone
@@ -121,15 +129,59 @@ export interface PowerView {
   alert: string
   runtime: string
   voltage: string
+  onBattery: string
+  onBatteryNote: string
+  steps: ShutdownStep[]
 }
 
-export function powerView(p: PowerReport | undefined): PowerView | null {
+function lowBatteryText(p: PowerReport): string {
+  const charge = p.charge_low !== undefined ? `${Math.round(p.charge_low)}% charge` : ''
+  const runtime =
+    p.runtime_low_seconds !== undefined ? `${duration(p.runtime_low_seconds)} runtime` : ''
+  if (charge && runtime) return `${charge} or ${runtime}`
+  return charge || runtime || 'level not reported'
+}
+
+function elapsed(seconds: number): string {
+  return seconds < 120 ? `${Math.round(seconds)} s` : duration(seconds)
+}
+
+function when(v: string): string {
+  return `${shortDate(v)} ${clock(v)}`
+}
+
+export function shutdownSteps(p: PowerReport): ShutdownStep[] {
+  return [
+    { when: `${UPS_UNSAFE_SECONDS} s on battery`, what: "NINA's safety monitor turns unsafe" },
+    {
+      when: `${UPS_SHUTDOWN_SECONDS} s on battery, or low battery at ${lowBatteryText(p)}`,
+      what: 'Shutdown starts',
+    },
+    { when: '', what: 'NINA parks the mount' },
+    { when: '', what: 'Powerbox off: camera, rotator, flat panel, mount and dew heaters' },
+    { when: '', what: 'Windows shuts the PC down' },
+  ]
+}
+
+export function powerView(p: PowerReport | undefined, at?: string): PowerView | null {
   if (!p || !hasData(p)) return null
   const onBattery = p.on_battery
+  const secs = p.on_battery_seconds
+  const since = secs !== undefined && at ? ms(at) - secs * 1000 : NaN
   let alert = ''
+  let note = ''
   if (onBattery) {
-    const on = p.on_battery_seconds
-    alert = on !== undefined ? `On battery ${hmDuration(on)}` : 'On battery'
+    alert = isNaN(since) ? 'On battery' : `On battery since ${clock(since)} (${elapsed(secs!)})`
+    if (secs !== undefined) {
+      const left = UPS_SHUTDOWN_SECONDS - secs
+      alert += left > 0 ? ` · shutdown in about ${Math.round(left)} s` : ' · shutdown due'
+    }
+    note = isNaN(since) ? 'start not reported' : 'since ' + clock(since)
+  } else if (onBattery === false) {
+    if (p.last_on_battery) note = 'last ' + when(p.last_on_battery)
+    else if (p.battery_history_from)
+      note = `none recorded since ${shortDate(p.battery_history_from)}`
+    else note = 'history not reported'
   }
   return {
     label: onBattery
@@ -143,9 +195,11 @@ export function powerView(p: PowerReport | undefined): PowerView | null {
     charge: p.charge !== undefined ? `${Math.round(p.charge)}%` : 'Charge not reported',
     model: p.model ?? '',
     alert,
-    runtime: p.runtime_seconds !== undefined ? duration(p.runtime_seconds) : '',
-    voltage:
-      onBattery && p.input_voltage !== undefined ? `Input ${Math.round(p.input_voltage)} V` : '',
+    runtime: p.runtime_seconds !== undefined ? duration(p.runtime_seconds) : 'not reported',
+    voltage: p.input_voltage !== undefined ? `${Math.round(p.input_voltage)} V` : 'not reported',
+    onBattery: onBattery === undefined ? 'not reported' : onBattery ? 'Yes' : 'No',
+    onBatteryNote: note,
+    steps: shutdownSteps(p),
   }
 }
 

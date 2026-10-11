@@ -652,7 +652,7 @@ const weatherEmpty = computed(() => {
     return 'The weather device is not connected in NINA, so there are no readings.'
   return weather.value.length ? '' : 'The weather device reported nothing.'
 })
-const power = computed(() => powerView(conditions.value?.power))
+const power = computed(() => powerView(conditions.value?.power, conditions.value?.at))
 const powerEmpty = computed(() => {
   if (conditionsError.value) return 'Conditions are not available: ' + conditionsError.value
   if (!conditions.value) return 'Loading.'
@@ -1365,11 +1365,38 @@ const cross = (x: number, y: number, r: number) =>
             <span class="small muted">battery{{ power.model ? ' · ' + power.model : '' }}</span>
           </div>
           <div v-if="power.alert" role="status" class="battery-alert num">
-            {{ power.alert }}<template v-if="power.voltage"> · {{ power.voltage }}</template>
+            {{ power.alert }}
           </div>
-          <p v-if="power.runtime" class="small muted num" style="margin: 0">
-            Runtime {{ power.runtime }}
-          </p>
+          <dl class="wx num">
+            <div>
+              <dt class="xsmall muted">Input voltage</dt>
+              <dd>{{ power.voltage }}</dd>
+            </div>
+            <div>
+              <dt class="xsmall muted">On battery</dt>
+              <dd>{{ power.onBattery }}</dd>
+              <dd v-if="power.onBatteryNote" class="xsmall muted plain-dd">
+                {{ power.onBatteryNote }}
+              </dd>
+            </div>
+            <div>
+              <dt class="xsmall muted">Runtime</dt>
+              <dd>{{ power.runtime }}</dd>
+            </div>
+          </dl>
+          <div class="shutdown">
+            <div style="font-weight: 600">Auto-shutdown</div>
+            <ol aria-label="Shutdown sequence" class="steps">
+              <li v-for="(s, i) in power.steps" :key="i">
+                <span v-if="s.when" class="xsmall muted num step-when">{{ s.when }}</span>
+                {{ s.what }}
+              </li>
+            </ol>
+            <p class="xsmall muted" style="margin: 0">
+              The low-battery levels are what the UPS reports. The timers and steps are set in the
+              observatory PC's ups-shutdown script, which NUT runs.
+            </p>
+          </div>
         </template>
         <p v-else class="empty" style="padding: 0">{{ powerEmpty }}</p>
       </section>
@@ -1726,6 +1753,29 @@ const cross = (x: number, y: number, r: number) =>
 .wx dd {
   margin: 0;
   font-weight: 600;
+}
+.wx .plain-dd {
+  font-weight: 400;
+}
+.shutdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  list-style: decimal;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.step-when {
+  display: block;
 }
 .battery-alert {
   border-radius: 0.5rem;

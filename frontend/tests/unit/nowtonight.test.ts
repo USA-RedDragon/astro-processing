@@ -21,6 +21,7 @@ import {
   noSourceText,
   phaseName,
   powerView,
+  shutdownSteps,
   weatherRows,
 } from '@/scheduler/nowtonight'
 
@@ -66,7 +67,7 @@ describe('conditions', () => {
     )
   })
 
-  it('shows the power state and the runtime the UPS reports', () => {
+  it('shows the power state, input voltage, on-battery history and runtime', () => {
     expect(powerView({ source: 'none', on_battery: false, low_battery: false })).toBeNull()
     const on = powerView({
       source: 'prometheus',
@@ -76,23 +77,60 @@ describe('conditions', () => {
       charge: 100,
       model: 'CyberPower EC450G',
       runtime_seconds: 4300,
+      input_voltage: 120,
+      battery_history_from: '2026-10-08T12:59:45Z',
     })!
     expect(on.label).toBe('On line')
     expect(on.alert).toBe('')
     expect(on.runtime).toBe('1 h 12 min')
-    const ob = powerView({
+    expect(on.voltage).toBe('120 V')
+    expect(on.onBattery).toBe('No')
+    expect(on.onBatteryNote).toBe('none recorded since Thu 8 Oct')
+    const was = powerView({
       source: 'prometheus',
-      on_battery: true,
-      low_battery: false,
-      flags: ['OB'],
-      charge: 90,
-      on_battery_seconds: 23 * 60,
-      input_voltage: 0,
+      on_battery: false,
+      flags: ['OL'],
+      last_on_battery: '2026-10-09T08:10:00Z',
     })!
+    expect(was.onBatteryNote).toBe('last Fri 9 Oct 03:10 CDT')
+    expect(was.voltage).toBe('not reported')
+    expect(was.runtime).toBe('not reported')
+    const ob = powerView(
+      {
+        source: 'prometheus',
+        on_battery: true,
+        low_battery: false,
+        flags: ['OB'],
+        charge: 90,
+        on_battery_seconds: 23,
+        input_voltage: 0,
+      },
+      '2026-10-11T08:00:23Z',
+    )!
     expect(ob.label).toBe('On battery')
-    expect(ob.alert).toBe('On battery 0:23')
-    expect(ob.runtime).toBe('')
-    expect(ob.voltage).toBe('Input 0 V')
+    expect(ob.alert).toBe('On battery since 03:00 CDT (23 s) · shutdown in about 37 s')
+    expect(ob.onBattery).toBe('Yes')
+    expect(ob.onBatteryNote).toBe('since 03:00 CDT')
+    expect(ob.voltage).toBe('0 V')
+    const late = powerView(
+      { source: 'prometheus', on_battery: true, on_battery_seconds: 95 },
+      t(1),
+    )!
+    expect(late.alert).toBe('On battery since 19:58 CDT (95 s) · shutdown due')
+  })
+
+  it('builds the shutdown chain from the UPS low-battery levels', () => {
+    const steps = shutdownSteps({ source: 'prometheus', charge_low: 40, runtime_low_seconds: 300 })
+    expect(steps.map((s) => `${s.when}: ${s.what}`)).toEqual([
+      "5 s on battery: NINA's safety monitor turns unsafe",
+      '60 s on battery, or low battery at 40% charge or 5 min runtime: Shutdown starts',
+      ': NINA parks the mount',
+      ': Powerbox off: camera, rotator, flat panel, mount and dew heaters',
+      ': Windows shuts the PC down',
+    ])
+    expect(shutdownSteps({ source: 'prometheus' })[1].when).toBe(
+      '60 s on battery, or low battery at level not reported',
+    )
   })
 
   it('builds the sync, mount and safety pills', () => {
