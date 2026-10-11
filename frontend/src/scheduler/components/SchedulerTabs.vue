@@ -76,6 +76,9 @@ import RuleWeightsConfirm from './RuleWeightsConfirm.vue'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
 import PlateauLine from './PlateauLine.vue'
+import SubLengthLine from './SubLengthLine.vue'
+import { getSubLengths, type SubLengthState } from '../api/sublength'
+import { planLengthView } from '../subLength'
 import { api, query } from '../api/client'
 
 interface GoalMaskInfo {
@@ -157,6 +160,30 @@ const p = computed(() => detail.value?.project)
 const target = computed<Target | undefined>(
   () => p.value?.targets[panelIdx.value] ?? p.value?.targets[0],
 )
+const subLen = ref<SubLengthState | null>(null)
+let subLenGuid = ''
+watch(
+  () => (tab.value === 'plans' ? target.value?.guid ?? '' : ''),
+  async (guid) => {
+    if (!guid || guid === subLenGuid) return
+    subLenGuid = guid
+    subLen.value = null
+    const s = await getSubLengths({ target_guid: guid })
+    if (subLenGuid === guid) subLen.value = s
+  },
+  { immediate: true },
+)
+const planLengths = computed(() =>
+  (target.value?.plans ?? []).map((pl) => ({
+    pl,
+    view: planLengthView(subLen.value, pl, target.value?.guid ?? ''),
+  })),
+)
+function planLengthCell(pl: Plan): string {
+  const v = planLengths.value.find((x) => x.pl.id === pl.id)?.view
+  if (subLen.value && v?.state === 'auto') return 'auto: ' + v.compact
+  return `${pl.exposure} s, ${pl.exposureRaw > 0 ? 'plan' : 'template'}`
+}
 const isMosaic = computed(() => !!p.value?.isMosaic && (p.value?.targets.length ?? 0) > 1)
 const activeLabel = computed(() => (isMosaic.value ? 'Panel active' : 'Target active'))
 const seasonClass = computed(() =>
@@ -1194,7 +1221,7 @@ function numInput(e: Event): number {
               <tr>
                 <th>On</th>
                 <th>Template</th>
-                <th style="text-align: right">Exposure</th>
+                <th>Sub length</th>
                 <th style="text-align: right">Desired or goal</th>
                 <th style="text-align: right">Acquired</th>
                 <th style="text-align: right">Accepted</th>
@@ -1217,7 +1244,9 @@ function numInput(e: Event): number {
                   />
                 </td>
                 <td style="font-weight: 600; white-space: nowrap">{{ pl.template }}</td>
-                <td style="text-align: right">{{ pl.exposure }} s</td>
+                <td class="muted" style="white-space: nowrap">
+                  {{ planLengthCell(pl) }}
+                </td>
                 <td v-if="planGoal(pl)" class="muted" style="text-align: right; white-space: normal">
                   {{ planCountText(planGoal(pl), pluginVersion) }}
                 </td>
@@ -1246,6 +1275,15 @@ function numInput(e: Event): number {
             </tbody>
           </table>
         </div>
+        <div v-if="subLen" class="sublens" aria-label="Sub lengths">
+          <SubLengthLine
+            v-for="x in planLengths"
+            :key="x.pl.id"
+            :view="x.view"
+            :label="x.pl.template"
+          />
+        </div>
+        <p v-else class="small muted" style="margin: 0">Loading sub lengths…</p>
         <p class="xsmall muted" style="margin: 0">
           To swap the whole set, select the project in
           <RouterLink to="/?view=list" class="lnk" style="text-decoration: underline"
@@ -1682,5 +1720,10 @@ function numInput(e: Event): number {
   .scorerow {
     grid-template-columns: minmax(0, 1fr) 3rem;
   }
+}
+.sublens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 </style>
