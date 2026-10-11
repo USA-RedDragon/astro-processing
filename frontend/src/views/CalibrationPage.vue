@@ -34,8 +34,8 @@
                 <TableHead class="text-right">Offset</TableHead>
                 <TableHead class="text-right">Binning</TableHead>
                 <TableHead>Readout mode</TableHead>
-                <TableHead class="text-right">Darks taken</TableHead>
-                <TableHead class="text-right">Rejected</TableHead>
+                <TableHead class="text-right" :title="openSetTitle(backlog)">Open set</TableHead>
+                <TableHead class="text-right">{{ rejectedHead(backlog) }}</TableHead>
                 <TableHead class="text-right">Lights blocked</TableHead>
                 <TableHead class="text-right">Lights scaled</TableHead>
                 <TableHead
@@ -69,7 +69,7 @@
                 <TableCell class="text-right tabular-nums">{{ thinText(c) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.nights) }}</TableCell>
                 <TableCell>{{ text(c.latest_night, NOT_RECORDED) }}</TableCell>
-                <TableCell>{{ when(c.newest_dark_at) }}</TableCell>
+                <TableCell>{{ newestDarkText(c) }}</TableCell>
                 <TableCell class="text-xs text-muted-foreground whitespace-normal min-w-64">
                   {{ text(c.basis, NOT_RECORDED) }}
                 </TableCell>
@@ -180,9 +180,12 @@ import {
   framesNeededText,
   framesText,
   isDarkBacklog,
+  newestDarkText,
   num,
+  openSetTitle,
   publishText,
   readoutText,
+  rejectedHead,
   sessionGapText,
   sessionText,
   setTempMatchText,
@@ -258,9 +261,12 @@ export default {
     coveredText,
     framesNeededText,
     framesText,
+    newestDarkText,
     num,
+    openSetTitle,
     publishText,
     readoutText,
+    rejectedHead,
     sessionGapText,
     sessionText,
     setTempMatchText,

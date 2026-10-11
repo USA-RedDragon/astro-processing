@@ -97,6 +97,20 @@ export function thinText(c: Pick<DarkBacklogCombo, 'lights_thin'>): string {
   return num(c.lights_thin, '', NOT_RECORDED)
 }
 
+export function openSetTitle(b: Pick<DarkBacklog, 'session_gap_hours'>): string {
+  if (b.session_gap_hours == null) return `Clean darks in the set being taken now. Session gap: ${NOT_RECORDED}.`
+  const h = fmt(b.session_gap_hours)
+  return `Clean darks in the set being taken now: the newest dark of this setup is less than ${h} h old. Older darks do not count; a new set starts at 0.`
+}
+
+export function rejectedHead(b: Pick<DarkBacklog, 'session_gap_hours'>): string {
+  return b.session_gap_hours == null ? 'Rejected' : `Rejected, last ${fmt(b.session_gap_hours)} h`
+}
+
+export function newestDarkText(c: Pick<DarkBacklogCombo, 'newest_dark_at'>): string {
+  return when(c.newest_dark_at, 'none taken')
+}
+
 export function readoutText(c: Pick<DarkBacklogCombo, 'readout_mode'>): string {
   return text(c.readout_mode, NOT_RECORDED)
 }

@@ -10,9 +10,12 @@ import {
   framesNeededText,
   framesText,
   isDarkBacklog,
+  newestDarkText,
   num,
+  openSetTitle,
   publishText,
   readoutText,
+  rejectedHead,
   sessionGapText,
   sessionText,
   setTempMatchText,
@@ -104,6 +107,18 @@ describe('dark backlog null handling', () => {
     expect(thinText({ lights_thin: 196 })).toBe('196')
     expect(thinText({ lights_thin: 0 })).toBe('0')
     expect(thinText({})).toBe('not recorded')
+  })
+
+  it('labels the progress columns as the open set and says when no dark was taken', () => {
+    expect(openSetTitle({ session_gap_hours: 36 })).toBe(
+      'Clean darks in the set being taken now: the newest dark of this setup is less than 36 h old. Older darks do not count; a new set starts at 0.',
+    )
+    expect(openSetTitle({ session_gap_hours: null })).toBe('Clean darks in the set being taken now. Session gap: not recorded.')
+    expect(rejectedHead({ session_gap_hours: 36 })).toBe('Rejected, last 36 h')
+    expect(rejectedHead({ session_gap_hours: null })).toBe('Rejected')
+    expect(newestDarkText({ newest_dark_at: null })).toBe('none taken')
+    const ts = '2026-09-29T12:20:55Z'
+    expect(newestDarkText({ newest_dark_at: ts })).toBe(formatDate(Date.parse(ts) / 1000))
   })
 
   it('names missing rejected setup values', () => {
