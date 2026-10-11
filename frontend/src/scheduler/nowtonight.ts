@@ -15,7 +15,7 @@ import type {
   SafetyReport,
   MountReport,
 } from './api/scheduler'
-import { SITE_TZ, clock, shortDate } from './format'
+import { SITE_TZ, clock, hm, shortDate } from './format'
 import { duration, filterName, ms, timeByTarget, type Tone } from './plan'
 
 export interface Row {
@@ -539,4 +539,16 @@ export function latestImage(subs: TonightSubs | null | undefined): LatestImage |
     sub: shown,
     note: `${showing} The ${clock(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
   }
+}
+
+export function subTimes(sub: TonightSub): string {
+  const start = ms(sub.time)
+  const parts: string[] = []
+  if (isNaN(start)) return ''
+  if (sub.exposure) parts.push(`exposed ${hm(start)}–${clock(start + sub.exposure * 1000)}`)
+  else parts.push(`exposure started ${clock(start)}`)
+  if (sub.uploaded_at) parts.push(`uploaded ${clock(sub.uploaded_at)}`)
+  else if (!sub.indexed) parts.push('not in the stacker yet')
+  if (sub.processed_at) parts.push(`graded ${clock(sub.processed_at)}`)
+  return parts.join(' · ')
 }

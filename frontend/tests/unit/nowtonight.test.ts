@@ -13,6 +13,7 @@ import {
   filterRuns,
   hfrLimitFor,
   latestImage,
+  subTimes,
   rejectLineText,
   moonLine,
   moonPhaseText,
@@ -416,5 +417,40 @@ describe('latest sub image', () => {
     expect(got?.note).toBe(
       'No subs yet tonight. Showing the Fri 9 Oct 03:30 CDT O-III sub of Garlic Nebula, the newest with a preview.',
     )
+  })
+})
+
+describe('subTimes', () => {
+  const base: TonightSub = {
+    id: 1,
+    time: '2026-10-11T09:13:16Z',
+    project_id: 16,
+    project: 'Double Cluster',
+    target_id: 28,
+    target: 'Caldwell 14',
+    filter: 'Red',
+    grading: 'pending',
+  }
+
+  it('shows the exposure span and the upload time, not the start as a save time', () => {
+    expect(
+      subTimes({
+        ...base,
+        exposure: 300,
+        indexed: true,
+        uploaded_at: '2026-10-11T09:18:37Z',
+        processed_at: '2026-10-11T09:18:52Z',
+      }),
+    ).toBe('exposed 04:13–04:18 CDT · uploaded 04:18 CDT · graded 04:18 CDT')
+  })
+
+  it('says when the sub has not reached the stacker', () => {
+    expect(subTimes({ ...base, exposure: 600 })).toBe(
+      'exposed 04:13–04:23 CDT · not in the stacker yet',
+    )
+  })
+
+  it('falls back to the start when the exposure length is unknown', () => {
+    expect(subTimes({ ...base, indexed: true })).toBe('exposure started 04:13 CDT')
   })
 })

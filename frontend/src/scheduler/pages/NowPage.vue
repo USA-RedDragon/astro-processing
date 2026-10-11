@@ -51,6 +51,7 @@ import {
   rejectLineText,
   hmDuration,
   latestImage,
+  subTimes,
   moonLine,
   noSourceText,
   powerView,
@@ -918,9 +919,8 @@ const cross = (x: number, y: number, r: number) =>
         <div class="spread">
           <h2 id="sub-h">Latest sub</h2>
           <span v-if="latest" class="xsmall muted">
-            saved {{ clock(latest.time)
-            }}<template v-if="latest.processed_at"> · graded {{ clock(latest.processed_at) }}</template
-            ><template v-if="latest.preview_url"> · stretched preview</template>
+            {{ subTimes(latest)
+            }}<template v-if="latest.preview_url"> · stretched preview</template>
           </span>
         </div>
         <template v-if="latest || latestShown">

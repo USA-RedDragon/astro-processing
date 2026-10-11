@@ -228,6 +228,7 @@ export interface TonightSub {
   gain?: number
   ccd_temp?: number
   processed_at?: string
+  uploaded_at?: string
   preview_url?: string
   width?: number | null
   height?: number | null
