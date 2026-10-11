@@ -10,8 +10,8 @@ internal/server/graph/resolvers/other.resolvers.go	30	15
 internal/server/graph/resolvers/plans.go	8	0
 internal/server/graph/resolvers/project.resolvers.go	104	20
 internal/server/graph/resolvers/resolver.go	45	28
-internal/server/graph/resolvers/subframes.go	220	162
-internal/server/graph/resolvers/target.resolvers.go	130	12
+internal/server/graph/resolvers/subframes.go	225	167
+internal/server/graph/resolvers/target.resolvers.go	134	12
 internal/server/middleware/di.go	3	3
 internal/server/routes.go	12	10
 internal/server/server.go	118	65
