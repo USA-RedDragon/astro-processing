@@ -997,12 +997,12 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               <tr>
                 <th scope="col">Simulated pick</th>
                 <th scope="col">Target</th>
-                <th v-for="c in picks.columns" :key="c.rule" scope="col" style="text-align: right">
+                <th v-for="c in picks.columns" :key="c.rule" scope="col" class="rule">
                   {{ c.rule }} ×{{ weightText(c.weight) }}
                 </th>
                 <th scope="col" style="text-align: right">Total</th>
-                <th scope="col">Runner-up</th>
-                <th scope="col">Gives way because</th>
+                <th scope="col" class="wrap">Runner-up</th>
+                <th scope="col" class="wrap">Gives way because</th>
               </tr>
             </thead>
             <tbody>
@@ -1013,6 +1013,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                   v-for="c in picks.columns"
                   :key="c.rule"
                   style="text-align: right"
+                  class="rule"
                   :class="{ muted: !c.weight }"
                 >
                   {{ fmtScore(p.scores[c.rule]) }}
@@ -1020,8 +1021,8 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                 <td style="text-align: right; font-weight: 600">
                   {{ p.totalText }}
                 </td>
-                <td class="muted" style="white-space: nowrap">{{ p.runner }}</td>
-                <td class="muted">{{ p.ends }}</td>
+                <td class="muted runner">{{ p.runner }}</td>
+                <td class="muted ends">{{ p.ends }}</td>
               </tr>
             </tbody>
           </table>
@@ -1424,11 +1425,28 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
   gap: 1.5rem;
   align-items: flex-start;
 }
-.why {
-  flex: 3 1 40rem;
-}
+.why,
 .whatif {
-  flex: 2 1 26rem;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.why table.dgrid th {
+  white-space: normal;
+  vertical-align: bottom;
+}
+.why table.dgrid th.rule {
+  text-align: right;
+  min-width: 3.5rem;
+}
+.why table.dgrid th.rule,
+.why table.dgrid td.rule {
+  padding-inline: 0.25rem;
+}
+.why td.runner {
+  min-width: 8rem;
+}
+.why td.ends {
+  min-width: 11rem;
 }
 .framed {
   border: 1px solid var(--border);
