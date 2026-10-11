@@ -573,6 +573,14 @@ export interface ChartBox {
   yBottom: number
 }
 
+export function stepDecimals(step: number): number {
+  for (let d = 0; d < 6; d++) {
+    const v = step * 10 ** d
+    if (Math.abs(v - Math.round(v)) < 1e-6) return d
+  }
+  return 6
+}
+
 function niceStep(span: number): number {
   const raw = span / 4
   const p = Math.pow(10, Math.floor(Math.log10(raw || 1)))
@@ -607,8 +615,8 @@ export function subChart(
   hi = Math.ceil(hi / step) * step
   const y = (v: number) => box.yBottom - ((v - lo) / (hi - lo || 1)) * (box.yBottom - box.yTop)
   const yTicks: ChartTick[] = []
+  const dec = stepDecimals(step)
   for (let v = lo; v <= hi + step / 1000; v += step) {
-    const dec = step < 1 ? (step < 0.1 ? 2 : 1) : 0
     yTicks.push({ pos: y(v), label: v.toFixed(dec) + (opts.unit ?? '') })
   }
   const xTicks = hourTicks(t0 + 10 * 60 * 1000, t1 - 10 * 60 * 1000).map((t) => ({

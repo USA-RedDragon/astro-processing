@@ -25,6 +25,7 @@ import {
   scale,
   signedHours,
   skipPayload,
+  stepDecimals,
   subChart,
   twilightBands,
   undoState,
@@ -291,6 +292,21 @@ describe('sub chart', () => {
     expect(c.medians.find((m) => !m.current)?.value).toBeCloseTo(2.1)
     expect(c.yTicks.length).toBeGreaterThan(2)
     expect(c.xTicks.map((x) => x.label)).toHaveLength(5)
+  })
+
+  it('labels quarter steps with their exact value', () => {
+    const subs = [sub(1, 1, 1.5), sub(2, 1, 2.5)]
+    const c = subChart(subs, (s) => s.hfr, 1, Date.parse(t(0)), Date.parse(t(3)), {
+      x0: 0,
+      x1: 100,
+      yTop: 0,
+      yBottom: 100,
+    })
+    expect(c.yTicks.map((y) => y.label)).toEqual(['1.50', '1.75', '2.00', '2.25', '2.50'])
+    expect(stepDecimals(0.25)).toBe(2)
+    expect(stepDecimals(2.5)).toBe(1)
+    expect(stepDecimals(5)).toBe(0)
+    expect(stepDecimals(0.05)).toBe(2)
   })
 })
 
