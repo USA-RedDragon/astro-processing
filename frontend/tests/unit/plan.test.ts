@@ -433,8 +433,8 @@ describe('left out', () => {
       ],
     })
     expect(v.name).toBe("Barnard · Barnard's E")
-    expect(v.why).toMatch(/^Outscored by M31 \(0\.81 vs 0\.72\) at \d\d:\d\d$/)
-    expect(v.other).toMatch(/^not yet visible \d\d:\d\d–\d\d:\d\d$/)
+    expect(v.why).toMatch(/^Outscored by M31 \(0\.81 vs 0\.72\) at \d\d:\d\d C[DS]T$/)
+    expect(v.other).toMatch(/^not yet visible \d\d:\d\d–\d\d:\d\d C[DS]T$/)
   })
   it('adds decimals until near-tied scores differ', () => {
     const v = leftOutView({
@@ -452,12 +452,12 @@ describe('left out', () => {
   })
   it('labels a reason seen only after the night', () => {
     const v = leftOutView({ target_name: 'M33', reason: 'not visible', at: at(11), after_night: true })
-    expect(v.why).toMatch(/^Not visible at \d\d:\d\d, the planner's last pass after the night$/)
+    expect(v.why).toMatch(/^Not visible at \d\d:\d\d C[DS]T, the planner's last pass after the night$/)
     expect(v.other).toBe('')
   })
   it('gives the span of the main reason', () => {
     const v = leftOutView({ target_name: 'NGC 7000', reason: 'moon avoidance', at: at(2), until: at(6) })
-    expect(v.why).toMatch(/^Moon avoidance, \d\d:\d\d–\d\d:\d\d$/)
+    expect(v.why).toMatch(/^Moon avoidance, \d\d:\d\d–\d\d:\d\d C[DS]T$/)
   })
   it('maps every planner reason to a kind', () => {
     expect(leftOutKind('lower score')).toBe('outscored')

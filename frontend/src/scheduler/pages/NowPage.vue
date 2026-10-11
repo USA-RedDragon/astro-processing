@@ -195,7 +195,7 @@ const pausedChip = computed(() => {
   const s = st.value
   if (s.paused) {
     let l = s.pause?.mount === 'park' ? 'Paused · mount parked' : 'Paused · mount tracking'
-    if (s.pause?.resume_at) l += ' · resumes ' + hm(s.pause.resume_at)
+    if (s.pause?.resume_at) l += ' · resumes ' + clock(s.pause.resume_at)
     return l
   }
   if (s.pause_requested) return 'Pauses after this exposure'
@@ -220,7 +220,7 @@ const skipChips = computed(() => {
   for (const s of st.value.skips ?? []) {
     const name =
       s.name || (s.scope === 'project' ? 'project ' + s.project_id : 'target ' + s.target_id)
-    out.push({ label: `Skipping ${name}${s.until ? ' until ' + hm(s.until) : ''}`, tone: 'ok' })
+    out.push({ label: `Skipping ${name}${s.until ? ' until ' + clock(s.until) : ''}`, tone: 'ok' })
   }
   return out
 })
@@ -271,7 +271,7 @@ const systems = computed(() => {
     },
     {
       label: 'Last plan',
-      value: s.last_plan_at ? hm(s.last_plan_at) : '—',
+      value: s.last_plan_at ? clock(s.last_plan_at) : '—',
       dot: s.last_plan_at ? 'var(--ok)' : 'var(--muted-foreground)',
     },
     ...conditionPills(conditions.value),
@@ -335,7 +335,7 @@ const facts = computed(() => {
       value: Math.round(e.seconds) + ' s',
       note: [
         e.number ? 'number ' + e.number : '',
-        e.started_at ? 'started ' + hm(e.started_at) : '',
+        e.started_at ? 'started ' + clock(e.started_at) : '',
       ]
         .filter(Boolean)
         .join(' · '),
@@ -523,7 +523,7 @@ const nextUp = computed(() =>
     const total = r.pick?.total
     return {
       start: hm(r.start),
-      end: hm(r.end),
+      end: clock(r.end),
       name: r.wait ? 'Wait' : [...new Set(names)].join(' · '),
       filters: r.wait ? '' : runFilters(r),
       why: r.wait
@@ -720,7 +720,7 @@ const cross = (x: number, y: number, r: number) =>
                   {{ stateBadge.label }}
                 </span>
                 <span v-if="!online" class="badge warn"
-                  >Last known{{ st.last_answer ? ' · ' + hm(st.last_answer) : '' }}</span
+                  >Last known{{ st.last_answer ? ' · ' + clock(st.last_answer) : '' }}</span
                 >
                 <span v-if="target.priority !== undefined && target.priority !== null" class="badge"
                   >{{ priorityName(target.priority) }} priority</span
@@ -774,7 +774,7 @@ const cross = (x: number, y: number, r: number) =>
               </span>
               <span v-if="expProgress" class="num muted"
                 >{{ mmss(expProgress.elapsed) }} of {{ mmss(expProgress.len) }} · finishes
-                {{ hm(expProgress.end) }}</span
+                {{ clock(expProgress.end) }}</span
               >
             </div>
             <div
@@ -790,10 +790,10 @@ const cross = (x: number, y: number, r: number) =>
             <div class="spread xsmall muted" style="margin-top: 0.5rem">
               <span>{{
                 target.minimum_time_end
-                  ? 'Minimum-time window ends ' + hm(target.minimum_time_end)
+                  ? 'Minimum-time window ends ' + clock(target.minimum_time_end)
                   : 'No minimum-time window'
               }}</span>
-              <span v-if="target.hard_stop">Imaging window ends {{ hm(target.hard_stop) }}</span>
+              <span v-if="target.hard_stop">Imaging window ends {{ clock(target.hard_stop) }}</span>
             </div>
           </div>
           <p v-else-if="state === 'paused'" class="muted small" style="margin: 0">
@@ -814,7 +814,7 @@ const cross = (x: number, y: number, r: number) =>
               >
             </div>
             <p class="small muted" style="margin: 0.25rem 0 0.75rem">
-              <template v-if="target.picked_at">Picked at {{ hm(target.picked_at) }}. </template
+              <template v-if="target.picked_at">Picked at {{ clock(target.picked_at) }}. </template
               >Score is the sum of rule weight × rule score.
             </p>
             <div v-if="rules.length" class="rules">
@@ -833,13 +833,13 @@ const cross = (x: number, y: number, r: number) =>
             recorded and wait in History.
           </p>
           <p v-else-if="st.reachable === 'offline'" class="empty">
-            The observatory PC is not answering{{ st.since ? ' since ' + hm(st.since) : '' }}. Edits
+            The observatory PC is not answering{{ st.since ? ' since ' + clock(st.since) : '' }}. Edits
             wait in order and go out when it does.
           </p>
           <p v-else-if="st.reachable === 'unknown'" class="empty">Checking the observatory.</p>
           <p v-else-if="state === 'waiting'" class="empty">
             Waiting{{ st.wait?.target_name ? ' for ' + st.wait.target_name : ''
-            }}{{ st.wait?.until ? ' until ' + hm(st.wait.until) : '' }}.
+            }}{{ st.wait?.until ? ' until ' + clock(st.wait.until) : '' }}.
           </p>
           <p v-else-if="state === 'paused'" class="empty">The scheduler is paused.</p>
           <p v-else class="empty">
@@ -852,8 +852,8 @@ const cross = (x: number, y: number, r: number) =>
         <div class="spread">
           <h2 id="sub-h">Latest sub</h2>
           <span v-if="latest" class="xsmall muted">
-            saved {{ hm(latest.time)
-            }}<template v-if="latest.processed_at"> · graded {{ hm(latest.processed_at) }}</template
+            saved {{ clock(latest.time)
+            }}<template v-if="latest.processed_at"> · graded {{ clock(latest.processed_at) }}</template
             ><template v-if="latest.preview_url"> · stretched preview</template>
           </span>
         </div>
@@ -863,7 +863,7 @@ const cross = (x: number, y: number, r: number) =>
             :src="latestShown.sub.preview_url"
             :alt="
               'Stretched preview of the ' +
-              hm(latestShown.sub.time) +
+              clock(latestShown.sub.time) +
               ' ' +
               filterName(latestShown.sub.filter) +
               ' sub of ' +
@@ -1021,7 +1021,7 @@ const cross = (x: number, y: number, r: number) =>
             role="img"
             :aria-label="
               'HFR per sub since ' +
-              hm(chartRange[0]) +
+              clock(chartRange[0]) +
               ', ' +
               allSubs.length +
               ' subs, ' +
@@ -1062,7 +1062,7 @@ const cross = (x: number, y: number, r: number) =>
               {{ tk.label }}
             </text>
             <text :x="hfrBox.x1" y="210" text-anchor="end" font-size="11" fill="var(--foreground)">
-              {{ hm(shell.now) }} now
+              {{ clock(shell.now) }} now
             </text>
             <line
               v-if="nowX < hfrBox.x1 - 2"
@@ -1258,7 +1258,7 @@ const cross = (x: number, y: number, r: number) =>
         <div class="spread">
           <h2 id="next-h">Next up</h2>
           <RouterLink :to="{ name: 'tonight' }" class="lnk small muted">{{
-            preview?.generated_at ? 'Simulated ' + hm(preview.generated_at) : "Tonight's plan"
+            preview?.generated_at ? 'Simulated ' + clock(preview.generated_at) : "Tonight's plan"
           }}</RouterLink>
         </div>
         <ol v-if="nextUp.length" class="next">

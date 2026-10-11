@@ -10,7 +10,7 @@ import {
 } from './api/commands'
 import { getSchedulerStatus, type SchedulerStatus } from './api/scheduler'
 import { applyPhrase, liveExposureEnd } from './activity'
-import { hm } from './format'
+import { clock } from './format'
 
 export interface Toast {
   text: string
@@ -41,7 +41,7 @@ export function closeToast() {
 }
 
 export function exposureEnd(): string {
-  return hm(liveExposureEnd(shell.scheduler, shell.now))
+  return clock(liveExposureEnd(shell.scheduler, shell.now))
 }
 
 export function whenApplies(r?: Pick<CommandRecord, 'applies_at'>): string {

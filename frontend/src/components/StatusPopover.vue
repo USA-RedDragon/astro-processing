@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { shell, cancel, whenApplies } from '@/scheduler/shell'
 import { activityLine, liveExposureEnd } from '@/scheduler/activity'
-import { ago, hm, mmss } from '@/scheduler/format'
+import { ago, clock, mmss } from '@/scheduler/format'
 
 const router = useRouter()
 const s = computed(() => shell.scheduler)
@@ -18,7 +18,7 @@ const connLabel = computed(() => {
         (s.value.last_answer ? ' · last answer ' + ago(s.value.last_answer, shell.now) : '')
       )
     case 'offline':
-      return s.value.since ? 'Not answering since ' + hm(s.value.since) : 'Not answering'
+      return s.value.since ? 'Not answering since ' + clock(s.value.since) : 'Not answering'
     case 'unconfigured':
       return 'No scheduler API configured'
     default:
@@ -36,11 +36,11 @@ const exposureLine = computed(() => {
   }
   const left = (new Date(e.ends_at).getTime() - shell.now) / 1000
   const n = e.number ? 'Exposure ' + e.number + ' · ' : ''
-  return `${n}${e.filter} ${Math.round(e.seconds)} s · ends ${hm(e.ends_at)} (${mmss(left)} left)`
+  return `${n}${e.filter} ${Math.round(e.seconds)} s · ends ${clock(e.ends_at)} (${mmss(left)} left)`
 })
 
 const when = (r: { status: string; created_at: string; applies_at?: string }) =>
-  r.status === 'queued' ? 'queued ' + hm(r.created_at) : 'applies ' + whenApplies(r)
+  r.status === 'queued' ? 'queued ' + clock(r.created_at) : 'applies ' + whenApplies(r)
 
 function openHistory() {
   shell.statusOpen = false

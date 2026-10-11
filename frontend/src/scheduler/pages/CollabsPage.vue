@@ -17,7 +17,7 @@ import {
   type CollabsView,
   type Criterion,
 } from '../api/discover'
-import { ago, hm, shortDate } from '../format'
+import { ago, clock, hm, shortDate } from '../format'
 import { errorToast, shell } from '../shell'
 import { subjectRoute } from '../imaged'
 
@@ -269,7 +269,7 @@ function regionLabel(c: Collab): string {
 function altLabel(c: Collab): string {
   const p = chart(c)?.peak
   if (!p) return ''
-  return `Altitude of the collaboration centre tonight, highest at ${Math.round(p.alt)} degrees around ${hm(p.at)}`
+  return `Altitude of the collaboration centre tonight, highest at ${Math.round(p.alt)} degrees around ${clock(p.at)}`
 }
 
 function monthBars(c: Collab) {
@@ -600,7 +600,7 @@ function bestMonths(c: Collab) {
               font-size="11"
               fill="var(--foreground)"
             >
-              {{ Math.round(chart(c)!.peak.alt) }}° at {{ hm(chart(c)!.peak.at) }}
+              {{ Math.round(chart(c)!.peak.alt) }}° at {{ clock(chart(c)!.peak.at) }}
             </text>
           </svg>
           <div>

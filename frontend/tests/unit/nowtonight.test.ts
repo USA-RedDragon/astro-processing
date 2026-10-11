@@ -137,7 +137,7 @@ describe('moon', () => {
     next_full: '2026-10-25T00:00:00Z',
   }
   it('describes rise and set inside the night', () => {
-    expect(moonLine(m, Date.parse(t(1)), Date.parse(t(11)))).toBe('Moon 1%, rises 04:00.')
+    expect(moonLine(m, Date.parse(t(1)), Date.parse(t(11)))).toBe('Moon 1%, rises 04:00 CDT.')
     expect(moonLine(m, Date.parse(t(1)), Date.parse(t(7)))).toBe(
       'Moon 1%, below the horizon all night.',
     )
@@ -244,7 +244,7 @@ describe('reject line', () => {
     old.targets[0].source = 'last_known'
     old.targets[0].error = 'plugin unreachable'
     expect(rejectLineText(hfrLimitFor(old, subs, 5, 'H-a').line!)).toMatch(
-      /Plugin unreachable: last known from \d\d:\d\d \(plugin unreachable\)\.$/,
+      /Plugin unreachable: last known from \d\d:\d\d C[DS]T \(plugin unreachable\)\.$/,
     )
   })
   it('finds the runs of one filter', () => {
@@ -344,13 +344,13 @@ describe('latest sub image', () => {
     const got = latestImage({ since: t(0), subs: [older, latest], latest, latest_preview: older })
     expect(got?.sub).toBe(older)
     expect(got?.note).toBe(
-      'Showing the 00:07 O-III sub of Garlic Nebula, the newest with a preview. The 00:18 H-a sub has not reached the stacker yet.',
+      'Showing the 00:07 CDT O-III sub of Garlic Nebula, the newest with a preview. The 00:18 CDT H-a sub has not reached the stacker yet.',
     )
     const indexed = { ...latest, indexed: true, target: 'Pelican Nebula' }
     expect(
       latestImage({ since: t(0), subs: [], latest: indexed, latest_preview: older })?.note,
     ).toContain(
-      'The 00:18 H-a sub of Pelican Nebula is in the stacker, but its preview is not made yet.',
+      'The 00:18 CDT H-a sub of Pelican Nebula is in the stacker, but its preview is not made yet.',
     )
   })
 
@@ -367,7 +367,7 @@ describe('latest sub image', () => {
     expect(
       latestImage({ since: t(0), subs: [latest], latest, latest_preview: lastNight })?.note,
     ).toBe(
-      'Showing the Fri 9 Oct 03:30 O-III sub of Garlic Nebula, the newest with a preview. The 00:18 H-a sub has not reached the stacker yet.',
+      'Showing the Fri 9 Oct 03:30 CDT O-III sub of Garlic Nebula, the newest with a preview. The 00:18 CDT H-a sub has not reached the stacker yet.',
     )
   })
 
@@ -376,7 +376,7 @@ describe('latest sub image', () => {
     const got = latestImage({ since: t(0), subs: [], latest_preview: lastNight })
     expect(got?.sub).toBe(lastNight)
     expect(got?.note).toBe(
-      'No subs yet tonight. Showing the Fri 9 Oct 03:30 O-III sub of Garlic Nebula, the newest with a preview.',
+      'No subs yet tonight. Showing the Fri 9 Oct 03:30 CDT O-III sub of Garlic Nebula, the newest with a preview.',
     )
   })
 })

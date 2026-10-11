@@ -1,5 +1,6 @@
 import { api, query } from './client'
 import { submitCommand, type CommandRecord } from './commands'
+import { SITE_TZ } from '../format'
 
 export interface CatalogObject {
   id: string
@@ -681,7 +682,7 @@ export function halphaSource(m: HalphaMap | null | undefined): string {
   if (!m) return 'H-α unknown: no H-α map.'
   switch (m.state) {
     case 'ready':
-      return `H-α from ${m.source ?? 'an all-sky H-α map'}${m.fetchedAt ? ', fetched ' + new Date(m.fetchedAt).toLocaleDateString('en-GB') : ''}.`
+      return `H-α from ${m.source ?? 'an all-sky H-α map'}${m.fetchedAt ? ', fetched ' + new Date(m.fetchedAt).toLocaleDateString('en-GB', { timeZone: SITE_TZ }) : ''}.`
     case 'loading':
       return 'H-α map still loading, so H-α shows unknown for now.'
     case 'failed':

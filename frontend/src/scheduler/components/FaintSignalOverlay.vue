@@ -3,6 +3,7 @@ import { computed, ref, useId, watch } from 'vue'
 import type { Point, StackMaster } from '../api/planning'
 import { getGoalMaskInfo, goalMaskURL, type GoalMaskInfo } from '../api/goalmask'
 import { frameToView, maskRect, pctLabel, viewToFrame } from '../faintmask'
+import { SITE_TZ } from '../format'
 
 const props = defineProps<{
   object?: string
@@ -94,9 +95,10 @@ const skyPct = computed(() =>
 const measuredOn = computed(() => {
   const i = info.value
   if (!i) return ''
-  const when = new Date(i.measured_at).toLocaleDateString(undefined, {
+  const when = new Date(i.measured_at).toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
+    timeZone: SITE_TZ,
   })
   return `${i.bin}×${i.bin} binned pixels (${i.width} × ${i.height}), measured on ${i.subs} subs, ${when}.`
 })

@@ -15,7 +15,7 @@ import type {
   SafetyReport,
   MountReport,
 } from './api/scheduler'
-import { SITE_TZ, hm, shortDate } from './format'
+import { SITE_TZ, clock, shortDate } from './format'
 import { duration, filterName, ms, timeByTarget, type Tone } from './plan'
 
 export interface Row {
@@ -250,8 +250,8 @@ export function moonLine(m: MoonNight | null, t0: number, t1: number): string {
   else if (!rises.length && !sets.length) where = 'up all night'
   else {
     const bits: string[] = []
-    if (sets.length) bits.push('sets ' + hm(sets[0]))
-    if (rises.length) bits.push('rises ' + hm(rises[0]))
+    if (sets.length) bits.push('sets ' + clock(sets[0]))
+    if (rises.length) bits.push('rises ' + clock(rises[0]))
     where = bits.join(', ')
   }
   return `Moon ${pct}%, ${where}.`
@@ -377,7 +377,7 @@ export function rejectLineText(l: RejectLine): string {
     parts.push(`it also rejects below ${p.reject_below.toFixed(2)} px`)
   let text = parts.join('; ') + '.'
   if (l.source === 'last_known')
-    text += ` Plugin unreachable: last known from ${hm(l.fetchedAt)}${l.error ? ` (${l.error})` : ''}.`
+    text += ` Plugin unreachable: last known from ${clock(l.fetchedAt)}${l.error ? ` (${l.error})` : ''}.`
   return text
 }
 
@@ -473,8 +473,8 @@ export function latestImage(subs: TonightSubs | null | undefined): LatestImage |
   if (!shown?.preview_url || shown.id === latest?.id) return null
   const when =
     new Date(shown.time).getTime() < new Date(subs.since).getTime()
-      ? `${shortDate(shown.time)} ${hm(shown.time)}`
-      : hm(shown.time)
+      ? `${shortDate(shown.time)} ${clock(shown.time)}`
+      : clock(shown.time)
   const showing = `Showing the ${when} ${filterName(shown.filter)} sub of ${shown.target}, the newest with a preview.`
   if (!latest) return { sub: shown, note: `No subs yet tonight. ${showing}` }
   const of = latest.target !== shown.target ? ` of ${latest.target}` : ''
@@ -483,6 +483,6 @@ export function latestImage(subs: TonightSubs | null | undefined): LatestImage |
     : 'has not reached the stacker yet'
   return {
     sub: shown,
-    note: `${showing} The ${hm(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
+    note: `${showing} The ${clock(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
   }
 }

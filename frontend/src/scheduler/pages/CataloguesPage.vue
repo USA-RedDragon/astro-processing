@@ -31,7 +31,7 @@ import {
   type ReviewItem,
 } from '../api/discover'
 import { errorToast, notifyCommand } from '../shell'
-import { hm } from '../format'
+import { clock, hm } from '../format'
 import { imagedRoute } from '../imaged'
 
 const route = useRoute()
@@ -71,7 +71,7 @@ const backfillLine = computed(() => {
     case 'measuring':
       state = ` · measuring now on ${b.workers} ${b.workers === 1 ? 'worker' : 'workers'}, ${b.doneInPass} of ${b.queued} done this pass`
       if (b.perHour > 0) state += `, ${b.perHour} an hour`
-      if (b.eta) state += `, done about ${hm(b.eta)}`
+      if (b.eta) state += `, done about ${clock(b.eta)}`
       break
     case 'paused-for-stacking':
       state = ` · paused while the stacker works, ${b.doneInPass} of ${b.queued} done this pass`
@@ -231,13 +231,13 @@ function window(e: CatalogueEntry): string {
       : t.peakAlt > 0
         ? `peaks at ${Math.round(t.peakAlt)}°, not up long enough tonight`
         : 'not up tonight'
-  return `up ${hm(t.start)} – ${hm(t.end)}, ${hours(t.hours)} above ${t.minAltitude}° (${t.minAltitudeSource})`
+  return `up ${hm(t.start)} – ${clock(t.end)}, ${hours(t.hours)} above ${t.minAltitude}° (${t.minAltitudeSource})`
 }
 
 function addingText(e: CatalogueEntry): string {
   const a = e.adding
   if (!a) return ''
-  return a.appliesAt ? `applies at ${hm(a.appliesAt)}` : `command ${a.status}`
+  return a.appliesAt ? `applies at ${clock(a.appliesAt)}` : `command ${a.status}`
 }
 
 function measuredText(e: CatalogueEntry): string {
@@ -335,7 +335,7 @@ async function decide(m: ReviewItem, after: Decision) {
       </span>
       <template #actions>
         <div v-if="overview?.night" class="xsmall muted num" style="text-align: right">
-          Tonight: dark {{ hm(overview.night.dusk) }} – {{ hm(overview.night.dawn) }} · Moon
+          Tonight: dark {{ hm(overview.night.dusk) }} – {{ clock(overview.night.dawn) }} · Moon
           {{ Math.round(overview.night.moonIllumination * 100) }}% lit
         </div>
       </template>
@@ -613,7 +613,7 @@ async function decide(m: ReviewItem, after: Decision) {
           <li v-for="e in upNotStarted" :key="e.object.id" class="spread small upline">
             <span>
               <strong>{{ e.label }}</strong> {{ e.object.name }}
-              <span class="muted">· {{ hm(e.tonight?.start) }} – {{ hm(e.tonight?.end) }}</span>
+              <span class="muted">· {{ hm(e.tonight?.start) }} – {{ clock(e.tonight?.end) }}</span>
             </span>
             <RouterLink class="btn sm" :to="addFor(e)">Add</RouterLink>
           </li>

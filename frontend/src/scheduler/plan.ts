@@ -11,7 +11,7 @@ import type {
   TonightSub,
   Twilight,
 } from './api/scheduler'
-import { hm } from './format'
+import { clock, hm } from './format'
 
 export const PRIORITIES = ['Low', 'Normal', 'High']
 export const STATES = ['Draft', 'Active', 'Inactive', 'Closed']
@@ -298,7 +298,7 @@ export function pickTable(blocks: PlanBlock[] | null | undefined): {
     const pair =
       total !== null && p.runner_up ? scorePair(total, p.runner_up.total) : null
     rows.push({
-      time: hm(p.start),
+      time: clock(p.start),
       target: p.target_name ?? '',
       project: p.project_name ?? '',
       scores,
@@ -307,7 +307,7 @@ export function pickTable(blocks: PlanBlock[] | null | undefined): {
       runner: p.runner_up
         ? `${p.runner_up.target_name} · ${pair ? pair[1] : p.runner_up.total.toFixed(2)}`
         : '—',
-      ends: r.reason ? `${capitalise(r.reason)} at ${hm(r.end)}` : `Until ${hm(r.end)}`,
+      ends: r.reason ? `${capitalise(r.reason)} at ${clock(r.end)}` : `Until ${clock(r.end)}`,
     })
   }
   return { columns, rows }
@@ -771,7 +771,7 @@ export function historyBadge(
       if (reachable === 'unconfigured') return { label: 'Queued · scheduler API not set up', tone: 'warn' }
       return { label: 'Queued · not yet delivered', tone: 'warn' }
     case 'applied':
-      return { label: 'Applied' + (r.applied_at ? ' ' + hm(r.applied_at) : ''), tone: 'ok' }
+      return { label: 'Applied' + (r.applied_at ? ' ' + clock(r.applied_at) : ''), tone: 'ok' }
     case 'saved':
       return { label: 'Saved in the app', tone: 'ok' }
     case 'cancelled':
@@ -808,7 +808,7 @@ export function undoState(r: CommandRecord): {
         label: 'Undo',
         enabled: true,
         cancel: false,
-        note: reverses || (r.applied_at ? 'Applied ' + hm(r.applied_at) : ''),
+        note: reverses || (r.applied_at ? 'Applied ' + clock(r.applied_at) : ''),
       }
     case 'saved':
       return { label: 'Undo', enabled: true, cancel: false, note: reverses }
@@ -896,7 +896,7 @@ export function leftOutView(l: LeftOut): LeftOutView {
     [l.project_name, l.target_name].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ') ||
     'Unnamed'
   const reason = l.reason ?? ''
-  const span = l.at ? (l.until && l.until !== l.at ? `${hm(l.at)}–${hm(l.until)}` : hm(l.at)) : ''
+  const span = l.at ? (l.until && l.until !== l.at ? `${hm(l.at)}–${clock(l.until)}` : clock(l.at)) : ''
   let why: string
   if (
     reason === 'lower score' &&
@@ -905,13 +905,13 @@ export function leftOutView(l: LeftOut): LeftOutView {
     l.winner_total !== undefined
   ) {
     const [w, t] = scorePair(l.winner_total, l.total)
-    why = `Outscored by ${l.winner_name} (${w} vs ${t}) at ${hm(l.at)}`
+    why = `Outscored by ${l.winner_name} (${w} vs ${t}) at ${clock(l.at)}`
   } else if (l.after_night)
-    why = `${capitalise(reason)} at ${hm(l.at)}, the planner's last pass after the night`
+    why = `${capitalise(reason)} at ${clock(l.at)}, the planner's last pass after the night`
   else why = span ? `${capitalise(reason)}, ${span}` : capitalise(reason)
   const other = (l.reasons ?? [])
     .filter((r) => r.reason !== reason)
-    .map((r) => `${r.reason} ${hm(r.from)}–${hm(r.until)}`)
+    .map((r) => `${r.reason} ${hm(r.from)}–${clock(r.until)}`)
     .join(' · ')
   const margin =
     l.total !== undefined && l.winner_total !== undefined ? l.winner_total - l.total : Infinity

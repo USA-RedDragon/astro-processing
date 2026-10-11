@@ -1,5 +1,5 @@
 import type { SchedulerStatus } from './api/scheduler'
-import { hm, mmss } from './format'
+import { clock, mmss } from './format'
 
 type Live = Pick<
   SchedulerStatus,
@@ -51,9 +51,9 @@ export function activityLine(s: Live, now: number): string {
 
 export function applyPhrase(s: Live, appliesAt: string | null | undefined, now: number): string {
   const when = at(appliesAt)
-  if (!isNaN(when) && when > now) return 'at ' + hm(appliesAt)
+  if (!isNaN(when) && when > now) return 'at ' + clock(appliesAt)
   const end = liveExposureEnd(s, now)
-  if (end) return 'at ' + hm(end)
+  if (end) return 'at ' + clock(end)
   if (s.paused || s.state !== 'imaging') return 'at the next plan'
   if (s.activity && afterShutter.has(s.activity)) return 'once this exposure is saved'
   if (s.activity === 'exposing') return 'when this exposure ends'

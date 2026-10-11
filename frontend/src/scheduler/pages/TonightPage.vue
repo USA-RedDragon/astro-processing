@@ -62,7 +62,7 @@ async function load(fresh = false) {
     loadMoon()
     if (fresh)
       showToast({
-        text: 'Re-simulated at ' + hm(Date.now()),
+        text: 'Re-simulated at ' + clock(Date.now()),
         sub: "The plan now reflects the scheduler's current state.",
       })
   } catch (e) {
@@ -135,12 +135,12 @@ const nightLabel = computed(() => {
 const summary = computed(() => planSummary(preview.value))
 const tiles = computed(() => {
   const s = summary.value
-  const from = isNaN(s.start) ? '' : ` from ${hm(s.start)}`
+  const from = isNaN(s.start) ? '' : ` from ${clock(s.start)}`
   return [
     {
       label: 'Astronomical dark',
       value:
-        !isNaN(s.darkStart) && !isNaN(s.darkEnd) ? `${hm(s.darkStart)} – ${hm(s.darkEnd)}` : 'None',
+        !isNaN(s.darkStart) && !isNaN(s.darkEnd) ? `${hm(s.darkStart)} – ${clock(s.darkEnd)}` : 'None',
       note: isNaN(s.darkSeconds) ? 'the sun never gets 18° down' : duration(s.darkSeconds),
     },
     {
@@ -215,7 +215,7 @@ const moonPaths = computed(() => {
     const t = ms(v)
     if (t < s.t0 || t > s.t1) return
     const x = s.x(t)
-    marks.push({ x, label: `${word} ${hm(t)}`, anchor: x > W - 120 ? 'end' : 'start' })
+    marks.push({ x, label: `${word} ${clock(t)}`, anchor: x > W - 120 ? 'end' : 'start' })
   }
   m.rises.forEach((v) => add(v, 'rises'))
   m.sets.forEach((v) => add(v, 'sets'))
@@ -275,8 +275,8 @@ function bars(p: Preview | null, order: Map<number, number>): Bar[] {
       name: r.wait ? 'Wait' : (r.target_name ?? ''),
       sub: r.wait ? '' : [project, score].filter(Boolean).join(' · '),
       title: r.wait
-        ? `Wait ${hm(r.start)}–${hm(r.end)}`
-        : `${r.target_name} ${hm(r.start)}–${hm(r.end)}${r.reason ? ' · ' + r.reason : ''}`,
+        ? `Wait ${hm(r.start)}–${clock(r.end)}`
+        : `${r.target_name} ${hm(r.start)}–${clock(r.end)}${r.reason ? ' · ' + r.reason : ''}`,
       targetId: r.wait ? undefined : r.target_id,
       start: r.start,
       end: r.end,
@@ -315,7 +315,7 @@ const timelineLabel = computed(() => {
   if (!r.length) return 'Tonight has nothing planned.' + moon
   return (
     "Tonight's plan: " +
-    r.map((x) => `${x.target_name} from ${hm(x.start)} to ${hm(x.end)}`).join(', ') +
+    r.map((x) => `${x.target_name} from ${hm(x.start)} to ${clock(x.end)}`).join(', ') +
     '.' +
     moon
   )
@@ -493,7 +493,7 @@ const compareLabel = computed(() => {
   const say = (list: CompareBar[]) =>
     list
       .filter((b) => !b.wait)
-      .map((b) => `${b.name} ${hm(b.start)} to ${hm(b.end)}`)
+      .map((b) => `${b.name} ${hm(b.start)} to ${clock(b.end)}`)
       .join(', ') || 'nothing'
   const moved = diff.value.filter((d) => d.change !== 'no change')
   return (
@@ -576,7 +576,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
               ><span class="key" style="background: var(--day); opacity: 0.1"></span
               >Astronomical</span
             >
-            <span v-if="nowX !== null"><span class="key line"></span>Now {{ hm(shell.now) }}</span>
+            <span v-if="nowX !== null"><span class="key line"></span>Now {{ clock(shell.now) }}</span>
           </div>
         </div>
         <p v-if="!preview" class="empty">{{ loading ? 'Simulating.' : 'No plan yet.' }}</p>

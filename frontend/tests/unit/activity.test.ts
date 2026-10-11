@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { activityLabel, activityLine, applyPhrase, liveExposureEnd } from '@/scheduler/activity'
-import { hm } from '@/scheduler/format'
+import { clock } from '@/scheduler/format'
 
 const t = (h: number, m = 0, s = 0) => new Date(Date.UTC(2026, 9, 10, h, m, s)).toISOString()
 const now = new Date(t(2, 44, 32)).getTime()
@@ -26,11 +26,11 @@ describe('liveExposureEnd', () => {
 
 describe('applyPhrase', () => {
   it('uses the plugin time while it is still ahead', () => {
-    expect(applyPhrase(exposing, t(2, 49, 21), now)).toBe('at ' + hm(t(2, 49, 21)))
+    expect(applyPhrase(exposing, t(2, 49, 21), now)).toBe('at ' + clock(t(2, 49, 21)))
   })
 
   it('ignores a stale apply time and follows the live exposure', () => {
-    expect(applyPhrase(exposing, t(2, 44, 11), now)).toBe('at ' + hm(t(2, 49, 21)))
+    expect(applyPhrase(exposing, t(2, 44, 11), now)).toBe('at ' + clock(t(2, 49, 21)))
   })
 
   it('says after the next exposure while slewing or focusing', () => {
