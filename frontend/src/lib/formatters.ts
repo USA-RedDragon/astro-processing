@@ -1,13 +1,19 @@
+import { SITE_TZ } from '@/scheduler/format';
+
+const dateTimeFmt = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true,
+  timeZone: SITE_TZ,
+  timeZoneName: 'short',
+});
+
 export function formatDate(timestamp: number): string {
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  });
+  const d = new Date(timestamp * 1000);
+  return Number.isNaN(d.getTime()) ? '' : dateTimeFmt.format(d);
 }
 
 export function formatRA(raHours: number): string {

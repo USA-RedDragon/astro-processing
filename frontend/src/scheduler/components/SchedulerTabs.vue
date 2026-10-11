@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
+import { formatDate } from '@/lib/formatters'
 import {
   filterColor,
   filterHeadline,
@@ -381,7 +382,7 @@ function measuredTitle(fg: FilterGoal): string {
   const m = fg.measurement
   if (!m) return measureText(fg)
   if (mode.value === 'depth' && m.depth == null) return m.depthReason ?? ''
-  return 'Measured ' + new Date(m.measuredAt).toLocaleString()
+  return 'Measured ' + formatDate(Date.parse(m.measuredAt) / 1000)
 }
 
 const masters = ref<StackMaster[]>([])
@@ -1059,7 +1060,7 @@ function numInput(e: Event): number {
                         : fg.measurement.depthReason
                     }}
                   </td>
-                  <td>{{ new Date(fg.measurement.measuredAt).toLocaleString() }}</td>
+                  <td>{{ formatDate(Date.parse(fg.measurement.measuredAt) / 1000) }}</td>
                 </template>
                 <td v-else colspan="6" class="muted">Not measured yet: {{ measureText(fg) }}</td>
               </tr>
