@@ -858,7 +858,7 @@ const tabs = computed<[Tab, string][]>(() => [
               <p class="small muted" style="margin: 0.125rem 0 0">
                 {{
                   detail.rigKnown
-                    ? `By grid row and column in the mosaic's own frame, rotated ${Math.round(detail.rotation)}°.`
+                    ? `By grid row and column in the mosaic's own frame, rotated ${Math.round(detail.rotation) % 360}°.`
                     : "The rig is unknown, so panels are listed by number, not placed on a grid."
                 }}
                 Each panel is measured on its own. Click one for its Goal tab.
