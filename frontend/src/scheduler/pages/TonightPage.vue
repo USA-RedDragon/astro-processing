@@ -35,6 +35,7 @@ import {
   twilightBands,
   valueChoices,
   valueLabel,
+  weightText,
   type Run,
   type WhatIfChange,
 } from '../plan'
@@ -320,7 +321,6 @@ const timelineLabel = computed(() => {
 
 const picks = computed(() => pickTable(preview.value?.blocks))
 const fmtScore = (v: number | undefined) => (v === undefined ? '—' : v.toFixed(2))
-const pct = (w: number) => Math.round(w * 100)
 const leftOut = computed(() => leftOutGroups(preview.value?.left_out))
 const kindStyle = Object.fromEntries(LEFT_OUT_KINDS.map((k) => [k.kind, k]))
 const leftOutLegend = computed(() => {
@@ -822,7 +822,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                 <th scope="col">Simulated pick</th>
                 <th scope="col">Target</th>
                 <th v-for="c in picks.columns" :key="c.rule" scope="col" style="text-align: right">
-                  {{ c.rule }} ×{{ pct(c.weight) }}
+                  {{ c.rule }} ×{{ weightText(c.weight) }}
                 </th>
                 <th scope="col" style="text-align: right">Total</th>
                 <th scope="col">Runner-up</th>

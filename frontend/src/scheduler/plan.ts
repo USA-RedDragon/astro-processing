@@ -304,6 +304,10 @@ export function capitalise(s: string): string {
   return s ? s[0].toUpperCase() + s.slice(1) : s
 }
 
+export function weightText(w: number): string {
+  return String(Number(w.toFixed(2)))
+}
+
 export function contribution(s: RuleScore): number {
   return s.weight * s.score
 }

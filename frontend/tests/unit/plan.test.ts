@@ -28,6 +28,7 @@ import {
   skipPayload,
   stepDecimals,
   subChart,
+  weightText,
   twilightBands,
   undoState,
   valueChoices,
@@ -178,6 +179,13 @@ describe('summary and pick table', () => {
     expect(rows[0].runner).toBe('B · 0.60')
     expect(rows[0].ends).toMatch(/^Sets at /)
     expect(rows[1].runner).toBe('—')
+  })
+
+  it('shows rule weights as the multiplier the totals use', () => {
+    expect(weightText(0.75)).toBe('0.75')
+    expect(weightText(0.6666667)).toBe('0.67')
+    expect(weightText(1)).toBe('1')
+    expect(weightText(0)).toBe('0')
   })
 })
 
