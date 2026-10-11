@@ -10,6 +10,15 @@ const project = (id: number, l: Least, targets: Target[] = []): Project =>
   ({ id, name: `P${id}`, least: l, targets }) as unknown as Project
 
 describe('cardCircle', () => {
+  it('names the weakest panel of a mosaic', () => {
+    const l = least({ progress: 0.42, filter: 'Red', target: 'IC 1318 Panel 10' })
+    expect(cardCircle(l, 'ok', true)).toMatchObject({ percent: 42, caption: 'Panel 10 Red least complete' })
+    expect(cardCircle(l, 'ok', true).title).toBe('Needs more data: Panel 10 Red is least complete at 42% of its goal')
+    const n = least({ filter: 'Luminance', target: 'Sadr Panel 3', notMeasured: 'no stack yet' })
+    expect(cardCircle(n, 'ok', true).title).toBe('Needs more data: Panel 3 Luminance not measured yet (no stack yet)')
+    expect(cardCircle(l, 'ok').caption).toBe('Red least complete')
+  })
+
   it('shows 100% and enough data when every filter is done', () => {
     const c = cardCircle(least({ enough: true, progress: 1, filter: 'Ha' }), 'ok')
     expect(c).toMatchObject({ show: true, percent: 100, caption: 'enough data' })

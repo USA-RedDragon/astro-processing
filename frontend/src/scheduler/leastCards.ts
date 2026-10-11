@@ -1,4 +1,5 @@
 import {
+  leastPanel,
   leastRank,
   leastText,
   leastValue,
@@ -17,7 +18,7 @@ export interface CardCircle {
   title: string
 }
 
-export function cardCircle(l: Least | null | undefined, state: PlanningState): CardCircle {
+export function cardCircle(l: Least | null | undefined, state: PlanningState, mosaic = false): CardCircle {
   if (state === 'loading') return { show: false, percent: null, caption: '', title: '' }
   if (state === 'failed')
     return {
@@ -33,14 +34,16 @@ export function cardCircle(l: Least | null | undefined, state: PlanningState): C
       caption: 'not measured yet',
       title: 'Not measured yet: the stacker has no planning data for this',
     }
-  const title = leastText(l)
+  const title = leastText(l, mosaic)
+  const panel = mosaic ? leastPanel(l) : ''
+  const f = panel && l.filter ? `${panel} ${l.filter}` : l.filter
   if (!l.filters) return { show: true, percent: null, caption: 'no enabled exposure plans', title }
   const v = leastValue(l)
   if (l.enough) return { show: true, percent: 100, caption: 'enough data', title }
   if (v === null)
-    return { show: true, percent: null, caption: `${l.filter ?? 'a filter'} not measured yet`, title }
+    return { show: true, percent: null, caption: `${f ?? 'a filter'} not measured yet`, title }
   const percent = Math.min(99, Math.floor(Math.max(0, v) * 100))
-  return { show: true, percent, caption: `${l.filter} least complete`, title }
+  return { show: true, percent, caption: `${f} least complete`, title }
 }
 
 export function hasEnoughData(l: Least | null | undefined): boolean {

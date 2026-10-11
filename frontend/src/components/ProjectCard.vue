@@ -184,7 +184,7 @@ export default {
       return out;
     },
     circle(): CardCircle {
-      return cardCircle(this.planning?.least, this.planningState);
+      return cardCircle(this.planning?.least, this.planningState, !!this.project.is_mosaic);
     },
     enoughData(): boolean {
       return hasEnoughData(this.planning?.least);

@@ -640,12 +640,19 @@ export function leastHeadline(l: Least | undefined): string {
   return `${floorPct(l.progress)} · ${l.filter} least complete`
 }
 
-export function leastText(l: Least | undefined): string {
+export function leastPanel(l: Least | undefined): string {
+  const m = l?.target ? /(Panel\s*\d+)\s*$/i.exec(l.target) : null
+  return m ? m[1]! : ''
+}
+
+export function leastText(l: Least | undefined, mosaic = false): string {
   if (!l || !l.filters) return 'No enabled exposure plans'
   if (l.enough) return 'Enough data in every filter'
+  const panel = mosaic ? leastPanel(l) : ''
+  const f = panel ? `${panel} ${l.filter}` : l.filter
   if (l.progress === null)
-    return `Needs more data: ${l.filter} not measured yet${l.notMeasured ? ` (${l.notMeasured})` : ''}`
-  return `Needs more data: ${l.filter} is least complete at ${floorPct(l.progress)} of its goal`
+    return `Needs more data: ${f} not measured yet${l.notMeasured ? ` (${l.notMeasured})` : ''}`
+  return `Needs more data: ${f} is least complete at ${floorPct(l.progress)} of its goal`
 }
 
 export function filterHeadline(fg: FilterGoal): string {
