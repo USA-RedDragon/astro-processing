@@ -32,7 +32,7 @@ import {
   type SettingKey,
 } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
-import { landingStep, matchSummary } from '../addTarget'
+import { landingStep, matchSummary, pickDefaultGoal, pickRequestGoal } from '../addTarget'
 
 interface CatalogObject {
   id: string
@@ -133,6 +133,8 @@ const pickError = ref('')
 const pickLoading = ref(false)
 const subLengths = reactive<Record<string, number | null>>({})
 const exposureTouched = ref(false)
+const goalTouched = ref(false)
+const pickDefault = ref<{ kind: GoalKind; basis: string } | null>(null)
 
 const form = reactive({
   usePick: false,
@@ -314,29 +316,46 @@ async function choose(id: string) {
   form.setId = presetSet.value?.set.id ?? ''
   form.usePick = false
   exposureTouched.value = false
+  goalTouched.value = false
+  form.goalKind = 'snr'
+  pickDefault.value = null
   exposurePick.value = null
   pickError.value = ''
   for (const k of Object.keys(subLengths)) delete subLengths[k]
   loadPick(o.id)
 }
 
-const pickGoal = computed(() => ({
-  kind: form.goalKind,
-  snr: form.snr ?? 0,
-  depth: form.goalKind === 'depth' ? (form.depth ?? 0) : 0,
-}))
+const pickGoal = computed(() => pickRequestGoal(goalTouched.value, form.goalKind, form.snr, form.depth))
+
+function kindDefaultText(k: GoalKind): string {
+  if (pickDefault.value?.basis) return pickDefault.value.kind === k ? ', the default for this object' : ''
+  return goalDefaults.value?.kind === k ? ', the default' : ''
+}
+
+function setGoalKind(k: GoalKind) {
+  goalTouched.value = true
+  form.goalKind = k
+}
 
 let pickSeq = 0
+let pickKey = ''
 
 async function loadPick(id: string) {
   const seq = ++pickSeq
+  const goal = pickGoal.value
+  pickKey = id + '|' + JSON.stringify(goal)
   pickLoading.value = true
   try {
-    const p = await getPick(id, pickGoal.value)
+    const p = await getPick(id, goal)
     if (seq !== pickSeq || pick.value?.object.id !== id) return
     exposurePick.value = p
+    if (!goalTouched.value) {
+      pickDefault.value = pickDefaultGoal(p)
+      if (pickDefault.value) form.goalKind = pickDefault.value.kind
+    }
     if (!p.noPick && p.filters.length && !exposureTouched.value) form.usePick = true
   } catch (e) {
+    if (seq === pickSeq) pickKey = ''
     if (seq === pickSeq && pick.value?.object.id === id)
       pickError.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -351,6 +370,7 @@ watch(
     const id = pick.value?.object.id
     if (!id) return
     if (pickTimer) clearTimeout(pickTimer)
+    if (id + '|' + JSON.stringify(pickGoal.value) === pickKey) return
     pickTimer = setTimeout(() => loadPick(id), 300)
   },
 )
@@ -1210,10 +1230,18 @@ async function goStep(i: number) {
       <div class="row" style="gap: 1.5rem; align-items: stretch">
         <fieldset class="box" style="flex: 1 1 24rem">
           <legend>Goal{{ panelCount > 1 ? ', per panel' : '' }}</legend>
+          <p v-if="pickDefault?.basis" class="xsmall muted goal-basis" style="margin: 0">
+            {{ pickDefault.basis[0]!.toUpperCase() + pickDefault.basis.slice(1) }}.
+          </p>
           <label class="row" style="font-size: 0.875rem"
-            ><input v-model="form.goalKind" type="radio" value="snr" /> Faint-signal SNR{{
-              goalDefaults?.kind === 'snr' ? ', the default' : ''
-            }}</label
+            ><input
+              :checked="form.goalKind === 'snr'"
+              type="radio"
+              name="goal-kind"
+              value="snr"
+              @change="setGoalKind('snr')"
+            />
+            Faint-signal SNR{{ kindDefaultText('snr') }}</label
           >
           <div class="row small" style="padding-left: 1.5rem">
             <label for="g-snr" class="muted">SNR at least</label>
@@ -1235,7 +1263,14 @@ async function goStep(i: number) {
             >
           </div>
           <label class="row" style="font-size: 0.875rem"
-            ><input v-model="form.goalKind" type="radio" value="depth" /> Depth</label
+            ><input
+              :checked="form.goalKind === 'depth'"
+              type="radio"
+              name="goal-kind"
+              value="depth"
+              @change="setGoalKind('depth')"
+            />
+            Depth{{ kindDefaultText('depth') }}</label
           >
           <div class="row small" style="padding-left: 1.5rem">
             <label for="g-depth" class="muted">Reach</label>

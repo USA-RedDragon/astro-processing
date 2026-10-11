@@ -516,6 +516,7 @@ export interface ExposurePick {
   missing: string[]
   goalSnr: number
   goal?: PickGoal
+  goalBasis?: string
   skyBrightness: number | null
   skyBrightnessBasis: { source: string; band: string; nights: number; reason: string | null }
 }

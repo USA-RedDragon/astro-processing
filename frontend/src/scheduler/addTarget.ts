@@ -1,3 +1,5 @@
+import type { ExposurePick, GoalKind, PickGoal } from './api/planning'
+
 export function landingStep(queryStep: unknown, matchNeeds: boolean): number {
   if (matchNeeds) return 1
   if (queryStep === 'frame') return 2
@@ -32,4 +34,22 @@ export function chooseLayout(
   const ids = f.options.map((x) => x.id)
   if (ids.includes(current)) return current
   return f.options.find((x) => x.recommended)?.id ?? ids[0] ?? ''
+}
+
+export function pickRequestGoal(
+  touched: boolean,
+  kind: GoalKind,
+  snr: number | null,
+  depth: number | null,
+): Partial<PickGoal> {
+  if (!touched) return { snr: snr ?? 0, depth: depth ?? 0 }
+  return { kind, snr: snr ?? 0, depth: kind === 'depth' ? (depth ?? 0) : 0 }
+}
+
+export function pickDefaultGoal(
+  p: Pick<ExposurePick, 'goal' | 'goalBasis'> | null | undefined,
+): { kind: GoalKind; basis: string } | null {
+  const kind = p?.goal?.kind
+  if (kind !== 'snr' && kind !== 'depth') return null
+  return { kind, basis: p?.goalBasis && p.goalBasis !== 'chosen' ? p.goalBasis : '' }
 }
