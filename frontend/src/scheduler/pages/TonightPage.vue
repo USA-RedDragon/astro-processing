@@ -40,17 +40,22 @@ import {
 } from '../plan'
 import { errorToast, notifyCommand, shell, showToast } from '../shell'
 import PageHead from '../components/PageHead.vue'
+import { latestOnly } from '../latest'
 import { moonLine, moonPhaseText, mosaicBalance, nightSpan } from '../nowtonight'
 
 const night = ref<Night>('tonight')
 const preview = ref<Preview | null>(null)
 const error = ref('')
 const loading = ref(false)
+const previewReq = latestOnly()
 
 async function load(fresh = false) {
+  const current = previewReq.next()
   loading.value = true
   try {
-    preview.value = await getPreview(night.value, fresh)
+    const p = await getPreview(night.value, fresh)
+    if (!current()) return
+    preview.value = p
     error.value = ''
     loadMoon()
     if (fresh)
@@ -59,23 +64,29 @@ async function load(fresh = false) {
         sub: "The plan now reflects the scheduler's current state.",
       })
   } catch (e) {
+    if (!current()) return
     preview.value = null
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
-    loading.value = false
+    if (current()) loading.value = false
   }
 }
 
 const moonNight = ref<MoonNight | null>(null)
 const moonError = ref('')
+const moonReq = latestOnly()
 
 async function loadMoon() {
   const r = nightRange(preview.value)
   if (!r) return
+  const current = moonReq.next()
   try {
-    moonNight.value = await getMoon(new Date(r[0]).toISOString(), new Date(r[1]).toISOString())
+    const m = await getMoon(new Date(r[0]).toISOString(), new Date(r[1]).toISOString())
+    if (!current()) return
+    moonNight.value = m
     moonError.value = ''
   } catch (e) {
+    if (!current()) return
     moonNight.value = null
     moonError.value = e instanceof Error ? e.message : String(e)
   }
@@ -100,6 +111,9 @@ onMounted(() => {
 })
 
 watch(night, () => {
+  preview.value = null
+  moonNight.value = null
+  whatIf.value = null
   load()
   if (changes.value.length) runWhatIf()
 })
@@ -325,6 +339,7 @@ const whatIf = ref<Preview | null>(null)
 const whatIfError = ref('')
 const whatIfBusy = ref(false)
 const applying = ref(false)
+const whatIfReq = latestOnly()
 
 const projectOpts = computed(() =>
   [...projects.value].sort(
@@ -368,19 +383,25 @@ const chips = computed(() =>
 
 async function runWhatIf() {
   if (!changes.value.length) {
+    whatIfReq.cancel()
     whatIf.value = null
     whatIfError.value = ''
+    whatIfBusy.value = false
     return
   }
+  const current = whatIfReq.next()
   whatIfBusy.value = true
   try {
-    whatIf.value = await postPreview(night.value, overrides(changes.value))
+    const p = await postPreview(night.value, overrides(changes.value))
+    if (!current()) return
+    whatIf.value = p
     whatIfError.value = ''
   } catch (e) {
+    if (!current()) return
     whatIf.value = null
     whatIfError.value = e instanceof Error ? e.message : String(e)
   } finally {
-    whatIfBusy.value = false
+    if (current()) whatIfBusy.value = false
   }
 }
 
@@ -400,6 +421,8 @@ function remove(key: string) {
 }
 
 function discard() {
+  whatIfReq.cancel()
+  whatIfBusy.value = false
   changes.value = []
   whatIf.value = null
   whatIfError.value = ''
