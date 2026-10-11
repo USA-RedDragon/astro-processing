@@ -8,6 +8,8 @@ import {
   hoursNotWorkedOut,
   strategyNeedsText,
   type Balancing,
+  evenTooFewPanels,
+  strategyNotUsedText,
 } from '@/scheduler/mosaicSeasons'
 
 const hz = (over: Partial<SeasonHorizon>): SeasonHorizon => ({
@@ -96,7 +98,7 @@ describe('strategy text', () => {
       'This plan needs Panel Deficit above 0 and Even Panels off, set for every project in Rule weights.',
     )
     expect(strategyNeedsText('even', 'weakest')).toBe(
-      'This plan needs Panel Deficit above 0 and Even Panels on, set for every project in Rule weights.',
+      'This plan needs Panel Deficit above 0, Even Panels on and 4 or more enabled panels, set for every project in Rule weights.',
     )
     expect(strategyNeedsText('off', 'even')).toBe(
       'This plan needs Panel Deficit at 0, set for every project in Rule weights.',
@@ -111,8 +113,10 @@ describe('strategy text', () => {
 
   it('no longer says the scheduler has no rule for even', () => {
     expect(STRATEGY_METHOD.even).not.toContain('no rule')
-    expect(STRATEGY_METHOD.even).toContain('Even Panels on')
-    expect(STRATEGY_METHOD.weakest).toContain('Even Panels off')
+    expect(STRATEGY_METHOD.even).toContain('Even Panels on, mosaics with 4 or more enabled panels')
+    expect(STRATEGY_METHOD.weakest).toContain(
+      'Even Panels off, or on a mosaic with fewer than 4 enabled panels',
+    )
   })
 })
 
@@ -146,6 +150,40 @@ describe('panel balancing', () => {
     expect(t).toContain('with Even Panels on, so the panels are kept even this season')
     expect(t).not.toContain(behind)
     expect(balancingBadge(b({ evenPanels: true }))).toBe('On · Panel Deficit 75 · even this season')
+  })
+
+  it('keeps a 2-panel mosaic weakest first with Even Panels on', () => {
+    const two = b({ evenPanels: true, enabledPanels: 2, evenMinPanels: 4, evenSpreads: false })
+    expect(evenTooFewPanels(two)).toBe(true)
+    const t = balancingText(two, behind, null)
+    expect(t).toContain(
+      'with Even Panels on, but Even Panels spreads time only on mosaics with 4 or more enabled panels, and this one has 2, so the weakest panel goes first',
+    )
+    expect(t).toContain(behind)
+    expect(balancingBadge(two)).toBe('On · Panel Deficit 75 · weakest first')
+    expect(strategyNotUsedText('even', two)).toBe(
+      'The scheduler does not use this plan on this mosaic: Even Panels spreads time only on mosaics with 4 or more enabled panels, and this one has 2. Its weakest panel goes first instead.',
+    )
+    expect(strategyNotUsedText('weakest', two)).toBe('')
+  })
+
+  it('keeps a 5-panel mosaic even with Even Panels on', () => {
+    const five = b({ evenPanels: true, enabledPanels: 5, evenMinPanels: 4, evenSpreads: true })
+    expect(evenTooFewPanels(five)).toBe(false)
+    expect(balancingText(five, behind, null)).toContain(
+      'with Even Panels on, so the panels are kept even this season',
+    )
+    expect(balancingBadge(five)).toBe('On · Panel Deficit 75 · even this season')
+    expect(strategyNotUsedText('even', five)).toBe('')
+  })
+
+  it('says the even plan is not used on a 2-panel mosaic with Even Panels off', () => {
+    const off = b({ evenPanels: false, enabledPanels: 2, evenMinPanels: 4, evenSpreads: false })
+    expect(evenTooFewPanels(off)).toBe(true)
+    expect(balancingText(off, behind, null)).toContain(
+      'with Even Panels off, so the weakest panel goes first',
+    )
+    expect(strategyNotUsedText('even', off)).toContain('this one has 2')
   })
 
   it('notes Even Panels does nothing while Panel Deficit is 0', () => {

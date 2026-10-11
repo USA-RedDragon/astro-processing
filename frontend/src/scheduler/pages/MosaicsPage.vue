@@ -57,6 +57,7 @@ import {
   hoursNotWorkedOut,
   strategyLabel,
   strategyNeedsText,
+  strategyNotUsedText,
 } from '../mosaicSeasons'
 
 const props = defineProps<{ projectId?: string }>()
@@ -713,8 +714,9 @@ const pushPanels = computed(() =>
   (seasons.value?.panelPriority ?? []).filter((x) => x.thisSeason).slice(0, 5),
 )
 
+const strategyNotUsed = computed(() => strategyNotUsedText(strategy.value, balancing.value))
 const strategyNeeds = computed(() =>
-  strategyNeedsText(strategy.value, seasons.value?.strategyInForce),
+  strategyNotUsed.value ? '' : strategyNeedsText(strategy.value, seasons.value?.strategyInForce),
 )
 
 const horizonLine = computed(() => horizonText(seasons.value?.horizon))
@@ -1205,6 +1207,7 @@ const tabs = computed<[Tab, string][]>(() => [
         </div>
         <p class="small" style="margin: 0">{{ strategyText }}</p>
         <p v-if="strategyNeeds" class="xsmall muted" style="margin: 0">{{ strategyNeeds }}</p>
+        <p v-if="strategyNotUsed" class="xsmall muted" style="margin: 0">{{ strategyNotUsed }}</p>
         <p v-if="seasons" class="xsmall muted" style="margin: 0">{{ basisText }}</p>
         <p v-if="seasons?.projection" class="xsmall muted" style="margin: 0">
           Projected at {{ r1(seasons.projection.hoursPerSeason) }} h effective a season, in

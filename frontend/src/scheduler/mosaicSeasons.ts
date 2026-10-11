@@ -10,14 +10,14 @@ export const STRATEGY_NAME: Record<string, string> = {
 
 export const STRATEGY_METHOD: Record<string, string> = {
   weakest:
-    'each step of the season goes to the panel and filter furthest behind its goal, as Panel Deficit steers it with Even Panels off',
-  even: "each unfinished panel gets a share of the season's imaging hours in proportion to its unfinished filters, and Panel Deficit steers time to the panel furthest below its share this season (Even Panels on)",
+    'each step of the season goes to the panel and filter furthest behind its goal, as Panel Deficit steers it with Even Panels off, or on a mosaic with fewer than 4 enabled panels',
+  even: "each unfinished panel gets a share of the season's imaging hours in proportion to its unfinished filters, and Panel Deficit steers time to the panel furthest below its share this season (Even Panels on, mosaics with 4 or more enabled panels)",
   off: 'each season is split in proportion to the hours each panel and filter already has, the split seen so far; ones with no hours yet get time only after the others finish',
 }
 
 const STRATEGY_NEEDS: Record<string, string> = {
   weakest: 'Panel Deficit above 0 and Even Panels off',
-  even: 'Panel Deficit above 0 and Even Panels on',
+  even: 'Panel Deficit above 0, Even Panels on and 4 or more enabled panels',
   off: 'Panel Deficit at 0',
 }
 
@@ -29,6 +29,24 @@ export function strategyNeedsText(st: string, inForce?: string | null): string {
   if (!st || st === inForce) return ''
   const need = STRATEGY_NEEDS[st]
   return need ? `This plan needs ${need}, set for every project in Rule weights.` : ''
+}
+
+export function evenTooFewPanels(b?: Balancing | null): boolean {
+  return (
+    b?.evenSpreads === false &&
+    b.enabledPanels !== undefined &&
+    b.evenMinPanels !== undefined &&
+    b.enabledPanels < b.evenMinPanels
+  )
+}
+
+function tooFewText(b: Balancing): string {
+  return `Even Panels spreads time only on mosaics with ${b.evenMinPanels} or more enabled panels, and this one has ${b.enabledPanels}`
+}
+
+export function strategyNotUsedText(st: string, b?: Balancing | null): string {
+  if (st !== 'even' || !b || !evenTooFewPanels(b)) return ''
+  return `The scheduler does not use this plan on this mosaic: ${tooFewText(b)}. Its weakest panel goes first instead.`
 }
 
 export function degrees(v: number): string {
@@ -70,14 +88,20 @@ export type Balancing = MosaicDetail['balancing']
 export function balancingBadge(b?: Balancing | null): string {
   if (!b?.on) return 'Off'
   const mode =
-    b.evenPanels === true ? ' · even this season' : b.evenPanels === false ? ' · weakest first' : ''
+    b.evenPanels === true && !evenTooFewPanels(b)
+      ? ' · even this season'
+      : b.evenPanels !== undefined
+        ? ' · weakest first'
+        : ''
   return `On · Panel Deficit ${b.panelDeficit}${mode}`
 }
 
 export function balancingText(b: Balancing | null | undefined, behind: string, globalDeficit: number | null): string {
   if (!b) return ''
   let now: string
-  if (b.on && b.evenPanels === true)
+  if (b.on && b.evenPanels === true && evenTooFewPanels(b))
+    now = `Panel Deficit is weighted ${b.panelDeficit} on this mosaic with Even Panels on, but ${tooFewText(b)}, so the weakest panel goes first: the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behind}`
+  else if (b.on && b.evenPanels === true)
     now = `Panel Deficit is weighted ${b.panelDeficit} on this mosaic with Even Panels on, so the panels are kept even this season: each unfinished panel gets a share of the season's imaging hours in proportion to its unfinished filters, and the scheduler adds weight to the panel furthest below its share.`
   else if (b.on && b.evenPanels === false)
     now = `Panel Deficit is weighted ${b.panelDeficit} on this mosaic with Even Panels off, so the weakest panel goes first: the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behind}`

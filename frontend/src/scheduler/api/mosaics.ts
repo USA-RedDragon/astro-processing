@@ -237,6 +237,9 @@ export interface MosaicDetail {
     on: boolean
     onWeight: number
     evenPanels?: boolean
+    enabledPanels?: number
+    evenMinPanels?: number
+    evenSpreads?: boolean
   }
   seams: Seam[]
   health: PanelHealth[]
