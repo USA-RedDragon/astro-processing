@@ -7,10 +7,10 @@ internal/server/graph/resolvers/calibration.resolvers.go	7	6
 internal/server/graph/resolvers/common.resolvers.go	2	0
 internal/server/graph/resolvers/other.resolvers.go	30	15
 internal/server/graph/resolvers/plans.go	8	0
-internal/server/graph/resolvers/project.resolvers.go	100	0
+internal/server/graph/resolvers/project.resolvers.go	102	5
 internal/server/graph/resolvers/resolver.go	45	28
 internal/server/graph/resolvers/subframes.go	220	162
-internal/server/graph/resolvers/target.resolvers.go	128	7
+internal/server/graph/resolvers/target.resolvers.go	130	12
 internal/server/middleware/di.go	3	3
 internal/server/routes.go	12	10
 internal/server/server.go	118	65
@@ -24,7 +24,7 @@ internal/store/models/targetscheduler/overrideexposureorderitem.go	1	0
 internal/store/models/targetscheduler/profilepreference.go	1	0
 internal/store/models/targetscheduler/project.go	69	1
 internal/store/models/targetscheduler/ruleweight.go	1	0
-internal/store/models/targetscheduler/target.go	18	0
+internal/store/models/targetscheduler/target.go	18	1
 internal/store/utils/utils.go	10	6
 internal/submeta/submeta.go	18	14
 internal/utils/graphql.go	7	0
