@@ -52,6 +52,7 @@ import {
   balancingBadge,
   balancingText as balancingSummary,
   horizonText,
+  hoursNotWorkedOut,
   strategyLabel,
   strategyNeedsText,
 } from '../mosaicSeasons'
@@ -714,6 +715,7 @@ const strategyNeeds = computed(() =>
 )
 
 const horizonLine = computed(() => horizonText(seasons.value?.horizon))
+const noHours = computed(() => hoursNotWorkedOut(seasons.value?.horizon))
 
 const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed'))
 const showDecisions = ref(false)
@@ -1238,7 +1240,18 @@ const tabs = computed<[Tab, string][]>(() => [
           </div>
         </div>
         <p v-else class="empty">
-          The observatory site isn't known yet; it is read from a light's FITS header.
+          <template v-if="noHours"
+            >Set a minimum altitude in the project's
+            <RouterLink
+              :to="{ name: 'target', params: { projectId: String(detail.ts.id) }, query: { tab: 'options' } }"
+              class="underline"
+              >Options</RouterLink
+            >
+            to work out the hours.</template
+          >
+          <template v-else
+            >The observatory site isn't known yet; it is read from a light's FITS header.</template
+          >
         </p>
         <template v-if="imagingNights.length">
           <h2 style="font-size: 0.875rem; margin: 0">Imaging nights a month, from history</h2>

@@ -5,6 +5,7 @@ import {
   balancingBadge,
   balancingText,
   horizonText,
+  hoursNotWorkedOut,
   strategyNeedsText,
   type Balancing,
 } from '@/scheduler/mosaicSeasons'
@@ -61,6 +62,31 @@ describe('horizonText', () => {
     expect(horizonText(hz({ kind: 'custom', known: false, reason: null }))).toMatch(
       /has not reported it, so these hours use the flat minimum altitude instead$/,
     )
+  })
+})
+
+describe('horizon reasons and missing minimum altitude', () => {
+  it('shows the reason for a minimum-altitude horizon when the custom horizon is not applied', () => {
+    expect(
+      horizonText(hz({ minimumAltitude: 30, reason: 'The NINA profile has no custom horizon.' })),
+    ).toBe(
+      "All panels above 30°, the project's minimum altitude, in astronomical darkness. The NINA profile has no custom horizon",
+    )
+  })
+
+  it('shows a reason on a known custom horizon too', () => {
+    expect(horizonText(hz({ kind: 'custom', offset: 0, reason: 'note' }))).toMatch(/darkness\. note$/)
+  })
+
+  it('says the hours are not worked out when no minimum altitude is set', () => {
+    const h = hz({ minimumAltitude: null, known: false, reason: null })
+    expect(hoursNotWorkedOut(h)).toBe(true)
+    expect(horizonText(h)).toBe(
+      'Dark hours are not worked out because the project has no minimum altitude set',
+    )
+    expect(horizonText({ ...h, kind: 'custom' })).not.toContain('flat minimum altitude instead')
+    expect(hoursNotWorkedOut(hz({}))).toBe(false)
+    expect(hoursNotWorkedOut(undefined)).toBe(false)
   })
 })
 
