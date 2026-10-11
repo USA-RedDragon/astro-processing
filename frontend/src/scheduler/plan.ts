@@ -776,10 +776,56 @@ export function waitingFor(
   )
 }
 
+export type LeftOutKind = 'outscored' | 'later' | 'conditions' | 'complete' | 'hidden' | 'other'
+
+export const LEFT_OUT_KINDS: { kind: LeftOutKind; label: string; colour: string }[] = [
+  { kind: 'outscored', label: 'Outscored', colour: 'var(--warn)' },
+  { kind: 'later', label: 'Not yet visible', colour: 'var(--info)' },
+  { kind: 'conditions', label: 'Moon, twilight or humidity', colour: 'var(--bad)' },
+  { kind: 'other', label: 'Other', colour: 'var(--violet)' },
+  { kind: 'complete', label: 'Complete', colour: 'var(--ok)' },
+  { kind: 'hidden', label: 'Not visible', colour: 'var(--muted-foreground)' },
+]
+
+const KIND_BY_REASON: Record<string, LeftOutKind> = {
+  'lower score': 'outscored',
+  'not yet visible': 'later',
+  'before meridian window': 'later',
+  'clipped by meridian flip safety': 'later',
+  'max altitude': 'later',
+  'not visible': 'hidden',
+  'never rises at location': 'hidden',
+  'no visible targets': 'hidden',
+  'all exposure plans rejected for twilight': 'conditions',
+  'all exposure plans rejected for moon avoidance': 'conditions',
+  'all exposure plans rejected for humidity': 'conditions',
+  'moon avoidance': 'conditions',
+  complete: 'complete',
+}
+
+export function leftOutKind(reason?: string | null): LeftOutKind {
+  return KIND_BY_REASON[reason ?? ''] ?? 'other'
+}
+
+const NO_CHANCE = new Set(['not visible', 'never rises at location'])
+
+export function noChanceTonight(l: LeftOut): boolean {
+  if (l.after_night) return false
+  const rs = l.reasons ?? []
+  if (!rs.length) return false
+  return rs.every((r) => NO_CHANCE.has(r.reason))
+}
+
 export interface LeftOutView {
   name: string
   why: string
   other: string
+  kind: LeftOutKind
+  targetId?: number
+  projectId?: number
+  noChance: boolean
+  margin: number
+  at: number
 }
 
 export function leftOutView(l: LeftOut): LeftOutView {
@@ -798,5 +844,38 @@ export function leftOutView(l: LeftOut): LeftOutView {
     .filter((r) => r.reason !== reason)
     .map((r) => `${r.reason} ${hm(r.from)}–${hm(r.until)}`)
     .join(' · ')
-  return { name, why, other }
+  const margin =
+    l.total !== undefined && l.winner_total !== undefined ? l.winner_total - l.total : Infinity
+  return {
+    name,
+    why,
+    other,
+    kind: leftOutKind(reason),
+    targetId: l.target_id,
+    projectId: l.project_id,
+    noChance: noChanceTonight(l),
+    margin,
+    at: ms(l.at),
+  }
+}
+
+export function leftOutGroups(list: LeftOut[] | null | undefined): {
+  main: LeftOutView[]
+  hidden: LeftOutView[]
+} {
+  const order = LEFT_OUT_KINDS.map((k) => k.kind)
+  const views = (list ?? []).map(leftOutView)
+  const byName = (a: LeftOutView, b: LeftOutView) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+  const main = views
+    .filter((v) => !v.noChance)
+    .sort(
+      (a, b) =>
+        order.indexOf(a.kind) - order.indexOf(b.kind) ||
+        a.margin - b.margin ||
+        (a.at || 0) - (b.at || 0) ||
+        byName(a, b),
+    )
+  const hidden = views.filter((v) => v.noChance).sort(byName)
+  return { main, hidden }
 }

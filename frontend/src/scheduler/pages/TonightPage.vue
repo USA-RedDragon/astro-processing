@@ -25,7 +25,8 @@ import {
   ms,
   nightRange,
   overrides,
-  leftOutView,
+  LEFT_OUT_KINDS,
+  leftOutGroups,
   pickTable,
   planDiff,
   planSummary,
@@ -311,9 +312,13 @@ const timelineLabel = computed(() => {
 const picks = computed(() => pickTable(preview.value?.blocks))
 const fmtScore = (v: number | undefined) => (v === undefined ? '—' : v.toFixed(2))
 const pct = (w: number) => Math.round(w * 100)
-
-
-const leftOut = computed(() => (preview.value?.left_out ?? []).map(leftOutView))
+const leftOut = computed(() => leftOutGroups(preview.value?.left_out))
+const kindStyle = Object.fromEntries(LEFT_OUT_KINDS.map((k) => [k.kind, k]))
+const leftOutLegend = computed(() => {
+  const seen = new Set(leftOut.value.main.map((l) => l.kind))
+  if (leftOut.value.hidden.length) seen.add('hidden')
+  return LEFT_OUT_KINDS.filter((k) => seen.has(k.kind))
+})
 const targetRoute = (id: number) => ({ name: 'TargetDetails', params: { id: String(id) } })
 
 const fields: OverrideField[] = ['priority', 'state', 'minimumtime']
@@ -831,17 +836,66 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
         </div>
         <p v-else class="empty">{{ preview ? 'No picks in this plan.' : 'Loading.' }}</p>
         <div>
-          <h3 class="h3">Left out tonight</h3>
-          <ul v-if="leftOut.length" class="left-out">
-            <li v-for="(l, i) in leftOut" :key="i">
-              <div style="font-weight: 600">{{ l.name }}</div>
+          <div class="spread">
+            <h3 class="h3">Left out tonight</h3>
+            <div v-if="leftOutLegend.length" class="row xsmall muted" style="gap: 0.875rem">
+              <span v-for="k in leftOutLegend" :key="k.kind"
+                ><span class="key" :style="{ background: k.colour }"></span>{{ k.label }}</span
+              >
+            </div>
+          </div>
+          <ul v-if="leftOut.main.length" class="left-out">
+            <li
+              v-for="(l, i) in leftOut.main"
+              :key="i"
+              :style="{ borderLeftColor: kindStyle[l.kind].colour }"
+            >
+              <div class="xsmall reason-tag" :style="{ color: kindStyle[l.kind].colour }">
+                {{ kindStyle[l.kind].label }}
+              </div>
+              <div style="font-weight: 600">
+                <RouterLink
+                  v-if="l.targetId !== undefined"
+                  :to="targetRoute(l.targetId)"
+                  class="lnk"
+                  >{{ l.name }}</RouterLink
+                >
+                <template v-else>{{ l.name }}</template>
+              </div>
               <div class="muted">{{ l.why }}</div>
               <div v-if="l.other" class="xsmall muted">Also: {{ l.other }}</div>
             </li>
           </ul>
-          <p v-else class="empty" style="padding: 0">
+          <p v-else-if="!leftOut.hidden.length" class="empty" style="padding: 0">
             {{ preview ? 'The preview leaves no project out.' : '' }}
           </p>
+          <details v-if="leftOut.hidden.length" class="hidden-group">
+            <summary class="small">
+              Not visible ({{ leftOut.hidden.length }})
+              <span class="xsmall muted">
+                · no visible window long enough at any planner pass tonight</span
+              >
+            </summary>
+            <ul class="left-out">
+              <li
+                v-for="(l, i) in leftOut.hidden"
+                :key="i"
+                :style="{ borderLeftColor: kindStyle.hidden.colour }"
+              >
+                <div style="font-weight: 600">
+                  <RouterLink
+                    v-if="l.targetId !== undefined"
+                    :to="targetRoute(l.targetId)"
+                    class="lnk"
+                    >{{ l.name }}</RouterLink
+                  >
+                  <template v-else>{{ l.name }}</template>
+                </div>
+                <div class="muted">{{ l.why }}</div>
+                <div v-if="l.other" class="xsmall muted">Also: {{ l.other }}</div>
+              </li>
+            </ul>
+          </details>
         </div>
         <div v-if="preview?.stop_reason || preview?.assumptions?.length">
           <h3 class="h3">How this was simulated</h3>
@@ -1137,8 +1191,23 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
 .left-out li {
   background: var(--secondary);
   border-radius: 0.5rem;
+  border-left: 4px solid var(--border);
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
+}
+.reason-tag {
+  font-weight: 600;
+}
+.lnk:focus-visible {
+  text-decoration: underline;
+}
+.hidden-group {
+  margin-top: 0.75rem;
+}
+.hidden-group summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
 }
 .tl-link {
   cursor: pointer;

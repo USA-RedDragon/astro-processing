@@ -12,7 +12,10 @@ import {
   median,
   nightRange,
   pausePayload,
+  leftOutGroups,
+  leftOutKind,
   leftOutView,
+  noChanceTonight,
   pickTable,
   planDiff,
   planSummary,
@@ -388,5 +391,50 @@ describe('left out', () => {
   it('gives the span of the main reason', () => {
     const v = leftOutView({ target_name: 'NGC 7000', reason: 'moon avoidance', at: at(2), until: at(6) })
     expect(v.why).toMatch(/^Moon avoidance, \d\d:\d\d–\d\d:\d\d$/)
+  })
+  it('maps every planner reason to a kind', () => {
+    expect(leftOutKind('lower score')).toBe('outscored')
+    expect(leftOutKind('not yet visible')).toBe('later')
+    expect(leftOutKind('max altitude')).toBe('later')
+    expect(leftOutKind('not visible')).toBe('hidden')
+    expect(leftOutKind('never rises at location')).toBe('hidden')
+    expect(leftOutKind('all exposure plans rejected for twilight')).toBe('conditions')
+    expect(leftOutKind('complete')).toBe('complete')
+    expect(leftOutKind('exposure ends after the sequence ends imaging')).toBe('other')
+    expect(leftOutKind(undefined)).toBe('other')
+  })
+  it('counts only a target with no visible window at any pass as not visible tonight', () => {
+    const nv = { reason: 'not visible', from: at(1), until: at(11), minutes: 600 }
+    expect(noChanceTonight({ reason: 'not visible', reasons: [nv] })).toBe(true)
+    expect(
+      noChanceTonight({
+        reason: 'not yet visible',
+        reasons: [
+          { reason: 'not yet visible', from: at(1), until: at(10), minutes: 540 },
+          { reason: 'not visible', from: at(10), until: at(11), minutes: 60 },
+        ],
+      }),
+    ).toBe(false)
+    expect(
+      noChanceTonight({
+        reason: 'lower score',
+        reasons: [{ reason: 'lower score', from: at(1), until: at(2), minutes: 60 }, nv],
+      }),
+    ).toBe(false)
+    expect(noChanceTonight({ reason: 'not visible', at: at(11), after_night: true })).toBe(false)
+  })
+  it('splits never-visible targets out and puts the closest score losses first', () => {
+    const nv = [{ reason: 'not visible', from: at(1), until: at(11), minutes: 600 }]
+    const g = leftOutGroups([
+      { target_id: 1, target_name: 'M 13', reason: 'not visible', at: at(1), until: at(11), reasons: nv },
+      { target_id: 2, target_name: 'Orion', reason: 'complete', at: at(1), until: at(11) },
+      { target_id: 3, target_name: 'M 46', reason: 'not yet visible', at: at(1), until: at(10) },
+      { target_id: 4, target_name: 'M 39', reason: 'lower score', at: at(3), total: 1.65, winner_total: 1.81, winner_name: 'IC 1318' },
+      { target_id: 5, target_name: 'M 52', reason: 'lower score', at: at(2), total: 1.7, winner_total: 1.75, winner_name: 'IC 1318' },
+      { target_id: 6, target_name: 'Leo Triplet', reason: 'not visible', at: at(1), until: at(11), reasons: nv },
+    ])
+    expect(g.main.map((v) => v.targetId)).toEqual([5, 4, 3, 2])
+    expect(g.hidden.map((v) => v.name)).toEqual(['Leo Triplet', 'M 13'])
+    expect(g.main[0].kind).toBe('outscored')
   })
 })
