@@ -10,6 +10,8 @@ import {
   diffText,
   forText,
   supportsWeightOverrides,
+  switchKeys,
+  switchStates,
   weightChanges,
   weightValue,
   weightsFromQuery,
@@ -177,5 +179,48 @@ describe('RuleWeightsConfirm', () => {
     const go = [...el2.querySelectorAll('button')].find((b) => b.textContent?.includes('Go'))
     expect(go?.disabled).toBe(true)
     app2.unmount()
+  })
+})
+
+describe('switch rules', () => {
+  const sw: GlobalRule[] = [
+    rule('Rarity'),
+    rule('Filter Steering', { switch: true, description: 'Steers filters.' }),
+    rule('Even Panels', { switch: true, mosaicOnly: true, description: 'Keeps panels even.' }),
+  ]
+  const g = { rules: sw, weights: { Rarity: 50, 'Filter Steering': 100, 'Even Panels': 0 } }
+
+  it('lists every switch rule for a mosaic, mosaic-only ones included', () => {
+    expect(switchStates(g, [], true)).toEqual([
+      { key: 'Filter Steering', label: 'Filter Steering', description: 'Steers filters.', on: true, set: true, global: undefined },
+      { key: 'Even Panels', label: 'Even Panels', description: 'Keeps panels even.', on: false, set: true, global: undefined },
+    ])
+  })
+
+  it('leaves mosaic-only switches off single targets', () => {
+    expect(switchStates(g, [], false).map((s) => s.key)).toEqual(['Filter Steering'])
+  })
+
+  it("takes the project's own value where it differs from the global set", () => {
+    const st = switchStates(
+      g,
+      [
+        { key: 'Even Panels', rule: 'Even Panels', project: 100, global: 0 },
+        { key: 'Filter Steering', rule: 'Filter Steering', project: null, global: 100 },
+      ],
+      true,
+    )
+    expect(st.find((s) => s.key === 'Even Panels')).toMatchObject({ on: true, set: true, global: false })
+    expect(st.find((s) => s.key === 'Filter Steering')).toMatchObject({ on: false, set: false, global: true })
+  })
+
+  it('names switch rules so scoring rows can skip them', () => {
+    expect([...switchKeys(g)].sort()).toEqual(['Even Panels', 'Filter Steering'])
+    expect(switchKeys(null).size).toBe(0)
+  })
+
+  it('shows a switch value as on or off', () => {
+    expect(weightValue(sw[2], 100)).toBe('on')
+    expect(weightValue(sw[2], 0)).toBe('off')
   })
 })

@@ -61,8 +61,13 @@ import {
   upsertWaiting,
   whenApplies,
 } from '../shell'
-import { applyRuleWeights, type ProjectWeights } from '../api/ruleweights'
-import { applyOutcome } from '../ruleWeights'
+import {
+  applyRuleWeights,
+  getRuleWeights,
+  type GlobalWeights,
+  type ProjectWeights,
+} from '../api/ruleweights'
+import { applyOutcome, switchKeys, switchStates, type SwitchState } from '../ruleWeights'
 import RuleWeightsConfirm from './RuleWeightsConfirm.vue'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
@@ -104,7 +109,18 @@ function pickPanel() {
   missing.value = pinned.value && i < 0
 }
 
+const globalWeights = ref<GlobalWeights | null>(null)
+
+async function loadGlobalWeights() {
+  try {
+    globalWeights.value = await getRuleWeights()
+  } catch {
+    globalWeights.value = null
+  }
+}
+
 async function load() {
+  loadGlobalWeights()
   try {
     detail.value = await getProject(props.projectId)
     loadError.value = ''
@@ -544,7 +560,7 @@ function ruleScore(name: string): number | null {
 }
 
 const scoreRows = computed(() =>
-  (detail.value?.rules ?? []).map((r) => {
+  (detail.value?.rules ?? []).filter((r) => !switchKeys(globalWeights.value).has(r.name)).map((r) => {
     const cur = weights.value[r.name]
     const w = cur && !cur.missing ? cur.weight : 0
     const s = ruleScore(r.name)
@@ -560,15 +576,28 @@ const scoreRows = computed(() =>
 )
 const knownTotal = computed(() => scoreRows.value.reduce((a, r) => a + (r.contrib ?? 0), 0))
 
-const steeringRow = computed(() => p.value?.filterSteering)
-const steering = computed(
-  () => !!steeringRow.value && !steeringRow.value.missing && steeringRow.value.weight > 0,
-)
-const steeringGlobal = computed(() => globalOf.value['Filter Steering'])
-
 const steeringOn =
   'On: each target and panel shoots the filter furthest behind its goal that still gains most ' +
-  'per hour, keeping broadband out of a bright moon.'
+  'per hour, keeping broadband out of a bright moon. Targets without goals always follow the exposure order.'
+
+const switchTiles = computed<SwitchState[]>(() => {
+  const pr = p.value
+  if (!pr) return []
+  if (globalWeights.value) return switchStates(globalWeights.value, weightDiffs.value, pr.isMosaic)
+  const row = pr.filterSteering
+  if (!row) return []
+  const g = globalOf.value[row.name]
+  return [
+    {
+      key: row.name,
+      label: 'Steer filters by goal',
+      description: row.weight > 0 && !row.missing ? steeringOn : "Off: filters follow the scheduler's exposure order. Targets without goals always follow the exposure order.",
+      on: !row.missing && row.weight > 0,
+      set: !row.missing,
+      global: g === undefined ? undefined : g > 0,
+    },
+  ]
+})
 
 const resetOpen = ref(false)
 const resetBusy = ref(false)
@@ -1296,17 +1325,15 @@ function numInput(e: Event): number {
               >
             </div>
           </div>
-          <div class="tile small">
+          <div v-for="sw in switchTiles" :key="sw.key" class="tile small">
             <div style="font-weight: 600">
-              Steer filters by goal: {{ steering ? 'on' : 'off'
-              }}<span v-if="steeringGlobal !== undefined" class="badge bad" style="margin-left: 0.375rem"
-                >global {{ steeringGlobal > 0 ? 'on' : 'off' }}</span
+              {{ sw.label }}: {{ sw.on ? 'on' : sw.set ? 'off' : 'off, not set'
+              }}<span v-if="sw.global !== undefined" class="badge bad" style="margin-left: 0.375rem"
+                >global {{ sw.global ? 'on' : 'off' }}</span
               >
             </div>
             <div class="muted">
-              {{ steering ? steeringOn : "Off: filters follow the scheduler's exposure order." }}
-              Targets without goals always follow the exposure order. It is part of the global
-              rule weights.
+              {{ sw.description }} It is part of the global rule weights.
             </div>
           </div>
         </div>

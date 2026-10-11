@@ -114,3 +114,44 @@ export function weightsFromQuery(q: unknown, rules?: GlobalRule[]): Record<strin
   }
   return out
 }
+
+export interface SwitchState {
+  key: string
+  label: string
+  description: string
+  on: boolean
+  set: boolean
+  global?: boolean
+}
+
+export function ruleApplies(r: GlobalRule, mosaic: boolean): boolean {
+  if (r.for === 'mosaic' && !mosaic) return false
+  if (r.for === 'single' && mosaic) return false
+  return !r.mosaicOnly || mosaic
+}
+
+export function switchStates(
+  g: Pick<GlobalWeights, 'rules' | 'weights'>,
+  diffs: WeightDiff[],
+  mosaic: boolean,
+): SwitchState[] {
+  return g.rules
+    .filter((r) => r.switch && ruleApplies(r, mosaic))
+    .map((r) => {
+      const d = diffs.find((x) => x.key === r.key)
+      const v = d ? d.project : g.weights[r.key]
+      const set = v !== null && v !== undefined
+      return {
+        key: r.key,
+        label: r.label,
+        description: r.description,
+        on: set && v > 0,
+        set,
+        global: d ? d.global > 0 : undefined,
+      }
+    })
+}
+
+export function switchKeys(g: Pick<GlobalWeights, 'rules'> | null | undefined): Set<string> {
+  return new Set((g?.rules ?? []).filter((r) => r.switch).flatMap((r) => [r.key, r.rule]))
+}
