@@ -1,5 +1,6 @@
 import type { WeightDiff } from './ruleweights'
 import { api, query } from './client'
+import type { Bucket } from './sublength'
 
 export type GoalKind = 'snr' | 'depth'
 
@@ -479,12 +480,22 @@ export interface PickHours {
   unknown?: string
 }
 
+export interface PickLength {
+  gain: number
+  bucket: Bucket
+  exposure: number
+  basis: string
+}
+
 export interface PickFilter {
   filter: string
   template: { id: number; name: string; filter: string } | null
   templateBasis: string
   exposure: number | null
   exposureBasis: string
+  automatic?: boolean
+  lengths?: PickLength[] | null
+  lengthBasis?: string
   subs: number
   hours: PickHours
 }
