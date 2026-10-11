@@ -1309,7 +1309,7 @@ const cross = (x: number, y: number, r: number) =>
             {{ power.alert }}<template v-if="power.voltage"> · {{ power.voltage }}</template>
           </div>
           <p v-if="power.runtime" class="small muted num" style="margin: 0">
-            Runtime the UPS reports: {{ power.runtime }}
+            Runtime {{ power.runtime }}
           </p>
         </template>
         <p v-else class="empty" style="padding: 0">{{ powerEmpty }}</p>
