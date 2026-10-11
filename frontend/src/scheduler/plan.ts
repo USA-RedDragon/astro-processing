@@ -720,6 +720,10 @@ export function subChart(
   }
 }
 
+export function ticksBefore(ticks: ChartTick[], x: number): ChartTick[] {
+  return ticks.filter((t) => t.pos < x)
+}
+
 export function skipPayload(t: SchedulerTarget, wholeProject: boolean, minutes: number) {
   return {
     scope: wholeProject ? 'project' : 'target',

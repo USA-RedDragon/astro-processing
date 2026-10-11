@@ -33,6 +33,7 @@ import {
   runs,
   skipPayload,
   subChart,
+  ticksBefore,
   verdictBadge,
   type ResumeMode,
 } from '../plan'
@@ -449,6 +450,7 @@ const hfr = computed(() =>
     },
   ),
 )
+const hfrXTicks = computed(() => ticksBefore(hfr.value.xTicks, hfrBox.x1 - 75))
 const rejectY = computed(() => (hfrLimit.value ? hfr.value.y(hfrLimit.value.limit) : null))
 const rejectSegments = computed(() => {
   const l = hfrLimit.value
@@ -1049,7 +1051,7 @@ const cross = (x: number, y: number, r: number) =>
               </text>
             </template>
             <text
-              v-for="tk in hfr.xTicks"
+              v-for="tk in hfrXTicks"
               :key="'x' + tk.pos"
               :x="tk.pos"
               y="210"

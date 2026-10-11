@@ -28,6 +28,7 @@ import {
   skipPayload,
   stepDecimals,
   subChart,
+  ticksBefore,
   fitLabel,
   weightText,
   twilightBands,
@@ -334,6 +335,14 @@ describe('sub chart', () => {
     expect(stepDecimals(2.5)).toBe(1)
     expect(stepDecimals(5)).toBe(0)
     expect(stepDecimals(0.05)).toBe(2)
+  })
+
+  it('drops x ticks that would sit under the now label', () => {
+    const ticks = [
+      { pos: 900, label: '01:00' },
+      { pos: 1140, label: '02:00' },
+    ]
+    expect(ticksBefore(ticks, 1180 - 75).map((t) => t.label)).toEqual(['01:00'])
   })
 })
 
