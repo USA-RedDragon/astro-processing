@@ -1,3 +1,4 @@
+import type { WeightDiff } from './ruleweights'
 import { api, query } from './client'
 
 export type GoalKind = 'snr' | 'depth'
@@ -257,6 +258,8 @@ export interface Project {
   rarity: number
   lastSub?: string
   ruleWeights: RuleWeight[]
+  filterSteering?: RuleWeight
+  weightDiffs?: WeightDiff[]
   goalDriven: boolean
   grader: boolean
   ditherEvery?: number | null

@@ -52,7 +52,18 @@ import {
   type ProjectSettingCurrent,
   type SettingKey,
 } from '../projectSettings'
-import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
+import {
+  errorToast,
+  exposureEnd,
+  notifyCommand,
+  shell,
+  showToast,
+  upsertWaiting,
+  whenApplies,
+} from '../shell'
+import { applyRuleWeights, type ProjectWeights } from '../api/ruleweights'
+import { applyOutcome } from '../ruleWeights'
+import RuleWeightsConfirm from './RuleWeightsConfirm.vue'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
 import PlateauLine from './PlateauLine.vue'
@@ -503,17 +514,17 @@ async function savePlans() {
   }
 }
 
-const wDraft = reactive<Record<string, number>>({})
 const weights = computed(() => {
   const out: Record<string, { weight: number; missing: boolean }> = {}
   for (const w of p.value?.ruleWeights ?? []) out[w.name] = { weight: w.weight, missing: w.missing }
   return out
 })
-const wDirty = computed(() =>
-  Object.keys(wDraft).some(
-    (k) => wDraft[k] !== weights.value[k]?.weight || weights.value[k]?.missing,
-  ),
-)
+const weightDiffs = computed(() => p.value?.weightDiffs ?? [])
+const globalOf = computed(() => {
+  const out: Record<string, number> = {}
+  for (const d of weightDiffs.value) out[d.rule] = d.global
+  return out
+})
 
 function ruleScore(name: string): number | null {
   const pr = p.value
@@ -535,12 +546,13 @@ function ruleScore(name: string): number | null {
 const scoreRows = computed(() =>
   (detail.value?.rules ?? []).map((r) => {
     const cur = weights.value[r.name]
-    const w = wDraft[r.name] ?? (cur && !cur.missing ? cur.weight : 0)
+    const w = cur && !cur.missing ? cur.weight : 0
     const s = ruleScore(r.name)
     return {
       ...r,
       w,
       missing: !cur || cur.missing,
+      global: globalOf.value[r.name],
       score: s,
       contrib: s === null ? null : (w / 100) * s,
     }
@@ -548,66 +560,46 @@ const scoreRows = computed(() =>
 )
 const knownTotal = computed(() => scoreRows.value.reduce((a, r) => a + (r.contrib ?? 0), 0))
 
-const steeringRow = computed(
-  () =>
-    (p.value as { filterSteering?: { weight: number; missing: boolean } } | undefined)
-      ?.filterSteering,
-)
+const steeringRow = computed(() => p.value?.filterSteering)
 const steering = computed(
   () => !!steeringRow.value && !steeringRow.value.missing && steeringRow.value.weight > 0,
 )
+const steeringGlobal = computed(() => globalOf.value['Filter Steering'])
 
 const steeringOn =
   'On: each target and panel shoots the filter furthest behind its goal that still gains most ' +
   'per hour, keeping broadband out of a bright moon.'
 
-async function toggleSteering() {
-  const pr = p.value
-  if (!pr) return
-  const cur = steeringRow.value
-  try {
-    const r = await submitCommand('ruleweight.edit', {
-      project_id: pr.id,
-      project_guid: pr.guid,
-      project_name: pr.name,
-      changes: [
-        {
-          rule: 'Filter Steering',
-          before: cur && !cur.missing ? cur.weight : null,
-          after: steering.value ? 0 : 100,
-        },
-      ],
-    })
-    notifyCommand(r)
-    await load()
-  } catch (e) {
-    errorToast(e)
-  }
-}
+const resetOpen = ref(false)
+const resetBusy = ref(false)
+const resetProjects = computed<ProjectWeights[]>(() =>
+  p.value
+    ? [
+      {
+        id: p.value.id,
+        guid: p.value.guid,
+        name: p.value.name,
+        state: p.value.state,
+        isMosaic: p.value.isMosaic,
+        diffs: weightDiffs.value,
+      },
+    ]
+    : [],
+)
 
-async function saveWeights() {
+async function resetWeights() {
   const pr = p.value
   if (!pr) return
-  const changes = Object.keys(wDraft)
-    .map((name) => {
-      const cur = weights.value[name]
-      const before = cur && !cur.missing ? cur.weight : null
-      return { rule: name, before, after: wDraft[name] }
-    })
-    .filter((c) => c.before !== c.after)
-  Object.keys(wDraft).forEach((k) => delete wDraft[k])
-  if (!changes.length) return
+  resetBusy.value = true
   try {
-    const r = await submitCommand('ruleweight.edit', {
-      project_id: pr.id,
-      project_guid: pr.guid,
-      project_name: pr.name,
-      changes,
-    })
-    notifyCommand(r)
-    await load()
+    const r = await applyRuleWeights({ projectIds: [pr.id] })
+    r.projects.forEach(upsertWaiting)
+    showToast(applyOutcome(r))
+    resetOpen.value = false
   } catch (e) {
     errorToast(e)
+  } finally {
+    resetBusy.value = false
   }
 }
 
@@ -1224,26 +1216,47 @@ function numInput(e: Event): number {
             </div>
           </div>
         </div>
+        <div :class="['wnote', 'small', weightDiffs.length ? 'differs' : '']" role="status">
+          <span v-if="!weightDiffs.length"
+            >This project uses the global rule weights, set on
+            <RouterLink :to="{ name: 'rule-weights' }" class="underline">Rule weights</RouterLink>
+            for every project.</span
+          >
+          <span v-else
+            >This project's weights differ from the global set on
+            {{ weightDiffs.length === 1 ? 'one rule' : weightDiffs.length + ' rules' }}, for
+            example after an edit in Target Scheduler. The planner uses the project's own weights
+            shown below.
+            <RouterLink :to="{ name: 'rule-weights' }" class="underline"
+              >Edit the global weights</RouterLink
+            ></span
+          >
+          <button
+            v-if="weightDiffs.length"
+            type="button"
+            class="btn"
+            :disabled="resetBusy"
+            @click="resetOpen = true"
+          >
+            Reset to global
+          </button>
+        </div>
         <div>
           <div v-for="r in scoreRows" :key="r.name" class="scorerow small num">
             <div style="min-width: 0">
               <div class="row" style="font-weight: 600">
                 {{ r.name }}<span v-if="r.new" class="badge violet">New rule</span
-                ><span v-if="r.missing" class="badge">not set, counts as 0</span>
+                ><span v-if="r.missing" class="badge">not set, counts as 0</span
+                ><span v-if="r.global !== undefined" class="badge bad"
+                  >global {{ r.global }}</span
+                >
               </div>
               <div class="xsmall muted">{{ r.description }}</div>
             </div>
-            <label class="field">
-              Weight
-              <input
-                type="range"
-                min="0"
-                max="100"
-                :value="r.w"
-                @input="wDraft[r.name] = numInput($event)"
-              />
-            </label>
-            <span style="text-align: right; font-weight: 600">{{ r.w }}</span>
+            <div class="bar" aria-hidden="true"><div :style="{ width: r.w + '%' }" /></div>
+            <span style="text-align: right; font-weight: 600" :aria-label="r.name + ' weight'">{{
+              r.w
+            }}</span>
             <span class="muted" style="text-align: right"
               >× {{ r.score === null ? 'at plan' : r2(r.score) }}</span
             >
@@ -1284,26 +1297,29 @@ function numInput(e: Event): number {
             </div>
           </div>
           <div class="tile small">
-            <label class="row" style="font-weight: 600; flex-wrap: nowrap">
-              <input type="checkbox" :checked="steering" @change="toggleSteering" />
-              Steer filters by goal
-            </label>
+            <div style="font-weight: 600">
+              Steer filters by goal: {{ steering ? 'on' : 'off'
+              }}<span v-if="steeringGlobal !== undefined" class="badge bad" style="margin-left: 0.375rem"
+                >global {{ steeringGlobal > 0 ? 'on' : 'off' }}</span
+              >
+            </div>
             <div class="muted">
               {{ steering ? steeringOn : "Off: filters follow the scheduler's exposure order." }}
-              Targets without goals always follow the exposure order.
+              Targets without goals always follow the exposure order. It is part of the global
+              rule weights.
             </div>
           </div>
         </div>
-        <div v-if="wDirty" class="row" style="justify-content: flex-end">
-          <button
-            type="button"
-            class="btn"
-            @click="Object.keys(wDraft).forEach((k) => delete wDraft[k])"
-          >
-            Reset
-          </button>
-          <button type="button" class="btn primary" @click="saveWeights">Save weights</button>
-        </div>
+        <RuleWeightsConfirm
+          v-if="resetOpen"
+          :title="`Reset ${p.name} to the global weights?`"
+          action="Reset this project"
+          :changes="[]"
+          :projects="resetProjects"
+          :busy="resetBusy"
+          @cancel="resetOpen = false"
+          @confirm="resetWeights"
+        />
       </section>
 
       <section v-if="tab === 'options'" class="card" aria-labelledby="opt-h">
@@ -1583,6 +1599,19 @@ function numInput(e: Event): number {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: 0.75rem;
+}
+.wnote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--secondary);
+}
+.wnote.differs {
+  border: 1px solid var(--warn);
 }
 .scorerow .badge.violet {
   border: 0;
