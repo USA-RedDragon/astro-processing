@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func applyRoutes(r *gin.Engine, config *config.Config, version string, commit string) error {
+func applyRoutes(r *gin.Engine, config *config.Config, version string, commit string) (*events.Relay, error) {
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"state": "OK"})
 	})
@@ -20,7 +20,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, version string, commit st
 	relay := events.NewRelay()
 	graphqlHandlerFunc, err := graphqlHandler(config, version, commit, relay)
 	if err != nil {
-		return fmt.Errorf("failed to create graphql handler: %w", err)
+		return nil, fmt.Errorf("failed to create graphql handler: %w", err)
 	}
 	r.POST("/query", graphqlHandlerFunc)
 	r.GET("/query", graphqlPlaygroundHandler())
@@ -30,5 +30,5 @@ func applyRoutes(r *gin.Engine, config *config.Config, version string, commit st
 	}
 	r.GET("/events", gin.WrapH(relay))
 
-	return nil
+	return relay, nil
 }

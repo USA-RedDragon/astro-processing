@@ -83,7 +83,7 @@ func NewServer(config *config.Config, version string, commit string) (*Server, e
 	}
 
 	applyMiddleware(r, config, version)
-	err := applyRoutes(r, config, version, commit)
+	relay, err := applyRoutes(r, config, version, commit)
 	if err != nil {
 		return nil, err
 	}
@@ -116,13 +116,16 @@ func NewServer(config *config.Config, version string, commit string) (*Server, e
 		}
 	}
 
+	server := &http.Server{
+		Addr:              fmt.Sprintf("%s:%d", config.HTTP.Bind, config.HTTP.Port),
+		ReadHeaderTimeout: defTimeout,
+		WriteTimeout:      writeTimeout,
+		Handler:           r,
+	}
+	server.RegisterOnShutdown(relay.Close)
+
 	return &Server{
-		server: &http.Server{
-			Addr:              fmt.Sprintf("%s:%d", config.HTTP.Bind, config.HTTP.Port),
-			ReadHeaderTimeout: defTimeout,
-			WriteTimeout:      writeTimeout,
-			Handler:           r,
-		},
+		server:        server,
 		metricsServer: metricsServer,
 		pprofServer:   pprofServer,
 		config:        config,

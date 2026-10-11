@@ -29,15 +29,17 @@ type message struct {
 // Relay holds one connection to the worker's stream and fans its messages
 // out to browsers unchanged, so event IDs are the worker's.
 type Relay struct {
-	mu     sync.Mutex
-	recent []message
-	status []byte // latest status snapshot, sent to new browsers first
-	subs   map[chan []byte]struct{}
-	lastID uint64
+	mu        sync.Mutex
+	recent    []message
+	status    []byte // latest status snapshot, sent to new browsers first
+	subs      map[chan []byte]struct{}
+	lastID    uint64
+	done      chan struct{}
+	closeOnce sync.Once
 }
 
 func NewRelay() *Relay {
-	return &Relay{subs: map[chan []byte]struct{}{}}
+	return &Relay{subs: map[chan []byte]struct{}{}, done: make(chan struct{})}
 }
 
 // Run follows the worker's stream at url until ctx is cancelled,
@@ -191,6 +193,8 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		select {
 		case <-req.Context().Done():
 			return
+		case <-r.done:
+			return
 		case msg := <-ch:
 			if write(msg) != nil {
 				return
@@ -201,4 +205,10 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
+}
+
+// Close ends every stream, open or opened later, so an HTTP server shutting
+// down isn't held open by browsers until its timeout.
+func (r *Relay) Close() {
+	r.closeOnce.Do(func() { close(r.done) })
 }
