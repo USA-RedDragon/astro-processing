@@ -32,7 +32,17 @@ import {
   type SettingKey,
 } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
-import { landingStep, matchSummary, pickDefaultGoal, pickRequestGoal } from '../addTarget'
+import {
+  landingStep,
+  matchSummary,
+  pickDefaultGoal,
+  pickPlans,
+  pickRequestGoal,
+  templateLength,
+} from '../addTarget'
+import { getSubLengths, type SubLengthState } from '../api/sublength'
+import { lengthsNote, pickLengthView, reviewLengths, siteLengthView } from '../subLength'
+import SubLengthLine from '../components/SubLengthLine.vue'
 
 interface CatalogObject {
   id: string
@@ -131,7 +141,7 @@ function onPlan(p: FramePlan) {
 const exposurePick = ref<ExposurePick | null>(null)
 const pickError = ref('')
 const pickLoading = ref(false)
-const subLengths = reactive<Record<string, number | null>>({})
+const subLen = ref<SubLengthState | null>(null)
 const exposureTouched = ref(false)
 const goalTouched = ref(false)
 const pickDefault = ref<{ kind: GoalKind; basis: string } | null>(null)
@@ -160,6 +170,7 @@ const draftError = ref('')
 const busy = ref(false)
 
 onMounted(async () => {
+  getSubLengths().then((s) => (subLen.value = s))
   try {
     snap.value = await getPlanning()
   } catch {
@@ -321,7 +332,6 @@ async function choose(id: string) {
   pickDefault.value = null
   exposurePick.value = null
   pickError.value = ''
-  for (const k of Object.keys(subLengths)) delete subLengths[k]
   loadPick(o.id)
 }
 
@@ -376,16 +386,18 @@ watch(
 )
 
 const pickRows = computed(() =>
-  (exposurePick.value?.filters ?? []).map((f) => ({
-    ...f,
-    sub: f.filter in subLengths ? subLengths[f.filter] : f.exposure,
-  })),
+  (exposurePick.value?.filters ?? []).map((f) => {
+    const fallback = templateLength(snap.value?.templates, f.template?.id)
+    return { ...f, fallback, length: pickLengthView(subLen.value, f, fallback) }
+  }),
 )
 
-const pickReady = computed(
-  () =>
-    pickRows.value.length > 0 &&
-    pickRows.value.every((r) => !!r.template && r.sub !== null && r.sub > 0),
+const pickPlanItems = computed(() => pickPlans(pickRows.value, snap.value?.templates))
+
+const pickReady = computed(() => pickPlanItems.value !== null)
+
+const noFallback = computed(() =>
+  pickRows.value.filter((r) => r.template && r.fallback === null).map((r) => r.template!.name),
 )
 
 function hoursNum(v: number): string {
@@ -437,10 +449,6 @@ function ruleValue(measured: number | null): string {
   if (measured !== null) return rText(measured)
   const st = exposurePick.value?.halphaMap.state
   return st && st !== 'ready' ? `unknown, the H-α map is ${st}` : 'not on the H-α map'
-}
-
-function onSub(filter: string, e: Event) {
-  subLengths[filter] = numOrNull(e)
 }
 
 const topMatch = computed<Link | null>(() => {
@@ -685,6 +693,15 @@ const panels = computed<PanelDraft[]>(() => {
 const panelCount = computed(() => panels.value.length)
 
 const sets = computed(() => snap.value?.sets ?? [])
+
+const setLengths = computed(() => {
+  const byName = new Map((snap.value?.templates ?? []).map((t) => [t.name.toLowerCase(), t]))
+  return (chosenSet.value?.items ?? []).flatMap((i) => {
+    const t = byName.get(i.template.toLowerCase())
+    if (!t) return []
+    return [{ name: t.name, view: siteLengthView(subLen.value, t.filter, t.gain, t.defaultExposure) }]
+  })
+})
 const missingTemplates = computed(() => {
   const set = chosenSet.value
   const names = new Set((snap.value?.templates ?? []).map((t) => t.name.toLowerCase()))
@@ -709,7 +726,7 @@ async function makeDraft() {
       minimumTime: minTime.value ?? 0,
       setId: form.usePick ? '' : form.setId,
       plans: form.usePick
-        ? pickRows.value.map((r) => ({ templateId: r.template?.id ?? 0, exposure: r.sub ?? 0 }))
+        ? (pickPlanItems.value ?? [])
         : undefined,
       goalDriven: pluginGoalDriven.value,
       desired: pluginGoalDriven.value ? 0 : (form.desired ?? 0),
@@ -748,9 +765,9 @@ function numOrNull(e: Event): number | null {
   return v === '' || isNaN(Number(v)) ? null : Number(v)
 }
 
-function itemText(i: { template: string; exposure: number; desired: number }): string {
-  if (pluginGoalDriven.value) return `${i.template} ${i.exposure} s`
-  return `${i.template} ${i.exposure} s × ${form.desired ?? i.desired}`
+function itemText(i: { template: string; desired: number }): string {
+  if (pluginGoalDriven.value) return i.template
+  return `${i.template} × ${form.desired ?? i.desired}`
 }
 
 const review = computed(() => {
@@ -777,11 +794,13 @@ const review = computed(() => {
       v:
         form.usePick && exposurePick.value
           ? `${exposurePick.value.palette}, suggested: ` +
-            pickRows.value
-              .map((r) => `${r.template?.name ?? r.filter} ${r.sub ?? '?'} s`)
-              .join(', ')
+            reviewLengths(
+              pickRows.value.map((r) => ({ name: r.template?.name ?? r.filter, view: r.length })),
+            )
           : set
-            ? set.items.map(itemText).join(', ')
+            ? [set.items.map(itemText).join(', '), lengthsNote(setLengths.value.map((l) => l.view))]
+              .filter(Boolean)
+              .join('. ')
             : 'No exposure set chosen',
     },
     {
@@ -1147,7 +1166,7 @@ async function goStep(i: number) {
               <tr>
                 <th>Filter</th>
                 <th>Template</th>
-                <th>Sub length (s)</th>
+                <th>Sub length</th>
                 <th>Hours to {{ pickGoalText(exposurePick.goal) }}</th>
               </tr>
             </thead>
@@ -1161,19 +1180,8 @@ async function goStep(i: number) {
                     r.templateBasis
                   }}</span>
                 </td>
-                <td>
-                  <input
-                    class="input num"
-                    type="number"
-                    min="1"
-                    :aria-label="'Sub length for ' + r.filter"
-                    :value="r.sub ?? ''"
-                    style="width: 6rem; height: 2rem"
-                    @change="onSub(r.filter, $event)"
-                  />
-                  <span class="xsmall muted" style="display: block">{{
-                    r.sub !== r.exposure ? 'set by you; ' + r.exposureBasis : r.exposureBasis
-                  }}</span>
+                <td class="muted" style="white-space: nowrap">
+                  {{ r.length.parts.length ? r.length.compact : 'not measured yet' }}
                 </td>
                 <td>
                   <span :class="{ muted: r.hours.hours === null }">{{
@@ -1187,6 +1195,14 @@ async function goStep(i: number) {
             </tbody>
           </table>
         </div>
+        <div class="sublens" aria-label="Sub lengths">
+          <SubLengthLine
+            v-for="r in pickRows"
+            :key="r.filter"
+            :view="r.length"
+            :label="r.template?.name ?? r.filter"
+          />
+        </div>
         <p
           v-if="form.usePick && exposurePick.missing.length"
           class="small"
@@ -1194,6 +1210,10 @@ async function goStep(i: number) {
         >
           The scheduler has no template for {{ exposurePick.missing.join(', ') }}. Add it on the PC
           or clone one in Templates first, or choose a set.
+        </p>
+        <p v-if="form.usePick && noFallback.length" class="small" style="margin: 0; color: var(--bad)">
+          The template length for {{ noFallback.join(', ') }} is not known: the scheduler templates
+          did not load, so the plans can't be made yet.
         </p>
         <p v-if="needsDesired" class="small" style="margin: 0; color: var(--bad)">
           No plan of yours has a desired count for {{ unusedTemplates.join(', ') }}, so set Desired
@@ -1219,6 +1239,16 @@ async function goStep(i: number) {
           <span class="xsmall muted">{{ s.hint }}</span>
         </button>
       </div>
+      <section
+        v-if="!form.usePick && setLengths.length"
+        class="box"
+        aria-labelledby="setlen-h"
+      >
+        <h3 id="setlen-h" class="small" style="margin: 0; font-weight: 600">
+          Sub lengths for {{ chosenSet?.name }}
+        </h3>
+        <SubLengthLine v-for="l in setLengths" :key="l.name" :view="l.view" :label="l.name" />
+      </section>
       <p
         v-if="!form.usePick && missingTemplates.length"
         class="small"
@@ -1621,5 +1651,10 @@ async function goStep(i: number) {
 }
 .review dd {
   margin: 0;
+}
+.sublens {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 </style>

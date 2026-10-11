@@ -491,8 +491,6 @@ export interface PickFilter {
   filter: string
   template: { id: number; name: string; filter: string } | null
   templateBasis: string
-  exposure: number | null
-  exposureBasis: string
   automatic?: boolean
   lengths?: PickLength[] | null
   lengthBasis?: string
