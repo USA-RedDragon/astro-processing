@@ -1,4 +1,5 @@
 import {
+  leastOnCounts,
   leastPanel,
   leastRank,
   leastText,
@@ -66,6 +67,7 @@ export function cardCircle(l: Least | null | undefined, state: PlanningState, mo
   const v = leastValue(l)
   const plateau = cardPlateau(l, mosaic)
   if (l.enough) return { show: true, percent: 100, caption: 'enough data', title, plateau }
+  if (leastOnCounts(l)) return { show: true, percent: null, caption: `${f} runs on counts`, title, plateau }
   if (v === null)
     return { show: true, percent: null, caption: `${f ?? 'a filter'} not measured yet`, title, plateau }
   const percent = Math.min(99, Math.floor(Math.max(0, v) * 100))

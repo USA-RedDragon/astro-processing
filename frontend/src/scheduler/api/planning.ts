@@ -135,6 +135,7 @@ export interface Least {
   unmeasured: number
   filters: number
   plateau?: LeastPlateau
+  countBased?: string[] | null
 }
 
 export interface Plan {
@@ -695,6 +696,34 @@ export function floorPct(v: number): string {
   return Math.floor(Math.max(0, Math.min(1, v)) * 100) + '%'
 }
 
+export const NO_GOAL_REASON = 'no goal set'
+export const ON_COUNTS_TEXT = 'runs on counts: no goal set'
+export const ON_COUNTS_TITLE =
+  'These filters have no goal, so Target Scheduler stops them at their desired sub count. Give them a goal to make them goal-driven.'
+
+export function countBasedFilters(l: Pick<Least, 'countBased'> | null | undefined): string[] {
+  return l?.countBased ?? []
+}
+
+export function countsBadge(l: Pick<Least, 'countBased'> | null | undefined): string {
+  const fs = countBasedFilters(l)
+  return fs.length ? 'Runs on counts: ' + fs.join(', ') : ''
+}
+
+export function leastOnCounts(l: Least | null | undefined): boolean {
+  if (!l || !l.filters || l.enough || l.progress !== null || !l.filter) return false
+  if (l.notMeasured) return l.notMeasured === NO_GOAL_REASON
+  return countBasedFilters(l).includes(l.filter)
+}
+
+export function filterOnCounts(fg: Pick<FilterGoal, 'goalSet'>): boolean {
+  return !fg.goalSet
+}
+
+export function countsLine(fg: Pick<FilterGoal, 'accepted' | 'desired'>): string {
+  return `${fg.accepted} of ${fg.desired} subs accepted`
+}
+
 export function leastValue(l: Least | undefined): number | null {
   if (!l || !l.filters) return null
   return l.enough ? 1 : l.progress
@@ -709,6 +738,7 @@ export function leastRank(l: Least | undefined): number {
 export function leastHeadline(l: Least | undefined): string {
   if (!l || !l.filters) return 'no enabled exposure plans'
   if (l.enough) return 'enough data'
+  if (leastOnCounts(l)) return `needs more · ${l.filter} ${ON_COUNTS_TEXT}`
   if (l.progress === null) return `needs more · ${l.filter} not measured yet`
   return `${floorPct(l.progress)} · ${l.filter} least complete`
 }
@@ -723,12 +753,15 @@ export function leastText(l: Least | undefined, mosaic = false): string {
   if (l.enough) return 'Enough data in every filter'
   const panel = mosaic ? leastPanel(l) : ''
   const f = panel ? `${panel} ${l.filter}` : l.filter
+  if (leastOnCounts(l)) return `Needs more data: ${f} ${ON_COUNTS_TEXT}`
   if (l.progress === null)
     return `Needs more data: ${f} not measured yet${l.notMeasured ? ` (${l.notMeasured})` : ''}`
   return `Needs more data: ${f} is least complete at ${floorPct(l.progress)} of its goal`
 }
 
 export function filterHeadline(fg: FilterGoal): string {
+  if (filterOnCounts(fg))
+    return `${fg.enough ? 'enough data · ' : ''}${ON_COUNTS_TEXT} · ${countsLine(fg)}`
   if (fg.enough) {
     if (fg.goalProgress === null) return 'enough data · ' + (fg.notMeasured || 'stopped')
     if (fg.progress?.done && fg.progress.progress < 1) return 'enough data · plateau reached'

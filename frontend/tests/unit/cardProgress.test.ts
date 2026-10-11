@@ -36,9 +36,15 @@ describe('cardCircle', () => {
   })
 
   it('shows no number when the least filter is not measured yet', () => {
-    const c = cardCircle(least({ filter: 'SII', notMeasured: 'no goal set' }), 'ok')
+    const c = cardCircle(least({ filter: 'SII', notMeasured: 'no stack yet' }), 'ok')
     expect(c).toMatchObject({ show: true, percent: null, caption: 'SII not measured yet' })
-    expect(c.title).toContain('(no goal set)')
+    expect(c.title).toContain('(no stack yet)')
+  })
+
+  it('says a least filter with no goal runs on counts', () => {
+    const c = cardCircle(least({ filter: 'SII', notMeasured: 'no goal set', countBased: ['SII'] }), 'ok')
+    expect(c).toMatchObject({ show: true, percent: null, caption: 'SII runs on counts' })
+    expect(c.title).toBe('Needs more data: SII runs on counts: no goal set')
   })
 
   it('shows no number without enabled plans', () => {

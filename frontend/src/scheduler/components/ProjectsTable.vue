@@ -22,10 +22,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
+  countsBadge,
   floorPct,
   getPlanning,
   goalDrivenPlugin,
+  leastOnCounts,
   leastValue,
+  ON_COUNTS_TEXT,
+  ON_COUNTS_TITLE,
   r1,
   r2,
   seasonLabel,
@@ -142,6 +146,7 @@ function weakestText(p: Project): string {
   if (l.enough) return 'Enough data in every filter'
   const m = p.isMosaic && l.target ? /(Panel\s*\d+)\s*$/i.exec(l.target) : null
   const prefix = (m ? m[1] + ' ' : '') + l.filter + ' · '
+  if (leastOnCounts(l)) return prefix + ON_COUNTS_TEXT
   if (l.progress === null) return `${prefix}not measured yet${l.notMeasured ? ' · ' + l.notMeasured : ''}`
   const t = p.targets.find((x) => x.name === l.target)
   const g = t?.goals.find((x) => x.filter === l.filter)?.progress
@@ -400,6 +405,12 @@ function applySet() {
                   <div class="text-xs text-muted-foreground">
                     {{ weakestText(p) }}
                   </div>
+                  <span
+                    v-if="countsBadge(p.least)"
+                    class="badge warn counts mt-1"
+                    :title="ON_COUNTS_TITLE"
+                    >{{ countsBadge(p.least) }}</span
+                  >
                   <PlateauLine
                     v-if="p.least?.filters"
                     class="mt-1"

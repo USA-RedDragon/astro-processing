@@ -32,6 +32,8 @@ import { getRuleWeights } from '../api/ruleweights'
 import { errorToast, notifyCommand } from '../shell'
 import {
   filterColor,
+  NO_GOAL_REASON,
+  ON_COUNTS_TEXT,
   floorPct,
   objectLinkText,
   pct,
@@ -386,10 +388,11 @@ const stats = computed(() => {
   const d = detail.value
   if (!d) return null
   const pairs = weakestPairs.value
-  const value = d.complete === null ? 'Not measured' : floorPct(d.complete)
+  const onCounts = d.complete === null && d.notMeasured === NO_GOAL_REASON
+  const value = d.complete === null ? (onCounts ? 'Runs on counts' : 'Not measured') : floorPct(d.complete)
   let completeNote = 'No panel has data yet'
   if (d.complete === null && d.weakestPanel)
-    completeNote = `Set by Panel ${d.weakestPanel} ${d.weakestFilter}: ${d.notMeasured || 'not measured yet'}`
+    completeNote = `Set by Panel ${d.weakestPanel} ${d.weakestFilter}: ${onCounts ? ON_COUNTS_TEXT : d.notMeasured || 'not measured yet'}`
   else if (pairs.length && pairs.length === pairCount.value && pairCount.value > 1)
     completeNote = d.complete === 1 ? 'Every panel and filter has enough data' : `Every panel and filter is at ${value}`
   else if (pairs.length === 1) {

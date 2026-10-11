@@ -4,8 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/formatters'
 import {
+  countsBadge,
+  countsLine,
   filterColor,
   filterHeadline,
+  filterOnCounts,
   filterPlateau,
   getProject,
   getStacks,
@@ -16,6 +19,7 @@ import {
   legacyGoalNote,
   measureText,
   objectLinkText,
+  ON_COUNTS_TITLE,
   pct,
   planCountText,
   plateauTitle,
@@ -488,6 +492,10 @@ function planDesired(id: number, base: number) {
 const pluginVersion = computed(() => shell.scheduler.version)
 const pluginGoalDriven = computed(() => goalDrivenPlugin(pluginVersion.value))
 
+function planOnCounts(pl: Plan): boolean {
+  return !!target.value?.goals.some((g) => g.filter === pl.filter && filterOnCounts(g))
+}
+
 function planGoal(pl: Plan): FilterGoal | undefined {
   if (!pluginGoalDriven.value) return undefined
   return target.value?.goals.find((g) => g.goalSet && g.filter === pl.filter)
@@ -495,11 +503,13 @@ function planGoal(pl: Plan): FilterGoal | undefined {
 
 function fgFill(fg: FilterGoal): string {
   if (fg.enough) return '100%'
+  if (filterOnCounts(fg))
+    return fg.desired > 0 ? Math.floor(Math.min(1, fg.accepted / fg.desired) * 100) + '%' : '0%'
   return Math.floor((fg.goalProgress ?? 0) * 100) + '%'
 }
 
 function fgLine(fg: FilterGoal): string {
-  const parts = [filterHeadline(fg)]
+  const parts = [filterOnCounts(fg) ? countsLine(fg) : filterHeadline(fg)]
   if (fg.measurement) parts.push(r1(fg.measurement.effectiveHours) + ' h effective')
   if (!fg.enough && fg.goalProgress !== null) parts.push(goalTiming(fg, pluginVersion.value))
   return parts.join(' · ')
@@ -945,10 +955,15 @@ function numInput(e: Event): number {
                   <span v-if="fg.goalSet && pluginGoalDriven"
                     >Goal-driven{{ fg.readiness && !fg.readiness.open ? ' · scheduler stopped' : '' }}</span
                   >
-                  <span v-else-if="!fg.goalSet">No goal set</span>
+                  <span
+                    v-else-if="filterOnCounts(fg)"
+                    class="badge warn counts"
+                    :title="ON_COUNTS_TITLE"
+                    >Runs on counts: no goal set</span
+                  >
                 </div>
               </div>
-              <span class="row num" style="justify-content: flex-end; flex-wrap: nowrap">
+              <span class="row num" style="justify-content: flex-end; flex-wrap: wrap; min-width: 0">
                 <strong :title="measuredTitle(fg)">{{ measuredValue(fg) }}</strong>
                 <span
                   v-if="mode === 'depth' && fg.measurement?.depth != null && fg.measurement.depthBand"
@@ -995,6 +1010,13 @@ function numInput(e: Event): number {
           >
             <span class="small" style="max-width: 60ch">
               <template v-if="target && goals.length">{{ leastText(target.least) }}.</template>
+              <span
+                v-if="target && countsBadge(target.least)"
+                class="badge warn counts"
+                style="margin-left: 0.375rem"
+                :title="ON_COUNTS_TITLE"
+                >{{ countsBadge(target.least) }}</span
+              >
               <template v-if="target?.least?.plateau && goals.length">
                 <span :title="plateauTitle(target.least.plateau)" style="color: var(--plateau)">
                   Furthest from its plateau: {{ plateauWhere(target.least.plateau) }}.</span
@@ -1209,6 +1231,11 @@ function numInput(e: Event): number {
                     style="width: 5rem; height: 1.875rem; text-align: right"
                     @change="planDraft[pl.id] = { ...planDraft[pl.id], desired: numInput($event) }"
                   />
+                  <div v-if="planOnCounts(pl)" style="margin-top: 0.25rem">
+                    <span class="badge warn counts" :title="ON_COUNTS_TITLE"
+                      >Runs on counts: no goal set</span
+                    >
+                  </div>
                 </td>
                 <td style="text-align: right">{{ pl.acquired }}</td>
                 <td style="text-align: right">{{ pl.accepted }}</td>

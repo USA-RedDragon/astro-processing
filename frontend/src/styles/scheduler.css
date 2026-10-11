@@ -263,6 +263,12 @@
   background: var(--warn-bg);
   color: var(--warn);
 }
+.badge.counts {
+  border-color: var(--warn);
+  border-radius: 0.5rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
 .badge.bad {
   border-color: transparent;
   background: var(--bad-bg);

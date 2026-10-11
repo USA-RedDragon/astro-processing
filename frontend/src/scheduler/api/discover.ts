@@ -1,7 +1,13 @@
 import { api, query } from './client'
 import { submitCommand, type CommandRecord } from './commands'
 import { SITE_TZ } from '../format'
-import { plateauRollupLabel, plateauTitle, type LeastPlateau } from './planning'
+import {
+  NO_GOAL_REASON,
+  ON_COUNTS_TEXT,
+  plateauRollupLabel,
+  plateauTitle,
+  type LeastPlateau,
+} from './planning'
 
 export interface CatalogObject {
   id: string
@@ -180,6 +186,7 @@ export function progressText(e: Pick<CatalogueEntry, 'status' | 'progress'>): st
   const p = e.progress
   if (!p) return 'progress unknown'
   const f = p.leastFilter ?? 'a filter'
+  if (p.percent === null && p.notMeasured === NO_GOAL_REASON) return `needs more · ${f} ${ON_COUNTS_TEXT}`
   if (p.percent === null)
     return `needs more · ${f} not measured yet${p.notMeasured ? ` (${p.notMeasured})` : ''}`
   return `${floorPct(p.percent)} · ${f} least complete`
