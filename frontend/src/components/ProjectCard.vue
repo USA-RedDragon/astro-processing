@@ -2,7 +2,7 @@
         <Card class="project-card relative overflow-hidden">
         <component
           :is="titleLink ? 'a' : 'div'"
-          v-if="showCover && project.cover"
+          v-if="coverShown && project.cover"
           :href="titleLink || undefined"
           class="block relative -mt-6 mb-2 bg-black"
         >
@@ -34,33 +34,33 @@
             <LoaderCircle class="size-4 animate-spin text-white" aria-label="Processing" />
           </span>
         </component>
-        <!-- Status Badge at top right -->
-        <div class="absolute top-5 right-2 z-10 flex gap-2">
-          <Badge v-if="project.is_mosaic" variant="outline" class="text-sm">
-            Mosaic
-          </Badge>
-          <Badge v-if="project.priority" :variant="getPriorityVariant(project.priority)" class="text-sm">
-            {{ project.priority }}
-          </Badge>
-          <Badge :variant="statusVariant" :title="circle.title || undefined">
-            {{ statusText }}
+        <div v-if="coverShown" class="absolute top-5 right-2 z-10 flex gap-2">
+          <Badge v-for="b in badges" :key="b.text" :variant="b.variant" :class="b.class" :title="b.title">
+            {{ b.text }}
           </Badge>
         </div>
 
         <CardHeader>
-          <CardTitle class="pr-64">
-            <a v-if="titleLink" :href="titleLink" class="underline hover:text-primary transition">
-              {{ project.name }}
-            </a>
-            <span v-else>
-              {{ project.name }}
-            </span>
-            <LoaderCircle
-              v-if="processing && !(showCover && project.cover)"
-              class="inline size-4 ml-1.5 animate-spin text-muted-foreground align-middle"
-              aria-label="Processing"
-            />
-          </CardTitle>
+          <div class="flex flex-wrap items-start justify-between gap-2">
+            <CardTitle class="min-w-0 leading-snug">
+              <a v-if="titleLink" :href="titleLink" class="underline hover:text-primary transition">
+                {{ project.name }}
+              </a>
+              <span v-else>
+                {{ project.name }}
+              </span>
+              <LoaderCircle
+                v-if="processing && !coverShown"
+                class="inline size-4 ml-1.5 animate-spin text-muted-foreground align-middle"
+                aria-label="Processing"
+              />
+            </CardTitle>
+            <div v-if="!coverShown" class="flex flex-wrap gap-2 ml-auto">
+              <Badge v-for="b in badges" :key="b.text" :variant="b.variant" :class="b.class" :title="b.title">
+                {{ b.text }}
+              </Badge>
+            </div>
+          </div>
           <div class="flex flex-col gap-1 mt-2">
             <p v-if="project.description" class="text-xs text-muted-foreground">
               {{ project.description }}
@@ -164,6 +164,20 @@ export default {
     };
   },
   computed: {
+    coverShown(): boolean {
+      return this.showCover && !!this.project.cover;
+    },
+    badges(): { text: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; class?: string;
+      title?: string }[] {
+      const out: { text: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; class?: string;
+        title?: string }[] = [];
+      if (this.project.is_mosaic) out.push({ text: 'Mosaic', variant: 'outline', class: 'text-sm' });
+      if (this.project.priority)
+        out.push({ text: this.project.priority, variant: this.getPriorityVariant(this.project.priority),
+          class: 'text-sm' });
+      out.push({ text: this.statusText, variant: this.statusVariant, title: this.circle.title || undefined });
+      return out;
+    },
     circle(): CardCircle {
       return cardCircle(this.planning?.least, this.planningState);
     },
