@@ -31,6 +31,7 @@ import {
   type SettingKey,
 } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
+import { landingStep } from '../addTarget'
 
 interface CatalogObject {
   id: string
@@ -173,8 +174,7 @@ onMounted(async () => {
       plan.cols = n
       plan.rows = 1
     }
-    if (route.query.step === 'frame') step.value = 2
-    if (route.query.step === 'mosaic') step.value = 3
+    step.value = landingStep(route.query.step, matchNeeds.value)
   }
 })
 
@@ -482,18 +482,21 @@ async function recordMatch(after: 'confirmed' | 'rejected') {
   }
 }
 
-async function next() {
-  if (step.value === 1) {
-    if (!pick.value || matchNeeds.value) return
-    if (matchChoice.value === 'open' && topMatch.value && topProject.value) {
-      await recordMatch('confirmed')
-      router.push({ name: 'target', params: { projectId: String(topProject.value) } })
-      return
-    }
-    if (matchChoice.value === 'separate' || matchChoice.value === 'link')
-      await recordMatch('confirmed')
-    if (matchChoice.value === 'different') await recordMatch('rejected')
+async function leaveFind(): Promise<boolean> {
+  if (!pick.value || matchNeeds.value) return false
+  if (matchChoice.value === 'open' && topMatch.value && topProject.value) {
+    await recordMatch('confirmed')
+    router.push({ name: 'target', params: { projectId: String(topProject.value) } })
+    return false
   }
+  if (matchChoice.value === 'separate' || matchChoice.value === 'link')
+    await recordMatch('confirmed')
+  if (matchChoice.value === 'different') await recordMatch('rejected')
+  return true
+}
+
+async function next() {
+  if (step.value === 1 && !(await leaveFind())) return
   if (step.value === 4) await makeDraft()
   step.value = Math.min(5, step.value + 1)
 }
@@ -839,11 +842,11 @@ const applyLine = computed(() => {
   return `The scheduler creates it and allocates the ids; sent now, it applies ${whenApplies()}.`
 })
 
-function goStep(i: number) {
-  if (i === 1 || pick.value) {
-    if (i === 5 && !draft.value) makeDraft()
-    step.value = i
-  }
+async function goStep(i: number) {
+  if (i !== 1 && !pick.value) return
+  if (i > 1 && step.value === 1 && !(await leaveFind())) return
+  if (i === 5 && !draft.value) makeDraft()
+  step.value = i
 }
 </script>
 
