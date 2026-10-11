@@ -94,8 +94,16 @@ export interface SubjectRef {
   completionBasis: string
   completion: Completion
   tally: Tally
+  progress?: Progress
   why?: string
   hours: number
+}
+
+export interface Progress {
+  percent: number
+  target: string
+  leastFilter?: string
+  leastPercent: number
 }
 
 export interface Tally {
@@ -139,10 +147,28 @@ export interface CatalogueEntry {
   scheduled: boolean
   adding?: Adding
   tally: Tally
+  progress?: Progress
   hours: Record<string, number>
   subjects: SubjectRef[]
   tonight?: Tonight
   fit: Fit | null
+}
+
+const floorPct = (v: number) => `${Math.floor(Math.min(1, Math.max(0, v)) * 100)}%`
+
+export function progressFill(e: Pick<CatalogueEntry, 'status' | 'progress'>): number | null {
+  if (e.status !== 'in-progress' || !e.progress) return null
+  return Math.min(1, Math.max(0, e.progress.percent))
+}
+
+export function progressText(e: Pick<CatalogueEntry, 'status' | 'progress'>): string {
+  if (e.status !== 'in-progress') return ''
+  const p = e.progress
+  if (!p) return 'progress unknown'
+  const least = p.leastFilter
+    ? `, least complete ${p.leastFilter} at ${floorPct(p.leastPercent)}`
+    : ''
+  return `${floorPct(p.percent)} complete${least}`
 }
 
 export interface CatalogueSummary {

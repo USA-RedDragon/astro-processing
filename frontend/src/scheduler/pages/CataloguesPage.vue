@@ -17,6 +17,8 @@ import {
   linkEvidence,
   size,
   paText,
+  progressFill,
+  progressText,
   typeLabel,
   type CatalogueEntry,
   type Decision,
@@ -154,18 +156,27 @@ function hidden(e: CatalogueEntry): boolean {
   return status.value !== 'All' && statusLabel[e.status] !== status.value
 }
 
+function cellBackground(e: CatalogueEntry): string {
+  switch (e.status) {
+    case 'done':
+      return 'var(--done)'
+    case 'measuring':
+      return 'var(--measuring)'
+    case 'in-progress': {
+      const f = progressFill(e)
+      if (f === null) return 'transparent'
+      const w = `${(f * 100).toFixed(1)}%`
+      return `linear-gradient(to right, var(--prog-bg) ${w}, transparent ${w})`
+    }
+  }
+  return 'transparent'
+}
+
 function cellStyle(e: CatalogueEntry) {
   const s = e.status
   const started = s === 'in-progress' || s === 'measuring'
   return {
-    background:
-      s === 'done'
-        ? 'var(--done)'
-        : s === 'measuring'
-          ? 'var(--measuring)'
-          : started
-            ? 'var(--prog-bg)'
-            : 'transparent',
+    background: cellBackground(e),
     color:
       s === 'done' ? 'var(--ink-dark)' : started ? 'var(--foreground)' : 'var(--muted-foreground)',
     border:
@@ -188,7 +199,15 @@ function cellStyle(e: CatalogueEntry) {
 
 function cellLabel(e: CatalogueEntry): string {
   const name = e.object.name ? ' ' + e.object.name : ''
-  return `${e.label}${name}: ${statusLabel[e.status]?.toLowerCase()}${e.tonight?.up ? ', up tonight' : ''}`
+  const prog = progressText(e)
+  return `${e.label}${name}: ${statusLabel[e.status]?.toLowerCase()}${prog ? ', ' + prog : ''}${e.tonight?.up ? ', up tonight' : ''}`
+}
+
+function cellTitle(e: CatalogueEntry): string {
+  const prog = progressText(e)
+  return [label(e.object), prog ? prog[0]!.toUpperCase() + prog.slice(1) : '', e.completionBasis]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 const cellText = (e: CatalogueEntry) => (tab.value === 'herschel400' ? String(e.index) : e.label)
@@ -232,7 +251,8 @@ function measuredText(e: CatalogueEntry): string {
 function pickStatus(e: CatalogueEntry): string {
   const s = statusLabel[e.status] ?? e.status
   const subj = e.subjects.filter((x) => x.status !== 'rejected' && x.status !== 'suggested')
-  const head = `${s} · ${measuredText(e)}`
+  const prog = progressText(e)
+  const head = `${s}${prog ? ', ' + prog : ''} · ${measuredText(e)}`
   if (!subj.length) return head
   return `${head} · ${subj.map((x) => x.name + (x.state ? ` (${x.state})` : '')).join(', ')}`
 }
@@ -396,8 +416,13 @@ async function decide(m: ReviewItem, after: Decision) {
           ><span class="key" style="background: var(--done)" />Done</span
         >
         <span class="row" style="gap: 0.375rem"
-          ><span class="key" style="background: var(--prog-bg); border: 1px solid var(--prog)" />In
-          progress</span
+          ><span
+            class="key"
+            style="
+              background: linear-gradient(to right, var(--prog-bg) 50%, transparent 50%);
+              border: 1px solid var(--prog);
+            "
+          />In progress, filled to its goal progress</span
         >
         <span class="row" style="gap: 0.375rem"
           ><span
@@ -501,7 +526,7 @@ async function decide(m: ReviewItem, after: Decision) {
           type="button"
           class="cell num"
           :aria-label="cellLabel(e)"
-          :title="label(e.object) + (e.completionBasis ? ' · ' + e.completionBasis : '')"
+          :title="cellTitle(e)"
           :style="cellStyle(e)"
           @click="choose(e)"
         >
