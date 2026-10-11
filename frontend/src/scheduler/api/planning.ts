@@ -234,6 +234,14 @@ export interface Project {
   ruleWeights: RuleWeight[]
   goalDriven: boolean
   grader: boolean
+  ditherEvery?: number
+  filterSwitchFrequency?: number
+  flatsHandling?: number
+  smartExposureOrder?: boolean
+  meridianWindow?: number
+  useCustomHorizon?: boolean
+  horizonOffset?: number
+  maximumAltitude?: number
   completion: { delayGrading: number; exposureThrottle: number; source: string }
 }
 
@@ -304,9 +312,28 @@ export interface GoalDefaults {
   bandHighPercentile: number
 }
 
+export interface ProjectSettingValues {
+  ditherEvery: number
+  filterSwitchFrequency: number
+  flatsHandling: number
+  smartExposureOrder: boolean
+  meridianWindow: number
+  useCustomHorizon: boolean
+  horizonOffset: number
+  maximumAltitude: number
+  enableGrader: boolean
+}
+
+export interface ProjectSettingDefaults extends ProjectSettingValues {
+  basis: 'profile' | 'target-scheduler'
+  projects: number
+  profileId: string
+}
+
 export interface PlanningDefaults {
   goal: GoalDefaults
   panelDeficitWeight: number
+  projectSettings?: ProjectSettingDefaults
 }
 
 export interface Rule {
@@ -378,6 +405,15 @@ export interface ProjectDraft {
   desired?: number
   goal: { kind: GoalKind; snr: number; depth: number; plateauStop?: boolean }
   panels: PanelDraft[]
+  ditherEvery?: number
+  filterSwitchFrequency?: number
+  flatsHandling?: number
+  smartExposureOrder?: boolean
+  meridianWindow?: number
+  useCustomHorizon?: boolean
+  horizonOffset?: number
+  maximumAltitude?: number
+  enableGrader?: boolean
 }
 
 export interface PickHours {
