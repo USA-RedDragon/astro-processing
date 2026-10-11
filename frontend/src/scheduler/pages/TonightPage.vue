@@ -116,11 +116,6 @@ const nightLabel = computed(() => {
   return d
 })
 
-const summary = computed(() => planSummary(preview.value))
-const spanText = computed(() => {
-  const s = summary.value
-  if (isNaN(s.start) || isNaN(s.end)) return ''
-  return `from ${hm(s.start)} to ${hm(s.end)}`
 })
 const tiles = computed(() => {
   const s = summary.value
@@ -498,8 +493,6 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
 <template>
   <main class="page wide">
     <PageHead :context="nightLabel" title="Tonight">
-      Which target and filter runs when{{ spanText ? ', ' + spanText : '' }}, and why the planner
-      picked it. Try a change in What if before you make it for real.
       <template #actions>
         <label for="night" class="small muted">Night</label>
         <select id="night" v-model="night" class="input">
