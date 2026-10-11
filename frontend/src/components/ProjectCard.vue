@@ -35,7 +35,13 @@
           </span>
         </component>
         <div v-if="coverShown" class="absolute top-5 right-2 z-10 flex gap-2">
-          <Badge v-for="b in badges" :key="b.text" :variant="b.variant" :class="b.class" :title="b.title">
+          <Badge
+            v-for="b in badges"
+            :key="b.text"
+            :variant="b.variant"
+            :class="[b.class, { 'bg-background': b.variant === 'outline' }]"
+            :title="b.title"
+          >
             {{ b.text }}
           </Badge>
         </div>
