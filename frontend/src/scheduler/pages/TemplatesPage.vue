@@ -17,10 +17,14 @@ import { applySetCount, canApplySet, submitApplySet } from '../applySet'
 import { errorToast, notifyCommand } from '../shell'
 import { onEvent } from '../api/events'
 import { ApiError } from '../api/client'
+import { getSubLengths, type SubLengthState } from '../api/sublength'
+import { publishText, siteLengthView } from '../subLength'
 
 const route = useRoute()
 const snap = ref<Snapshot | null>(null)
 const loadError = ref('')
+
+const subLen = ref<SubLengthState | null>(null)
 
 async function load() {
   try {
@@ -34,6 +38,7 @@ async function load() {
 let off: (() => void) | undefined
 onMounted(() => {
   load()
+  getSubLengths().then((s) => (subLen.value = s))
   off = onEvent('command', (e: { data?: { status?: string } }) => {
     if (e.data?.status === 'applied') load()
   })
@@ -64,7 +69,7 @@ function plansText(plans: Plan[]): string {
   const on = plans.filter((p) => p.enabled)
   if (!plans.length) return 'No exposure plans'
   if (!on.length) return 'All plans off'
-  return on.map((p) => `${p.template} ${p.exposure} s`).join(' · ')
+  return on.map((p) => p.template).join(' · ')
 }
 
 const shownTargets = computed(() => {
@@ -167,14 +172,13 @@ const fields: BulkField[] = [
   },
   { id: 'gain', column: 'gain', label: 'Gain', unit: '', get: (t) => t.gain },
   { id: 'offset', column: 'offset', label: 'Offset', unit: '', get: (t) => t.offset },
-  {
-    id: 'exp',
-    column: 'defaultexposure',
-    label: 'Default exposure',
-    unit: 's',
-    get: (t) => t.defaultExposure,
-  },
 ]
+
+function siteText(t: Template): string {
+  if (!subLen.value) return '…'
+  const v = siteLengthView(subLen.value, t.filter, t.gain, t.defaultExposure)
+  return v.parts.length ? v.compact : 'not measured yet'
+}
 
 const tsel = reactive<Record<number, boolean>>({})
 const fieldId = ref('moonSep')
@@ -250,14 +254,12 @@ const clone = reactive({
   open: false,
   source: null as Template | null,
   name: '',
-  exp: 0,
   gain: null as number | string | null,
 })
 
 function openClone(t: Template) {
   clone.source = t
   clone.name = t.name + ' copy'
-  clone.exp = t.defaultExposure
   clone.gain = t.gain
   clone.open = true
 }
@@ -275,7 +277,6 @@ async function createClone() {
       source_name: s.name,
       guid: uuid(),
       name: clone.name.trim(),
-      defaultexposure: clone.exp,
       gain: typeof clone.gain === 'number' ? clone.gain : undefined,
     })
     clone.open = false
@@ -327,7 +328,7 @@ function moonText(t: Template): string {
         >
           <span style="font-weight: 600; font-size: 0.8125rem">{{ s.name }}</span>
           <span class="xsmall muted">{{
-            s.items.map((i) => i.template + ' ' + i.exposure + ' s').join(' · ')
+            s.items.map((i) => i.template).join(' · ')
           }}</span>
           <span class="xsmall muted">{{ s.hint }}</span>
         </button>
@@ -452,6 +453,14 @@ function moonText(t: Template): string {
 
     <section class="card" aria-labelledby="t-h">
       <h2 id="t-h">{{ templates.length }} exposure templates</h2>
+      <div class="sysnote" role="note">
+        <p class="small" style="margin: 0">
+          Sub lengths are managed by the system. It picks a length per filter and moon glare from
+          the measured sky; the template length is only the fallback, used until that filter's sky
+          is measured. Each target's Plans tab shows what was picked and why.
+        </p>
+        <p class="xsmall muted" style="margin: 0">{{ publishText(subLen) }}</p>
+      </div>
       <div class="scroll-x" style="border: 1px solid var(--border); border-radius: 0.5rem">
         <table class="dgrid num" style="min-width: 56rem">
           <thead>
@@ -466,7 +475,8 @@ function moonText(t: Template): string {
               </th>
               <th>Name</th>
               <th>Filter</th>
-              <th style="text-align: right">Exposure</th>
+              <th style="text-align: right">Fallback length</th>
+              <th>Measured at this site</th>
               <th style="text-align: right">Gain</th>
               <th>Twilight</th>
               <th>Moon avoidance</th>
@@ -489,6 +499,7 @@ function moonText(t: Template): string {
                 <span class="swatch" :style="{ background: filterColor(t.filter) }" />{{ t.filter }}
               </td>
               <td style="text-align: right">{{ t.defaultExposure }} s</td>
+              <td class="muted" style="white-space: nowrap">{{ siteText(t) }}</td>
               <td style="text-align: right">{{ t.gain ?? 'camera default' }}</td>
               <td style="white-space: nowrap">{{ t.twilight ?? 'not set' }}</td>
               <td style="white-space: nowrap">{{ moonText(t) }}</td>
@@ -525,10 +536,6 @@ function moonText(t: Template): string {
           <label class="field" style="flex: 2 1 10rem"
             ><span>Name</span><input v-model="clone.name" class="input" type="text"
           /></label>
-          <label class="field" style="flex: 1 1 6rem"
-            ><span>Default exposure, s</span
-            ><input v-model.number="clone.exp" class="input num" type="number" min="1"
-          /></label>
           <label class="field" style="flex: 1 1 5rem"
             ><span>Gain</span
             ><input
@@ -543,7 +550,7 @@ function moonText(t: Template): string {
           {{
             cloneNameTaken
               ? 'A template with that name already exists.'
-              : 'Everything else, moon avoidance and twilight included, is copied from ' +
+              : 'Everything else, the fallback length, moon avoidance and twilight included, is copied from ' +
                 clone.source?.name +
                 '. Undo removes the copy while no plan uses it.'
           }}
@@ -608,5 +615,14 @@ function moonText(t: Template): string {
   height: 0.625rem;
   border-radius: 2px;
   margin-right: 0.375rem;
+}
+.sysnote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  background: var(--secondary);
 }
 </style>
