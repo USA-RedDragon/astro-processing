@@ -26,6 +26,8 @@ import {
   type SkyPoint,
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
+import { onChange } from '@/lib/events'
+import { onUrlsAging } from '@/lib/signedUrls'
 import { getRuleWeights } from '../api/ruleweights'
 import { errorToast, notifyCommand } from '../shell'
 import {
@@ -138,16 +140,22 @@ async function loadAll() {
 
 let off: (() => void) | undefined
 let offMosaic: (() => void) | undefined
+const offLive: (() => void)[] = []
 onMounted(() => {
   loadAll()
   off = onEvent('command', (e: { data?: { status?: string } }) => {
     if (e.data?.status === 'applied' || e.data?.status === 'saved') loadAll()
   })
   offMosaic = onEvent('mosaic', () => loadDetail())
+  offLive.push(
+    onChange(['project', 'target', 'exposureplan', 'acquiredimage'], loadAll, 10000),
+    onUrlsAging(loadDetail),
+  )
 })
 onUnmounted(() => {
   off?.()
   offMosaic?.()
+  offLive.forEach((f) => f())
 })
 watch(key, () => {
   loadDetail()

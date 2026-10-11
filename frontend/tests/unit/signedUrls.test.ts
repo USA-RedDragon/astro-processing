@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick, reactive } from 'vue';
 import MastersCard from '@/components/MastersCard.vue';
-import { onReconnectOrUrlsAging, SIGNED_URL_REFRESH_MS } from '@/lib/signedUrls';
+import { onReconnectOrUrlsAging, onUrlsAging, SIGNED_URL_REFRESH_MS } from '@/lib/signedUrls';
 import type { FilterMaster } from '@/graphql/graphql';
 
 afterEach(() => {
@@ -16,6 +16,21 @@ describe('onReconnectOrUrlsAging', () => {
     const refresh = vi.fn();
     const stop = onReconnectOrUrlsAging(refresh);
     vi.advanceTimersByTime(SIGNED_URL_REFRESH_MS);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    stop();
+    vi.advanceTimersByTime(SIGNED_URL_REFRESH_MS * 2);
+    expect(refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('onUrlsAging', () => {
+  it('refreshes on the signature clock only, until stopped', () => {
+    vi.useFakeTimers();
+    const refresh = vi.fn();
+    const stop = onUrlsAging(refresh);
+    vi.advanceTimersByTime(SIGNED_URL_REFRESH_MS - 1);
+    expect(refresh).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
     expect(refresh).toHaveBeenCalledTimes(1);
     stop();
     vi.advanceTimersByTime(SIGNED_URL_REFRESH_MS * 2);

@@ -15,3 +15,9 @@ export function onReconnectOrUrlsAging(refresh: () => void): () => void {
     clearInterval(id);
   };
 }
+
+/** onUrlsAging calls refresh every SIGNED_URL_REFRESH_MS, for pages that already reload after a reconnect. */
+export function onUrlsAging(refresh: () => void): () => void {
+  const id = setInterval(refresh, SIGNED_URL_REFRESH_MS);
+  return () => clearInterval(id);
+}

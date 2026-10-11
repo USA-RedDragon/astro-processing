@@ -177,6 +177,7 @@ export default {
       stopEvents: () => {},
       stopReconnect: () => {},
       stopChanges: () => {},
+      stopMasters: () => {},
     };
   },
   created() {
@@ -191,10 +192,14 @@ export default {
       this.fetchData();
       this.refreshPlanning();
     });
+    // The cover and the stacked numbers follow the masters of its targets.
+    this.stopMasters = onChange(['master', 'subs'], () => this.fetchData(), 5000,
+      () => this.project?.targets?.map((t) => t.name) ?? []);
   },
   unmounted() {
     this.stopEvents();
     this.stopChanges();
+    this.stopMasters();
     this.stopReconnect();
     if (this.planningTimer) clearTimeout(this.planningTimer);
   },

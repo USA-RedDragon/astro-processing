@@ -656,9 +656,11 @@ export default {
       this.copied = true;
       setTimeout(() => { this.copied = false; }, 2000);
     },
+    // A master update also changes which subs it took and their weights.
     onLiveEvent(e: LiveEvent) {
-      if (e.type === 'mosaic' || !this.target || e.object !== this.target.name) return;
-      this.refetch(e.type === 'master' ? 'masters' : 'subframes');
+      if (!this.target || e.object !== this.target.name) return;
+      if (e.type === 'master') this.refetch('masters');
+      if (e.type === 'master' || e.type === 'preview' || e.type === 'subs') this.refetch('subframes');
     },
     // refetch reloads one part of the page, at most every 2 s however many
     // events arrive.

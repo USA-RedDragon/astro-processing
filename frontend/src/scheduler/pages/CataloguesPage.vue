@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
 import SkyCutout from '../components/SkyCutout.vue'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   addLink,
@@ -36,6 +36,8 @@ import {
   type ReviewItem,
 } from '../api/discover'
 import { errorToast, notifyCommand } from '../shell'
+import { onEvent, onReconnect } from '../api/events'
+import { onChange } from '@/lib/events'
 import { clock, hm } from '../format'
 import { imagedRoute } from '../imaged'
 
@@ -101,15 +103,19 @@ async function loadOverview() {
   }
 }
 
-async function loadList() {
-  listLoading.value = true
+// A live refresh keeps the list on screen and keeps it if the reload fails.
+async function loadList(live = false) {
+  if (!live) listLoading.value = true
+  const key = tab.value
   try {
-    entries.value = await getCatalogue(tab.value)
+    const got = await getCatalogue(key)
+    if (key === tab.value) entries.value = got
   } catch (e) {
+    if (live) return
     errorToast(e, 'Could not load the catalogue')
     entries.value = []
   } finally {
-    listLoading.value = false
+    if (!live) listLoading.value = false
   }
 }
 
@@ -123,11 +129,26 @@ async function loadMatches() {
   }
 }
 
+const offLive: (() => void)[] = []
+
 onMounted(async () => {
+  offLive.push(
+    onChange(
+      ['project', 'target', 'exposureplan', 'acquiredimage', 'master'],
+      () => Promise.all([loadOverview(), loadList(true)]),
+      10000,
+    ),
+    onEvent('command', (e: { data?: { status?: string } }) => {
+      if (e.data?.status === 'applied' || e.data?.status === 'saved') loadMatches()
+    }),
+    onReconnect(loadMatches),
+  )
   await Promise.all([loadOverview(), loadMatches()])
   await loadList()
   loading.value = false
 })
+
+onUnmounted(() => offLive.forEach((f) => f()))
 
 watch(tab, (t) => {
   pick.value = null

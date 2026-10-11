@@ -2,7 +2,9 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { submitCommand, type CommandRecord } from '../api/commands'
-import { onEvent } from '../api/events'
+import { onEvent, onReconnect } from '../api/events'
+import { onChange } from '@/lib/events'
+import { onReconnectOrUrlsAging } from '@/lib/signedUrls'
 import {
   getConditions,
   getMoon,
@@ -114,7 +116,6 @@ async function loadPreview() {
   }
 }
 
-let subsTimer: ReturnType<typeof setInterval> | undefined
 let previewTimer: ReturnType<typeof setInterval> | undefined
 let conditionsTimer: ReturnType<typeof setInterval> | undefined
 let debounce: ReturnType<typeof setTimeout> | undefined
@@ -137,15 +138,26 @@ onMounted(() => {
   loadSubs()
   loadPreview()
   loadConditions()
+  // Weather has no server events, and the plan moves with the clock; the
+  // subs reload only when the stacker or the scheduler's tables say so.
   conditionsTimer = setInterval(loadConditions, 30000)
-  subsTimer = setInterval(loadSubs, 60000)
   previewTimer = setInterval(loadPreview, 300000)
-  offs.push(onEvent('frames', soon), onEvent('preview', soon))
+  offs.push(
+    onEvent('frames', soon),
+    onEvent('preview', soon),
+    onEvent('subs', soon),
+    onEvent('command', (e: { data?: CommandRecord }) => {
+      if (e.data?.status === 'applied') loadPreview()
+    }),
+    onReconnect(soon),
+    onChange(['acquiredimage'], soon),
+    onChange(['project', 'target', 'exposureplan'], loadPreview, 10000),
+    onReconnectOrUrlsAging(soon),
+  )
   window.addEventListener('keydown', onKey)
 })
 
 onUnmounted(() => {
-  if (subsTimer) clearInterval(subsTimer)
   if (previewTimer) clearInterval(previewTimer)
   if (conditionsTimer) clearInterval(conditionsTimer)
   if (debounce) clearTimeout(debounce)

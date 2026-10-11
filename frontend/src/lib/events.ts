@@ -21,8 +21,9 @@ export interface Backlog {
 export interface LiveEvent {
   id?: number;
   // preview, master and mosaic come from the stacker, frames when it indexes
-  // new files; data from the backend when scheduler tables change.
-  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'data';
+  // new files, subs when it measures or triages a target's lights; data
+  // from the backend when scheduler tables change.
+  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'subs' | 'data';
   object?: string;
   filter?: string;
   key?: string;
@@ -81,29 +82,51 @@ export function onEvent(h: (e: LiveEvent) => void): () => void {
   return () => handlers.delete(h);
 }
 
-// onChange calls reload, at most every delay ms, when any of the scheduler
-// tables change (a "data" event), when the stacker indexes new files (for
-// "frames"), and after the stream reconnects. It returns a function that
-// stops it.
-export function onChange(tables: string[], reload: () => void, delay = 3000): () => void {
+// throttle returns run, which calls fn once delay ms after the first call
+// in a burst, and stop, which cancels a pending call.
+export function throttle(fn: () => void, delay: number): { run: () => void; stop: () => void } {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const schedule = () => {
-    if (timer) return;
-    timer = setTimeout(() => {
+  return {
+    run: () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        fn();
+      }, delay);
+    },
+    stop: () => {
+      if (timer) clearTimeout(timer);
       timer = undefined;
-      reload();
-    }, delay);
+    },
   };
+}
+
+// onChange calls reload, at most every delay ms, when any of the scheduler
+// tables change (a "data" event), when the stacker sends an event whose
+// type is listed (such as "frames" or "master"), and after the stream
+// reconnects. objects, if given, limits stacker events to those about the
+// targets it names. It returns a function that stops it.
+export function onChange(
+  tables: string[],
+  reload: () => void,
+  delay = 3000,
+  objects?: () => string[],
+): () => void {
+  const t = throttle(reload, delay);
   const stopEvents = onEvent((e) => {
-    const hit = e.type === 'frames' ? tables.includes('frames')
-      : e.type === 'data' && (e.tables ?? []).some((t) => tables.includes(t));
-    if (hit) schedule();
+    if (e.type === 'data') {
+      if ((e.tables ?? []).some((x) => tables.includes(x))) t.run();
+      return;
+    }
+    if (!tables.includes(e.type)) return;
+    if (objects && e.object && !objects().includes(e.object)) return;
+    t.run();
   });
-  const stopReconnect = onReconnect(schedule);
+  const stopReconnect = onReconnect(t.run);
   return () => {
     stopEvents();
     stopReconnect();
-    if (timer) clearTimeout(timer);
+    t.stop();
   };
 }
 

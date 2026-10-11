@@ -26,7 +26,7 @@
 import API from '@/lib/API';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
-import { onEvent, status } from '@/lib/events';
+import { onChange, status } from '@/lib/events';
 import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { unrecordedLights } from '@/lib/otherTargets';
 import type { FilterMaster, OtherTarget } from '../graphql/graphql';
@@ -95,9 +95,8 @@ export default {
   },
   created() {
     this.fetchData();
-    this.stopEvents = onEvent((e) => {
-      if (e.type === 'master' && e.object === this.name) this.fetchData();
-    });
+    // Its light and stacked counts change as frames are indexed and triaged.
+    this.stopEvents = onChange(['master', 'subs', 'frames'], () => this.fetchData(), 3000, () => [this.name]);
     this.stopReconnect = onReconnectOrUrlsAging(() => this.fetchData());
   },
   unmounted() {
