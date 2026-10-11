@@ -15,8 +15,14 @@
       </router-link>
       <h1 class="text-2xl font-semibold mt-1">{{ target.name }}</h1>
       <div id="target-sched-head" class="mt-2 empty:hidden" />
-      <p v-if="done.subframes && subframes.length === 0" class="text-sm text-muted-foreground mt-1">
+      <p
+        v-if="done.subframes && !failed.subframes && subframes.length === 0"
+        class="text-sm text-muted-foreground mt-1"
+      >
         No subs acquired yet for this target.
+      </p>
+      <p v-for="(why, part) in failures" :key="part" role="alert" class="text-sm text-red-600 mt-1">
+        Could not load the {{ part }}: {{ why }}
       </p>
     </div>
 
@@ -134,7 +140,10 @@
       </CardContent>
     </Card>
 
-    <p v-if="done.calibration && calibration.length > 0" class="text-sm text-muted-foreground -mb-4">
+    <p
+      v-if="done.calibration && calibration.length > 0 && done.subframes && !failed.subframes"
+      class="text-sm text-muted-foreground -mb-4"
+    >
       Calibration counts all {{ calibrationLights }} lights named &ldquo;{{ target?.name }}&rdquo; in the stacker's
       index; Target Scheduler has {{ subframes.length }} subs for this target.
     </p>
@@ -285,8 +294,11 @@
       </CardContent>
     </Card>
 
-    <div v-if="loaded && !target" class="text-center text-muted-foreground py-8">
+    <div v-if="loaded && !target && !failed.target" class="text-center text-muted-foreground py-8">
       Target not found.
+    </div>
+    <div v-if="failed.target" role="alert" class="text-center text-red-600 py-8">
+      Could not load this target: {{ failed.target }}
     </div>
   </div>
 </template>
@@ -485,6 +497,7 @@ export default {
       loaded: false,
       // Which parts have loaded; each card shows placeholders until then.
       done: { subframes: false, masters: false, calibration: false },
+      failed: { target: '', subframes: '', masters: '', calibration: '' },
       // Subframe rows shown; long lists render a page at a time.
       pageSize: 100,
       limit: 100,
@@ -503,6 +516,15 @@ export default {
     sort() { this.limit = this.pageSize; },
   },
   computed: {
+    failures(): Record<string, string> {
+      const names = { subframes: 'subs', masters: 'masters', calibration: 'calibration' } as const;
+      const out: Record<string, string> = {};
+      for (const [k, label] of Object.entries(names)) {
+        const why = this.failed[k as keyof typeof names];
+        if (why) out[label] = why;
+      }
+      return out;
+    },
     // Filters of this target the stacker is working on right now.
     updatingFilters(): string[] {
       const name = this.target?.name;
@@ -636,6 +658,7 @@ export default {
       try {
         const r = await API.request(GET_TARGET_QUERY, { id: this.$route.params.id as string });
         if (r.target) this.target = r.target as Target;
+        this.failed.target = '';
       } catch (error) {
         console.error('Error refreshing target:', error);
       }
@@ -659,6 +682,7 @@ export default {
               this.subframes = r.target.subframes as Subframe[];
             }
           }
+          this.failed[part] = '';
         } catch (error) {
           console.error(`Error refreshing ${part}:`, error);
         }
@@ -670,8 +694,10 @@ export default {
         try {
           const r = await API.request(query, { id });
           if (r.target) apply(r.target as Target);
+          this.failed[name] = '';
         } catch (error) {
           console.error(`Error fetching ${name}:`, error);
+          this.failed[name] = (error as Error).message || String(error);
         } finally {
           if (name === 'target') this.loaded = true;
           else this.done[name] = true;
