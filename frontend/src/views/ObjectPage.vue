@@ -59,6 +59,10 @@ const GET_OTHER_TARGET_QUERY = `
         comet_preview_url
         comet_url
         comet_xisf_url
+        local_norm
+        local_norm_subs
+        local_norm_uneven
+        local_norm_threshold
       }
     }
   }

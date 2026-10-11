@@ -467,6 +467,10 @@ const GET_TARGET_MASTERS_QUERY = `
         comet_xisf_url
         min_score
         lowest_score
+        local_norm
+        local_norm_subs
+        local_norm_uneven
+        local_norm_threshold
         object_lights
         target_subs
       }

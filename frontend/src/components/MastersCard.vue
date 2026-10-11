@@ -65,6 +65,13 @@
               {{ m.subs }} of {{ m.object_lights }} lights named &ldquo;{{ objectName }}&rdquo;;
               {{ m.target_subs }} from this target
             </div>
+            <div
+              v-if="localNorm(m)"
+              class="text-xs text-muted-foreground tabular-nums"
+              data-testid="local-norm"
+            >
+              {{ localNorm(m) }}
+            </div>
             <div class="text-xs text-muted-foreground">Updated {{ formatDate(Date.parse(m.updated_at) / 1000) }}</div>
             <div class="flex flex-wrap gap-2 mt-1">
               <a
@@ -122,6 +129,7 @@ import { formatDate } from '@/lib/formatters';
 import { formatExposure } from '@/lib/exposure';
 import { samePicture } from '@/lib/signedUrls';
 import type { FilterMaster } from '../graphql/graphql';
+import { localNorm } from '@/lib/localNorm';
 
 export default {
   name: 'MastersCard',
@@ -184,6 +192,7 @@ export default {
   methods: {
     formatDate,
     formatExposure,
+    localNorm,
   },
 };
 </script>
