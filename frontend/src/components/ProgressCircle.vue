@@ -13,6 +13,7 @@
           class="text-muted"
         />
         <circle
+          v-if="percentage !== null"
           cx="32"
           cy="32"
           r="20"
@@ -26,20 +27,22 @@
         />
       </svg>
       <div class="absolute inset-0 flex items-center justify-center">
-        <span class="text-xs font-bold">{{ percentage }}%</span>
+        <span v-if="percentage !== null" class="text-xs font-bold">{{ percentage }}%</span>
       </div>
     </div>
   </div>
 </template>
 
 <script lang="ts">
+import type { PropType } from 'vue';
+
 export default {
   name: 'ProgressCircle',
   props: {
     percentage: {
-      type: Number,
-      required: true,
-      validator: (value: number) => value >= 0,
+      type: [Number, null] as PropType<number | null>,
+      default: null,
+      validator: (value: number | null) => value === null || value >= 0,
     },
     caption: {
       type: String,
@@ -56,11 +59,12 @@ export default {
   },
   computed: {
     strokeDashoffset(): number {
-      return this.circumference - (Math.min(this.percentage, 100) / 100) * this.circumference;
+      return this.circumference - (Math.min(this.percentage ?? 0, 100) / 100) * this.circumference;
     },
     progressColor(): string {
-      if (this.percentage >= 100) return 'hsl(142, 76%, 36%)';
-      if (this.percentage >= 50) return 'hsl(48, 96%, 53%)';
+      const p = this.percentage ?? 0;
+      if (p >= 100) return 'hsl(142, 76%, 36%)';
+      if (p >= 50) return 'hsl(48, 96%, 53%)';
       return 'hsl(221, 83%, 53%)';
     },
   },

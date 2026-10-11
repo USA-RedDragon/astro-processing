@@ -87,7 +87,7 @@
       </div>
 
       <div v-if="listView" class="px-4">
-        <ProjectsTable :filter="filter" :order="projects.map((p) => p.id)" />
+        <ProjectsTable :filter="filter" :order="sortedProjects.map((p) => p.id)" />
       </div>
 
       <!-- Cards keep their own heights: dealt left to right into columns, so
@@ -99,6 +99,8 @@
             :key="project.id"
             :project="project"
             :titleLink="`/project/${project.id}`"
+            :planning="planningProject(snapshot, project.id) ?? null"
+            :planningState="planningState"
           />
         </div>
       </div>
@@ -138,6 +140,8 @@ import {
 import { onChange, onEvent, onReconnect } from '@/lib/events';
 import ProjectsTable from '@/scheduler/components/ProjectsTable.vue';
 import { emptyFilter, filterActive, matchesFilter, type ProjectFilter } from '@/scheduler/projects';
+import { getPlanning, type Snapshot } from '@/scheduler/api/planning';
+import { planningProject, sortByLeast, type PlanningState } from '@/scheduler/leastCards';
 import type { OtherTarget, Project, ProjectCover } from '../graphql/graphql';
 
 // Reloaded when the stacker updates a master or mosaic.
@@ -222,8 +226,6 @@ const GET_PROJECTS_QUERY = `
           acquired_images
         }
         last_image_date
-        plans
-        plans_met
       }
     }
   }
@@ -242,6 +244,7 @@ export default {
   },
   created() {
     this.fetchData();
+    this.fetchPlanning();
     this.fitColumns();
     window.addEventListener('resize', this.fitColumns);
     this.fetchOthers();
@@ -254,7 +257,10 @@ export default {
       this.refreshOthers();
     });
     // Every stat on the cards comes from these tables.
-    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData(true));
+    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => {
+      this.fetchData(true);
+      this.refreshPlanning();
+    });
   },
   unmounted() {
     window.removeEventListener('resize', this.fitColumns);
@@ -263,11 +269,15 @@ export default {
     this.stopReconnect();
     if (this.coverTimer) clearTimeout(this.coverTimer);
     if (this.othersTimer) clearTimeout(this.othersTimer);
+    if (this.planningTimer) clearTimeout(this.planningTimer);
   },
   data: function() {
     return {
       projects: [] as Project[],
       otherTargets: [] as OtherTarget[],
+      snapshot: null as Snapshot | null,
+      planningState: 'loading' as PlanningState,
+      planningTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       othersTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       loading: true,
       error: null as string | null,
@@ -296,6 +306,23 @@ export default {
   },
   methods: {
     emptyFilter,
+    planningProject,
+    async fetchPlanning() {
+      try {
+        this.snapshot = await getPlanning();
+        this.planningState = 'ok';
+      } catch (error) {
+        console.error('Error fetching the planning snapshot:', error);
+        if (!this.snapshot) this.planningState = 'failed';
+      }
+    },
+    refreshPlanning() {
+      if (this.planningTimer) return;
+      this.planningTimer = setTimeout(() => {
+        this.planningTimer = undefined;
+        this.fetchPlanning();
+      }, 5000);
+    },
     setView(v: string) {
       const query = { ...this.$route.query };
       if (v === 'list') query.view = 'list';
@@ -374,8 +401,12 @@ export default {
     filtering(): boolean {
       return filterActive(this.filter);
     },
+    sortedProjects(): Project[] {
+      if (this.sortField !== 'PROGRESS') return this.projects;
+      return sortByLeast(this.projects, this.snapshot, this.sortDirection);
+    },
     shownProjects(): Project[] {
-      return this.projects.filter((p) =>
+      return this.sortedProjects.filter((p) =>
         matchesFilter(this.filter, {
           name: p.name,
           description: p.description,

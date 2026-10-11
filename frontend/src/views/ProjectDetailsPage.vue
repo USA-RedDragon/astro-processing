@@ -1,7 +1,12 @@
 <template>
   <div class="space-y-6">
     <template v-if="project">
-      <ProjectCard :project="project" :show-cover="false" />
+      <ProjectCard
+        :project="project"
+        :show-cover="false"
+        :planning="planningProject(snapshot, project.id) ?? null"
+        :planning-state="planningState"
+      />
     </template>
 
     <section class="space-y-4" aria-labelledby="scheduler-h">
@@ -24,6 +29,8 @@
           v-for="target in targets"
           :key="target.id"
           :target="target"
+          :planning="planningTarget(snapshot, target.id) ?? null"
+          :planning-state="planningState"
         />
       </div>
       <div v-else-if="loaded" class="text-center text-muted-foreground py-8">
@@ -41,6 +48,8 @@ import PaletteMixer from '@/components/PaletteMixer.vue';
 import SchedulerTabs from '@/scheduler/components/SchedulerTabs.vue';
 import API from '@/lib/API';
 import { onChange, onEvent, onReconnect, type LiveEvent } from '@/lib/events';
+import { getPlanning, type Snapshot } from '@/scheduler/api/planning';
+import { planningProject, planningTarget, type PlanningState } from '@/scheduler/leastCards';
 import type { Mosaic, Target, Project } from '../graphql/graphql';
 
 // Loaded on its own: it waits on the stacker, and most projects have none.
@@ -129,8 +138,6 @@ const GET_PROJECT_WITH_TARGETS_QUERY = `
           acquired_images
         }
         last_image_date
-        plans
-        plans_met
       }
       cover {
         palette
@@ -155,6 +162,9 @@ export default {
       stats: undefined,
       targets: [] as Target[],
       mosaics: [] as Mosaic[],
+      snapshot: null as Snapshot | null,
+      planningState: 'loading' as PlanningState,
+      planningTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       loaded: false,
       stopEvents: () => {},
       stopReconnect: () => {},
@@ -163,19 +173,42 @@ export default {
   },
   created() {
     this.fetchData();
+    this.fetchPlanning();
     this.fetchMosaics();
     this.stopEvents = onEvent((e: LiveEvent) => {
       if (e.type === 'mosaic' && this.project && e.object === this.project.name) this.fetchMosaics();
     });
     this.stopReconnect = onReconnect(() => this.fetchMosaics());
-    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => this.fetchData());
+    this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => {
+      this.fetchData();
+      this.refreshPlanning();
+    });
   },
   unmounted() {
     this.stopEvents();
     this.stopChanges();
     this.stopReconnect();
+    if (this.planningTimer) clearTimeout(this.planningTimer);
   },
   methods: {
+    planningProject,
+    planningTarget,
+    async fetchPlanning() {
+      try {
+        this.snapshot = await getPlanning();
+        this.planningState = 'ok';
+      } catch (error) {
+        console.error('Error fetching the planning snapshot:', error);
+        if (!this.snapshot) this.planningState = 'failed';
+      }
+    },
+    refreshPlanning() {
+      if (this.planningTimer) return;
+      this.planningTimer = setTimeout(() => {
+        this.planningTimer = undefined;
+        this.fetchPlanning();
+      }, 5000);
+    },
     async fetchMosaics() {
       try {
         const r = await API.request(GET_PROJECT_MOSAICS_QUERY, { id: this.$route.params.id as string });

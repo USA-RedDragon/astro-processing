@@ -3,10 +3,6 @@
     <div class="text-sm mb-3" v-if="total">
       <div class="flex gap-3 text-xs">
         <span>
-          <span>Desired:</span>
-          <span :class="desiredClass + ' ml-1'">{{ stats.desired_images }}</span>
-        </span>
-        <span>
           <span>Acquired:</span>
           <span :class="acquiredClass + ' ml-1'">{{ stats.acquired_images }}</span>
         </span>
@@ -25,8 +21,6 @@
       </div>
     </div>
     <div class="flex gap-2" v-if="!total">
-      <span :class="desiredClass">{{ stats.desired_images }}</span>
-      <span>/</span>
       <span :class="acquiredClass">{{ stats.acquired_images }}</span>
       <span>/</span>
       <span :class="acceptedClass">{{ stats.accepted_images }}</span>
@@ -72,10 +66,6 @@ export default {
       type: Object as PropType<ImagingStats>,
       required: true,
     },
-    desiredClass: {
-      type: String,
-      default: 'text-muted-foreground',
-    },
     acquiredClass: {
       type: String,
       default: '',
@@ -91,7 +81,7 @@ export default {
   },
   computed: {
     maxValue(): number {
-      return Math.max(this.stats.desired_images, this.stats.acquired_images);
+      return this.stats.acquired_images;
     },
     rejectedPercentage(): number {
       if (this.maxValue === 0) return 0;

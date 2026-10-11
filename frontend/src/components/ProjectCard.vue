@@ -42,8 +42,8 @@
           <Badge v-if="project.priority" :variant="getPriorityVariant(project.priority)" class="text-sm">
             {{ project.priority }}
           </Badge>
-          <Badge :variant="getStatusVariant(project)" :title="getStatusTitle(project)">
-            {{ getStatusText(project) }}
+          <Badge :variant="statusVariant" :title="circle.title || undefined">
+            {{ statusText }}
           </Badge>
         </div>
 
@@ -74,6 +74,9 @@
             <p v-if="project.stats.last_image_date" class="text-xs text-muted-foreground">
               <span class="font-medium">Last Image:</span> {{ formatDate(project.stats.last_image_date) }}
             </p>
+            <p v-if="circle.show" class="text-xs" :class="enoughData ? 'text-green-600' : 'text-muted-foreground'">
+              <span class="font-medium">Data:</span> {{ circle.title }}
+            </p>
           </div>
         </CardHeader>
 
@@ -85,11 +88,11 @@
         </CardContent>
 
         <!-- Circular Progress at bottom right -->
-        <div v-if="project.stats && project.stats.imaging.desired_images > 0" class="absolute bottom-0 right-0">
+        <div v-if="circle.show" class="absolute bottom-0 right-0">
           <ProgressCircle
-            :percentage="getProgressPercentage(project)"
-            caption="accepted of desired"
-            :title="circleTitle"
+            :percentage="circle.percent"
+            :caption="circle.caption"
+            :title="circle.title"
           />
         </div>
         </Card>
@@ -110,6 +113,8 @@ import { LoaderCircle } from 'lucide-vue-next';
 import { status } from '@/lib/events';
 import StatsDisplay from './StatsDisplay.vue';
 import { formatDate } from '@/lib/formatters';
+import type { Project as PlanningProject } from '@/scheduler/api/planning';
+import { cardCircle, hasEnoughData, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
 import type {
   Project,
   ProjectPriority,
@@ -141,6 +146,14 @@ export default {
       required: false,
       default: null,
     },
+    planning: {
+      type: Object as PropType<PlanningProject | null>,
+      default: null,
+    },
+    planningState: {
+      type: String as PropType<PlanningState>,
+      default: 'loading',
+    },
   },
   data: function() {
     return {
@@ -151,15 +164,25 @@ export default {
     };
   },
   computed: {
-    // The stacker is working on one of the project's targets or its mosaic.
-    circleTitle(): string {
-      const i = this.project.stats.imaging;
-      return `${i.accepted_images} accepted of ${i.desired_images} desired, all plans together`;
+    circle(): CardCircle {
+      return cardCircle(this.planning?.least, this.planningState);
+    },
+    enoughData(): boolean {
+      return hasEnoughData(this.planning?.least);
+    },
+    statusVariant(): 'default' | 'secondary' | 'outline' {
+      if (this.enoughData) return 'default';
+      return this.project.state === 'ACTIVE' ? 'secondary' : 'outline';
+    },
+    statusText(): string {
+      if (this.enoughData) return 'Enough data';
+      return this.project.state ?? 'State not set';
     },
     missingPanels(): boolean {
       const c = this.project.cover;
       return !!c && c.panels != null && c.panels_total != null && c.panels < c.panels_total;
     },
+    // The stacker is working on one of the project's targets or its mosaic.
     processing(): boolean {
       const names = new Set((this.project.targets ?? []).map((t) => t.name));
       const mosaic = `Mosaic: ${this.project.name}`;
@@ -187,33 +210,10 @@ export default {
   },
   methods: {
     formatDate,
-    getProgressPercentage(project: Project): number {
-      if (!project.stats) return 0;
-      const { accepted_images, desired_images } = project.stats.imaging;
-      if (desired_images === 0) return 0;
-      return Math.round((accepted_images / desired_images) * 100);
-    },
-    allPlansMet(project: Project): boolean {
-      return !!project.stats && project.stats.plans > 0 && project.stats.plans_met === project.stats.plans;
-    },
-    getStatusTitle(project: Project): string {
-      if (!project.stats) return '';
-      return `${project.stats.plans_met} of ${project.stats.plans} enabled exposure plans have their desired accepted subs`;
-    },
     getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (priority === 'HIGH') return 'destructive';
       if (priority === 'LOW') return 'outline';
       return 'secondary';
-    },
-    getStatusVariant(
-      project: Project,
-    ): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (this.allPlansMet(project)) return 'default';
-      return project.state === 'ACTIVE' ? 'secondary' : 'outline';
-    },
-    getStatusText(project: Project): string {
-      if (this.allPlansMet(project)) return 'All plans met';
-      return project.state ?? 'State not set';
     },
   },
 };

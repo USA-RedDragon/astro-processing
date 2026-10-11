@@ -2,8 +2,8 @@
         <Card class="target-card relative overflow-hidden">
         <!-- Status Badge at top right -->
         <div class="absolute top-5 right-2 z-10">
-          <Badge :variant="getStatusVariant(target)" :title="statusTitle">
-            {{ getStatusText(target) }}
+          <Badge :variant="statusVariant" :title="circle.title || undefined">
+            {{ statusText }}
           </Badge>
         </div>
 
@@ -24,26 +24,37 @@
             <p v-if="target.stats?.last_image_date" class="text-xs text-muted-foreground">
               <span class="font-medium">Last Image:</span> {{ formatDate(target.stats.last_image_date) }}
             </p>
+            <p v-if="circle.show" class="text-xs" :class="enoughData ? 'text-green-600' : 'text-muted-foreground'">
+              <span class="font-medium">Data:</span> {{ circle.title }}
+            </p>
           </div>
         </CardHeader>
 
         <CardContent class="space-y-4 pb-12">
+          <div v-if="goals.length > 0" class="text-sm space-y-1">
+            <div class="font-semibold mb-1">By filter:</div>
+            <div
+              v-for="g in goals"
+              :key="g.filter"
+              class="flex justify-between items-center gap-2 text-xs py-1 px-2 rounded"
+              :class="{ 'bg-green-500/20 dark:bg-green-500/30': g.enough }"
+            >
+              <span class="font-medium">{{ g.filter }}</span>
+              <span class="text-right">{{ filterHeadline(g) }}</span>
+            </div>
+          </div>
+
           <!-- Image Statistics -->
           <div v-if="target.stats && target.stats.total">
             <StatsDisplay :stats="target.stats.total" total />
 
             <div v-if="target.stats.filters && target.stats.filters.length > 0" class="text-sm space-y-1">
-              <div class="font-semibold mt-2 mb-1">By exposure plan:</div>
+              <div class="font-semibold mt-2 mb-1">Subs by exposure plan:</div>
               <div
                 v-for="(filterStats, index) in target.stats.filters"
                 :key="index"
                 class="flex justify-between items-center text-xs py-1 px-2 rounded"
-                :class="{
-                  'bg-green-500/20 dark:bg-green-500/30':
-                    filterStats.imaging.accepted_images >= filterStats.imaging.desired_images &&
-                    filterStats.imaging.desired_images > 0,
-                  'opacity-60': filterStats.enabled === false,
-                }"
+                :class="{ 'opacity-60': filterStats.enabled === false }"
               >
                 <span class="font-medium">{{ formatFilterName(filterStats) }}:</span>
                 <StatsDisplay :stats="filterStats.imaging" />
@@ -54,11 +65,11 @@
         </CardContent>
 
         <!-- Circular Progress at bottom right -->
-        <div v-if="target.stats && target.stats.total.desired_images > 0" class="absolute bottom-0 right-0">
+        <div v-if="circle.show" class="absolute bottom-0 right-0">
           <ProgressCircle
-            :percentage="getProgressPercentage(target)"
-            caption="accepted of desired"
-            :title="circleTitle"
+            :percentage="circle.percent"
+            :caption="circle.caption"
+            :title="circle.title"
           />
         </div>
         </Card>
@@ -78,6 +89,12 @@ import ProgressCircle from '@/components/ProgressCircle.vue';
 import type { PropType } from 'vue';
 import { formatDate, formatRA, formatDec } from '@/lib/formatters';
 import type { Target, TargetFilterStats } from '../graphql/graphql';
+import {
+  filterHeadline,
+  type FilterGoal,
+  type Target as PlanningTarget,
+} from '@/scheduler/api/planning';
+import { cardCircle, hasEnoughData, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
 
 export default {
   components: {
@@ -94,26 +111,36 @@ export default {
       type: Object as PropType<Target>,
       required: true,
     },
+    planning: {
+      type: Object as PropType<PlanningTarget | null>,
+      default: null,
+    },
+    planningState: {
+      type: String as PropType<PlanningState>,
+      default: 'loading',
+    },
   },
   computed: {
-    enabledPlans(): TargetFilterStats[] {
-      return (this.target.stats?.filters ?? []).filter((f) => f.enabled === true);
+    circle(): CardCircle {
+      return cardCircle(this.planning?.least, this.planningState);
     },
-    allPlansMet(): boolean {
-      const plans = this.enabledPlans;
-      return plans.length > 0 && plans.every((f) => f.imaging.accepted_images >= f.imaging.desired_images);
+    enoughData(): boolean {
+      return hasEnoughData(this.planning?.least);
     },
-    circleTitle(): string {
-      const t = this.target.stats.total;
-      return `${t.accepted_images} accepted of ${t.desired_images} desired, all plans together`;
+    goals(): FilterGoal[] {
+      return this.planning?.goals ?? [];
     },
-    statusTitle(): string {
-      const plans = this.enabledPlans;
-      const met = plans.filter((f) => f.imaging.accepted_images >= f.imaging.desired_images).length;
-      return `${met} of ${plans.length} enabled exposure plans have their desired accepted subs`;
+    statusVariant(): 'default' | 'secondary' | 'outline' {
+      if (this.enoughData) return 'default';
+      return this.target.active ? 'secondary' : 'outline';
+    },
+    statusText(): string {
+      if (this.enoughData) return 'Enough data';
+      return this.target.active ? 'Active' : 'Inactive';
     },
   },
   methods: {
+    filterHeadline,
     formatDate,
     formatRA,
     formatDec,
@@ -141,22 +168,6 @@ export default {
       if (filterStats.enabled === false) name += ' · off';
 
       return name;
-    },
-    getProgressPercentage(target: Target): number {
-      if (!target.stats || !target.stats.total) return 0;
-      const { accepted_images, desired_images } = target.stats.total;
-      if (desired_images === 0) return 0;
-      return Math.round((accepted_images / desired_images) * 100);
-    },
-    getStatusVariant(
-      target: Target,
-    ): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (this.allPlansMet) return 'default';
-      return target.active ? 'secondary' : 'outline';
-    },
-    getStatusText(target: Target): string {
-      if (this.allPlansMet) return 'All plans met';
-      return target.active ? 'Active' : 'Inactive';
     },
   },
 };
