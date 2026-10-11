@@ -93,6 +93,10 @@ export function framesText(c: Pick<DarkBacklogCombo, 'frames_have' | 'frames_nee
   return `${num(c.frames_have)} of ${num(c.frames_needed)}`
 }
 
+export function thinText(c: Pick<DarkBacklogCombo, 'lights_thin'>): string {
+  return num(c.lights_thin, '', NOT_RECORDED)
+}
+
 export function readoutText(c: Pick<DarkBacklogCombo, 'readout_mode'>): string {
   return text(c.readout_mode, NOT_RECORDED)
 }

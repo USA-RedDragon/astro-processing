@@ -20,6 +20,7 @@ import {
   setupText,
   sortCombos,
   text,
+  thinText,
   unavailableText,
   uncheckedText,
   visibleCombos,
@@ -97,6 +98,12 @@ describe('dark backlog null handling', () => {
     ).toBe('not measured yet to not measured yet: 2 frames, 1 clean, 0 rejected, 1 found lit or off temperature but kept, 0 not checked yet.')
     expect(uncheckedText({ unchecked: null })).toBe('Darks not checked yet: not measured yet.')
     expect(uncheckedText({ unchecked: 0 })).toBe('Darks not checked yet: 0.')
+  })
+
+  it('shows lights on an exact dark set that is short of the target', () => {
+    expect(thinText({ lights_thin: 196 })).toBe('196')
+    expect(thinText({ lights_thin: 0 })).toBe('0')
+    expect(thinText({})).toBe('not recorded')
   })
 
   it('names missing rejected setup values', () => {

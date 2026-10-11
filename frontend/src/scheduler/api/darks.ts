@@ -15,6 +15,7 @@ export interface DarkBacklogCombo {
   frames_rejected: number | null
   lights_blocked: number | null
   lights_scaled: number | null
+  lights_thin?: number | null
   nights: number | null
   latest_night: string | null
   newest_dark_at: string | null

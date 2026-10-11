@@ -38,6 +38,12 @@
                 <TableHead class="text-right">Rejected</TableHead>
                 <TableHead class="text-right">Lights blocked</TableHead>
                 <TableHead class="text-right">Lights scaled</TableHead>
+                <TableHead
+                  class="text-right"
+                  :title="`Lights with an exact dark set of fewer than ${backlog.frames_needed ?? '?'} clean darks`"
+                >
+                  Lights on a short set
+                </TableHead>
                 <TableHead class="text-right">Nights</TableHead>
                 <TableHead>Latest night</TableHead>
                 <TableHead>Newest dark</TableHead>
@@ -60,6 +66,7 @@
                 <TableCell class="text-right tabular-nums">{{ num(c.frames_rejected) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.lights_blocked) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.lights_scaled) }}</TableCell>
+                <TableCell class="text-right tabular-nums">{{ thinText(c) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.nights) }}</TableCell>
                 <TableCell>{{ text(c.latest_night, NOT_RECORDED) }}</TableCell>
                 <TableCell>{{ when(c.newest_dark_at) }}</TableCell>
@@ -183,6 +190,7 @@ import {
   setupText,
   sortCombos,
   text,
+  thinText,
   unavailableText,
   uncheckedText,
   visibleCombos,
@@ -259,6 +267,7 @@ export default {
     setpointText,
     setupText,
     text,
+    thinText,
     uncheckedText,
     when,
     async fetchData() {
