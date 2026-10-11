@@ -5,6 +5,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   addLink,
+  backfillHead,
   decideMatch,
   filterColour,
   filterOrder,
@@ -15,6 +16,7 @@ import {
   hours,
   label,
   linkEvidence,
+  mastersText,
   size,
   paText,
   progressFill,
@@ -63,8 +65,7 @@ const backfill = computed(() => overview.value?.backfill ?? null)
 const backfillLine = computed(() => {
   const b = backfill.value
   if (!b) return ''
-  const head = `Goal measurements: ${b.measured} of ${b.total} masters measured`
-  const current = b.current < b.measured ? ` (${b.current} on the current method)` : ''
+  const head = backfillHead(b)
   let state: string
   switch (b.state) {
     case 'measuring':
@@ -81,7 +82,7 @@ const backfillLine = computed(() => {
     default:
       state = ' · goal measurement is off'
   }
-  return head + current + state
+  return head + state
 })
 
 const current = computed(() => overview.value?.catalogues.find((c) => c.key === tab.value))
@@ -243,9 +244,7 @@ function measuredText(e: CatalogueEntry): string {
   if (e.adding) return addingText(e)
   const t = e.tally
   if (!t.filters) return e.scheduled ? 'scheduled, nothing captured yet' : 'no frames yet'
-  const parts = [`${t.measured} of ${t.filters} masters measured`]
-  if (t.short) parts.push(`${t.short} with too few subs to measure`)
-  return parts.join(', ')
+  return mastersText(t)
 }
 
 function pickStatus(e: CatalogueEntry): string {

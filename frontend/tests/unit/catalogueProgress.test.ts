@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { progressFill, progressText } from '@/scheduler/api/discover'
+import { backfillHead, mastersText, progressFill, progressText } from '@/scheduler/api/discover'
 
 const progress = {
   percent: 0.0459,
@@ -46,5 +46,25 @@ describe('catalogue progress', () => {
       expect(progressFill({ status, progress })).toBeNull()
       expect(progressText({ status, progress })).toBe('')
     }
+  })
+})
+
+describe('master measurement counts', () => {
+  it('does not count masters with too few subs as measured', () => {
+    expect(mastersText({ filters: 3, measured: 3, short: 3 })).toBe(
+      '0 of 3 masters measured, 3 with too few subs to measure',
+    )
+    expect(mastersText({ filters: 5, measured: 5, short: 1 })).toBe(
+      '4 of 5 masters measured, 1 with too few subs to measure',
+    )
+  })
+
+  it('subtracts failed measurements from the backfill count', () => {
+    expect(backfillHead({ total: 527, measured: 527, current: 527, failed: 291 })).toBe(
+      'Goal measurements: 236 of 527 masters measured, 291 with too few subs to measure',
+    )
+    expect(backfillHead({ total: 10, measured: 8, current: 6, failed: 0 })).toBe(
+      'Goal measurements: 8 of 10 masters measured (6 of the 8 checked on the current method)',
+    )
   })
 })

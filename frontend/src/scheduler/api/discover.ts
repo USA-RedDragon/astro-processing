@@ -172,6 +172,23 @@ export function progressText(e: Pick<CatalogueEntry, 'status' | 'progress'>): st
   return `${floorPct(p.percent)} · ${f} least complete`
 }
 
+export function mastersText(t: Pick<Tally, 'filters' | 'measured' | 'short'>): string {
+  const parts = [`${Math.max(0, t.measured - t.short)} of ${t.filters} masters measured`]
+  if (t.short) parts.push(`${t.short} with too few subs to measure`)
+  return parts.join(', ')
+}
+
+export function backfillHead(
+  b: Pick<GoalBackfill, 'total' | 'measured' | 'current' | 'failed'>,
+): string {
+  const ok = Math.max(0, b.measured - b.failed)
+  let head = `Goal measurements: ${ok} of ${b.total} masters measured`
+  if (b.failed) head += `, ${b.failed} with too few subs to measure`
+  if (b.current < b.measured)
+    head += ` (${b.current} of the ${b.measured} checked on the current method)`
+  return head
+}
+
 export interface CatalogueSummary {
   key: string
   name: string
