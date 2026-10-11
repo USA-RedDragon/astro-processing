@@ -1,20 +1,26 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { listCommands, type CommandRecord } from '../api/commands'
 import { onEvent } from '../api/events'
 import { clock, shortDate, show } from '../format'
 import { historyBadge, undoState } from '../plan'
 import { cancel, shell, undo, whenApplies } from '../shell'
+import {
+  HISTORY_PAGE,
+  appendOlder,
+  historyMatches,
+  historyQuery,
+  type HistoryFilters,
+} from '../history'
 
-type Who = 'all' | 'web' | 'app' | 'observatory'
-
-const who = ref<Who>('all')
-const category = ref('')
-const q = ref('')
+const filters = reactive<HistoryFilters>({ who: 'all', when: '14d', category: '', q: '' })
 const records = ref<CommandRecord[]>([])
 const loading = ref(false)
+const loadingOlder = ref(false)
+const more = ref(false)
 const error = ref('')
+const olderError = ref('')
 const busy = ref<string | null>(null)
 
 const categories = [
@@ -31,17 +37,18 @@ const categories = [
 ]
 
 let seq = 0
+let queriedAt = Date.now()
 async function load() {
   const mine = ++seq
   loading.value = true
+  loadingOlder.value = false
+  olderError.value = ''
+  queriedAt = Date.now()
   try {
-    const out = await listCommands({
-      category: category.value || undefined,
-      q: q.value.trim() || undefined,
-      limit: 300,
-    })
+    const out = await listCommands(historyQuery(filters, queriedAt))
     if (mine !== seq) return
     records.value = out
+    more.value = out.length === HISTORY_PAGE
     error.value = ''
   } catch (e) {
     if (mine !== seq) return
@@ -51,36 +58,34 @@ async function load() {
   }
 }
 
+async function loadOlder() {
+  const last = records.value[records.value.length - 1]
+  if (!last || loadingOlder.value) return
+  const mine = seq
+  loadingOlder.value = true
+  try {
+    const out = await listCommands(historyQuery(filters, queriedAt, last))
+    if (mine !== seq) return
+    records.value = appendOlder(records.value, out)
+    more.value = out.length === HISTORY_PAGE
+    olderError.value = ''
+  } catch (e) {
+    if (mine !== seq) return
+    olderError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    if (mine === seq) loadingOlder.value = false
+  }
+}
+
 let qTimer: ReturnType<typeof setTimeout> | undefined
-watch(category, load)
-watch(q, () => {
-  if (qTimer) clearTimeout(qTimer)
-  qTimer = setTimeout(load, 300)
-})
-
-function matchesWho(r: CommandRecord): boolean {
-  switch (who.value) {
-    case 'web':
-      return r.destination === 'observatory' && r.author !== 'observatory'
-    case 'app':
-      return r.destination === 'app'
-    case 'observatory':
-      return r.author === 'observatory'
-  }
-  return true
-}
-
-function matchesFilters(r: CommandRecord): boolean {
-  if (category.value && r.category !== category.value) return false
-  const s = q.value.trim().toLowerCase()
-  if (s) {
-    const text = [r.title, r.author, ...(r.objects ?? []).map((o) => o.name)]
-      .join(' ')
-      .toLowerCase()
-    if (!text.includes(s)) return false
-  }
-  return true
-}
+watch(() => [filters.who, filters.when, filters.category], load)
+watch(
+  () => filters.q,
+  () => {
+    if (qTimer) clearTimeout(qTimer)
+    qTimer = setTimeout(load, 300)
+  },
+)
 
 let off: (() => void) | undefined
 onMounted(() => {
@@ -90,7 +95,7 @@ onMounted(() => {
     if (!r) return
     const i = records.value.findIndex((x) => x.id === r.id)
     if (i >= 0) records.value[i] = r
-    else if (matchesFilters(r)) records.value.unshift(r)
+    else if (historyMatches(r, filters, Date.now())) records.value.unshift(r)
   })
 })
 onUnmounted(() => {
@@ -99,12 +104,11 @@ onUnmounted(() => {
 })
 
 function clear() {
-  who.value = 'all'
-  category.value = ''
-  q.value = ''
+  filters.who = 'all'
+  filters.when = '14d'
+  filters.category = ''
+  filters.q = ''
 }
-
-const shown = computed(() => records.value.filter(matchesWho))
 
 function whoLine(r: CommandRecord): string {
   const parts = [r.author || 'unknown user']
@@ -120,7 +124,7 @@ function badgeOf(r: CommandRecord) {
 }
 
 const entries = computed(() =>
-  shown.value.map((r) => {
+  records.value.map((r) => {
     const multi = new Set((r.diffs ?? []).map((d) => d.object.name)).size > 1
     const undo = undoState(r)
     return {
@@ -196,22 +200,35 @@ const waitingLabel = computed(() => {
     <div class="filters">
       <label for="h-who" class="field">
         <span>Who</span>
-        <select id="h-who" v-model="who" class="input">
+        <select id="h-who" v-model="filters.who" class="input">
           <option value="all">Everyone</option>
-          <option value="web">Web</option>
+          <option value="web">Web: sent to the scheduler</option>
           <option value="app">App only: matches and adoption</option>
-          <option value="observatory">The observatory PC</option>
         </select>
       </label>
       <label for="h-what" class="field">
         <span>Change</span>
-        <select id="h-what" v-model="category" class="input">
+        <select id="h-what" v-model="filters.category" class="input">
           <option v-for="c in categories" :key="c.value" :value="c.value">{{ c.label }}</option>
         </select>
       </label>
       <label for="h-obj" class="field grow">
         <span>Project, target or template</span>
-        <input id="h-obj" v-model="q" type="search" class="input" placeholder="Search changes" />
+        <input
+          id="h-obj"
+          v-model="filters.q"
+          type="search"
+          class="input"
+          placeholder="Search changes"
+        />
+      </label>
+      <label for="h-when" class="field">
+        <span>When</span>
+        <select id="h-when" v-model="filters.when" class="input">
+          <option value="14d">Last 14 days</option>
+          <option value="24h">Last 24 hours</option>
+          <option value="all">All time</option>
+        </select>
       </label>
       <button type="button" class="btn link small" style="height: 2.25rem" @click="clear">
         Clear filters
@@ -261,6 +278,27 @@ const waitingLabel = computed(() => {
       <p v-if="!error && !entries.length" class="empty">
         {{ loading ? 'Loading.' : 'No change matches these filters.' }}
       </p>
+      <div v-if="!error && entries.length" class="older">
+        <button
+          v-if="more"
+          type="button"
+          class="btn"
+          :disabled="loadingOlder || loading"
+          @click="loadOlder"
+        >
+          {{ loadingOlder ? 'Loading older changes.' : 'Load older changes' }}
+        </button>
+        <p v-else class="xsmall muted" style="margin: 0">
+          {{
+            filters.when === 'all'
+              ? 'That is every change.'
+              : 'No older changes in this window. Choose "All time" to see earlier ones.'
+          }}
+        </p>
+        <p v-if="olderError" class="xsmall" role="alert" style="margin: 0">
+          Could not load older changes: {{ olderError }}
+        </p>
+      </div>
     </section>
   </main>
 </template>
@@ -289,6 +327,13 @@ const waitingLabel = computed(() => {
 }
 .grow .input {
   min-width: 0;
+}
+.older {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 1rem 0;
 }
 .list {
   padding: 0.5rem 1.5rem;

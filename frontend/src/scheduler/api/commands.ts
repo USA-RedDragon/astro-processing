@@ -70,10 +70,13 @@ export interface EditPayload {
 export interface CommandFilter {
   author?: string
   category?: string
+  destination?: 'observatory' | 'app'
   q?: string
   status?: string
   limit?: number
   before?: string
+  before_id?: string
+  since?: string
 }
 
 export const NO_UNDO_KINDS: ReadonlySet<string> = new Set(['exposure.abort', 'scheduler.replan'])
