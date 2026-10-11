@@ -8,6 +8,7 @@ package resolvers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 	"github.com/USA-RedDragon/astro-processing/internal/store/models/targetscheduler"
 	"github.com/USA-RedDragon/astro-processing/internal/utils"
+	"gorm.io/gorm"
 )
 
 // Targets is the resolver for the targets field.
@@ -80,9 +82,15 @@ func (r *queryResolver) Target(ctx context.Context, id int) (*model.Target, erro
 
 // Project is the resolver for the project field.
 func (r *targetResolver) Project(ctx context.Context, obj *model.Target) (*model.Project, error) {
+	if obj.Project == nil {
+		return nil, nil
+	}
 	db := r.db.WithContext(ctx)
 	var project targetscheduler.Project
 	if err := db.First(&project, obj.Project.ID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return project.GraphQL(), nil
