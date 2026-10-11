@@ -53,7 +53,8 @@ import MosaicCard from '@/components/MosaicCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
 import SchedulerTabs from '@/scheduler/components/SchedulerTabs.vue';
 import API from '@/lib/API';
-import { onChange, onEvent, onReconnect, type LiveEvent } from '@/lib/events';
+import { onChange, onEvent, type LiveEvent } from '@/lib/events';
+import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { getPlanning, type Snapshot } from '@/scheduler/api/planning';
 import { planningProject, planningTarget, type PlanningState } from '@/scheduler/leastCards';
 import type { Mosaic, Target, Project } from '../graphql/graphql';
@@ -185,7 +186,7 @@ export default {
     this.stopEvents = onEvent((e: LiveEvent) => {
       if (e.type === 'mosaic' && this.project && e.object === this.project.name) this.fetchMosaics();
     });
-    this.stopReconnect = onReconnect(() => this.fetchMosaics());
+    this.stopReconnect = onReconnectOrUrlsAging(() => this.fetchMosaics());
     this.stopChanges = onChange(['project', 'target', 'exposureplan', 'acquiredimage'], () => {
       this.fetchData();
       this.refreshPlanning();

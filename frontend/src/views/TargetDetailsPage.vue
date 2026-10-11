@@ -326,7 +326,8 @@ import PaletteMixer from '@/components/PaletteMixer.vue';
 import SchedulerTabs from '@/scheduler/components/SchedulerTabs.vue';
 import SkeletonRows from '@/components/SkeletonRows.vue';
 import API from '@/lib/API';
-import { onChange, onEvent, onReconnect, status, type LiveEvent } from '@/lib/events';
+import { onChange, onEvent, status, type LiveEvent } from '@/lib/events';
+import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { formatDate } from '@/lib/formatters';
 import { isCulled } from '@/lib/cull';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
@@ -601,7 +602,7 @@ export default {
       onChange(['target', 'project'], () => this.refetchTarget()),
       onChange(['frames', 'flathistory'], () => this.refetch('calibration')),
     ];
-    this.stopReconnect = onReconnect(() => {
+    this.stopReconnect = onReconnectOrUrlsAging(() => {
       this.refetch('subframes');
       this.refetch('masters');
     });

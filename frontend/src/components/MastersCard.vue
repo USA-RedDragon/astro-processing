@@ -144,7 +144,6 @@ export default {
       // The preview each card shows. A new one replaces it only once it
       // has loaded, so the image never goes blank while a master updates.
       shown: {} as Record<string, string>,
-      shownAt: {} as Record<string, string>,
     };
   },
   watch: {
@@ -152,16 +151,17 @@ export default {
       immediate: true,
       handler(masters: FilterMaster[]) {
         for (const m of masters) {
-          if (this.shownAt[m.filter] === m.updated_at) continue;
-          if (!this.shown[m.filter]) {
+          const url = this.shown[m.filter];
+          if (url === m.preview_url) continue;
+          if (!url) {
             this.shown[m.filter] = m.preview_url;
-            this.shownAt[m.filter] = m.updated_at;
             continue;
           }
           const img = new Image();
           img.onload = () => {
-            this.shown[m.filter] = m.preview_url;
-            this.shownAt[m.filter] = m.updated_at;
+            if (this.masters.some((x) => x.filter === m.filter && x.preview_url === m.preview_url)) {
+              this.shown[m.filter] = m.preview_url;
+            }
           };
           img.src = m.preview_url;
         }

@@ -137,7 +137,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { onChange, onEvent, onReconnect } from '@/lib/events';
+import { onChange, onEvent } from '@/lib/events';
+import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import ProjectsTable from '@/scheduler/components/ProjectsTable.vue';
 import { emptyFilter, filterActive, matchesFilter, type ProjectFilter } from '@/scheduler/projects';
 import { getPlanning, type Snapshot } from '@/scheduler/api/planning';
@@ -252,7 +253,7 @@ export default {
       if (e.type === 'master' || e.type === 'mosaic') this.refreshCovers();
       if (e.type === 'master' || e.type === 'frames') this.refreshOthers();
     });
-    this.stopReconnect = onReconnect(() => {
+    this.stopReconnect = onReconnectOrUrlsAging(() => {
       this.refreshCovers();
       this.refreshOthers();
     });

@@ -80,7 +80,6 @@ export default {
     return {
       // A new preview replaces the shown one only once it has loaded.
       shown: {} as Record<string, string>,
-      shownAt: {} as Record<string, string>,
     };
   },
   watch: {
@@ -88,16 +87,17 @@ export default {
       immediate: true,
       handler(mosaics: Mosaic[]) {
         for (const m of mosaics) {
-          if (this.shownAt[m.filter] === m.updated_at) continue;
-          if (!this.shown[m.filter]) {
+          const url = this.shown[m.filter];
+          if (url === m.preview_url) continue;
+          if (!url) {
             this.shown[m.filter] = m.preview_url;
-            this.shownAt[m.filter] = m.updated_at;
             continue;
           }
           const img = new Image();
           img.onload = () => {
-            this.shown[m.filter] = m.preview_url;
-            this.shownAt[m.filter] = m.updated_at;
+            if (this.mosaics.some((x) => x.filter === m.filter && x.preview_url === m.preview_url)) {
+              this.shown[m.filter] = m.preview_url;
+            }
           };
           img.src = m.preview_url;
         }

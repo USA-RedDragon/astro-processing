@@ -25,7 +25,8 @@
 import API from '@/lib/API';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
-import { onEvent, onReconnect, status } from '@/lib/events';
+import { onEvent, status } from '@/lib/events';
+import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { unrecordedLights } from '@/lib/otherTargets';
 import type { FilterMaster, OtherTarget } from '../graphql/graphql';
 
@@ -95,7 +96,7 @@ export default {
     this.stopEvents = onEvent((e) => {
       if (e.type === 'master' && e.object === this.name) this.fetchData();
     });
-    this.stopReconnect = onReconnect(() => this.fetchData());
+    this.stopReconnect = onReconnectOrUrlsAging(() => this.fetchData());
   },
   unmounted() {
     this.stopEvents();
