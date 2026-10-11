@@ -1,11 +1,11 @@
 <template>
   <div>
     <AppHeader />
-    <div class="container mx-auto pt-2">
+    <div class="container mx-auto px-4 pt-2">
       <div
         v-if="pageLoad.failed"
         role="alert"
-        class="m-4 flex flex-wrap items-center gap-3 rounded-md border border-red-600 p-4 text-sm"
+        class="my-4 flex flex-wrap items-center gap-3 rounded-md border border-red-600 p-4 text-sm"
       >
         <span>This page failed to load.</span>
         <button

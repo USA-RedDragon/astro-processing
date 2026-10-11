@@ -152,7 +152,7 @@ header {
   z-index: 50;
   transition: transform 0.2s ease;
   min-height: 3em;
-  padding: 0.5em;
+  padding: 0.5em 1rem;
   margin: auto;
   display: flex;
   flex-wrap: wrap;
