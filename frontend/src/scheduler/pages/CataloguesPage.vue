@@ -158,7 +158,14 @@ function cellStyle(e: CatalogueEntry) {
   const s = e.status
   const started = s === 'in-progress' || s === 'measuring'
   return {
-    background: s === 'done' ? 'var(--done)' : started ? 'var(--prog-bg)' : 'transparent',
+    background:
+      s === 'done'
+        ? 'var(--done)'
+        : s === 'measuring'
+          ? 'var(--measuring)'
+          : started
+            ? 'var(--prog-bg)'
+            : 'transparent',
     color:
       s === 'done' ? 'var(--ink-dark)' : started ? 'var(--foreground)' : 'var(--muted-foreground)',
     border:
@@ -172,6 +179,7 @@ function cellStyle(e: CatalogueEntry) {
               ? '1px dashed var(--warn)'
               : '1px dashed var(--border)',
     boxShadow: e.tonight?.up ? 'inset 0 -3px 0 var(--warn)' : 'none',
+    textShadow: s === 'measuring' ? '0 0 3px var(--card), 0 0 2px var(--card)' : 'none',
     opacity: hidden(e) ? 0.18 : 1,
     outline:
       pick.value?.object.id === e.object.id ? '2px solid var(--foreground)' : '0 solid transparent',
@@ -351,7 +359,7 @@ async function decide(m: ReviewItem, after: Decision) {
           <span
             :style="{
               width: (c.measuring / c.total) * 100 + '%',
-              background: 'var(--prog-bg)',
+              background: 'var(--measuring)',
               boxShadow: 'inset 0 0 0 1px var(--prog)',
             }"
           />
@@ -394,7 +402,7 @@ async function decide(m: ReviewItem, after: Decision) {
         <span class="row" style="gap: 0.375rem"
           ><span
             class="key"
-            style="background: var(--prog-bg); border: 1px dashed var(--prog)"
+            style="background: var(--measuring); border: 1px dashed var(--prog)"
           />Measuring</span
         >
         <span class="row" style="gap: 0.375rem"
