@@ -33,6 +33,12 @@
           :planning-state="planningState"
         />
       </div>
+      <div v-else-if="loadError" role="alert" class="text-center text-red-600 py-8">
+        Could not load this project: {{ loadError }}
+      </div>
+      <div v-else-if="loaded && !project" class="text-center text-muted-foreground py-8">
+        Project not found.
+      </div>
       <div v-else-if="loaded" class="text-center text-muted-foreground py-8">
         No targets found for this project.
       </div>
@@ -166,6 +172,7 @@ export default {
       planningState: 'loading' as PlanningState,
       planningTimer: undefined as ReturnType<typeof setTimeout> | undefined,
       loaded: false,
+      loadError: '',
       stopEvents: () => {},
       stopReconnect: () => {},
       stopChanges: () => {},
@@ -233,8 +240,10 @@ export default {
           // Set targets data with stats already included
           this.targets = response.project.targets as Target[];
         }
+        this.loadError = '';
       } catch (error) {
         console.error('Error fetching project data:', error);
+        this.loadError = (error as Error).message || String(error);
       } finally {
         this.loaded = true;
       }
