@@ -436,7 +436,7 @@ export interface Criterion {
   rule: string
   you: string
   result: 'pass' | 'fail' | 'open' | 'none'
-  scope?: 'rig' | 'tonight'
+  scope?: 'rig' | 'tonight' | 'info'
 }
 
 export interface Region {

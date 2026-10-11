@@ -65,6 +65,7 @@ const skyFrom = computed(() =>
 )
 
 function icon(c: Criterion) {
+  if (c.scope === 'info') return 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01'
   return c.result === 'pass'
     ? 'M5 12l5 5L20 7'
     : c.result === 'fail'
@@ -75,6 +76,7 @@ function icon(c: Criterion) {
 }
 
 function resultText(c: Criterion) {
+  if (c.scope === 'info') return 'for information, not a requirement'
   const r =
     c.result === 'pass'
       ? 'passes'
@@ -206,7 +208,7 @@ function skyHref(c: Collab): string {
 }
 
 function crit(c: Collab) {
-  return c.criteria.filter((x) => x.result !== 'none')
+  return c.criteria.filter((x) => x.result !== 'none' || x.scope === 'info')
 }
 
 function why(c: Collab) {
