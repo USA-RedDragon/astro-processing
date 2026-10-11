@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CommandRecord } from '@/scheduler/api/commands'
 import type { PlanBlock, Preview, SchedProject, TonightSub } from '@/scheduler/api/scheduler'
 import {
+  abortPayload,
   angleText,
   addChange,
   decDm,
@@ -412,6 +413,30 @@ describe('commands', () => {
     expect(undoState(rec({ status: 'cancelled' })).note).toBe(
       'Cancelled; the server recorded no reason',
     )
+    expect(undoState(rec({ kind: 'exposure.abort', category: 'control' }))).toMatchObject({
+      enabled: false,
+      cancel: false,
+      note: 'An aborted exposure cannot be brought back',
+    })
+    expect(undoState(rec({ kind: 'scheduler.replan', category: 'control' })).enabled).toBe(false)
+    expect(undoState(rec({ kind: 'exposure.abort', status: 'failed' })).enabled).toBe(false)
+  })
+
+  it('builds an abort payload for the exposure on screen', () => {
+    const started = '2026-10-10T06:45:00.1234567Z'
+    expect(abortPayload({ plan_id: 40, started_at: started, filter: 'Ha' }, 'Panel 2')).toEqual({
+      plan_id: 40,
+      started_at: started,
+      target_name: 'Panel 2',
+      filter: 'Ha',
+    })
+    expect(abortPayload({ plan_id: 40, started_at: started, filter: '' })).toEqual({
+      plan_id: 40,
+      started_at: started,
+    })
+    expect(abortPayload({ started_at: started, filter: 'Ha' }, 'Panel 2')).toBeNull()
+    expect(abortPayload({ plan_id: 40, filter: 'Ha' }, 'Panel 2')).toBeNull()
+    expect(abortPayload(null, 'Panel 2')).toBeNull()
   })
 })
 

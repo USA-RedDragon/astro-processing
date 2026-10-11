@@ -1,4 +1,4 @@
-import type { CommandRecord, EditPayload } from './api/commands'
+import { NO_UNDO_KINDS, type CommandRecord, type EditPayload } from './api/commands'
 import type {
   LeftOut,
   OverrideField,
@@ -7,6 +7,7 @@ import type {
   Preview,
   RuleScore,
   SchedProject,
+  SchedulerExposure,
   SchedulerTarget,
   TonightSub,
   Twilight,
@@ -757,6 +758,24 @@ export function pausePayload(mount: 'track' | 'park', resume: ResumeMode, at: st
   return p
 }
 
+export interface AbortPayload {
+  plan_id: number
+  started_at: string
+  target_name?: string
+  filter?: string
+}
+
+export function abortPayload(
+  exposure: Pick<SchedulerExposure, 'plan_id' | 'started_at' | 'filter'> | null | undefined,
+  targetName?: string,
+): AbortPayload | null {
+  if (!exposure?.plan_id || !exposure.started_at) return null
+  const p: AbortPayload = { plan_id: exposure.plan_id, started_at: exposure.started_at }
+  if (targetName) p.target_name = targetName
+  if (exposure.filter) p.filter = exposure.filter
+  return p
+}
+
 export function historyBadge(
   r: Pick<CommandRecord, 'status' | 'applied_at' | 'transport'>,
   applies: string,
@@ -802,6 +821,16 @@ export function undoState(r: CommandRecord): {
       note: 'Undone by change #' + r.undone_by.slice(0, 8),
     }
   const reverses = r.undo_of ? 'Reverses change #' + r.undo_of.slice(0, 8) : ''
+  if (r.status === 'applied' && NO_UNDO_KINDS.has(r.kind))
+    return {
+      label: 'Undo',
+      enabled: false,
+      cancel: false,
+      note:
+        r.kind === 'exposure.abort'
+          ? 'An aborted exposure cannot be brought back'
+          : 'A re-plan has nothing to reverse',
+    }
   switch (r.status) {
     case 'applied':
       return {

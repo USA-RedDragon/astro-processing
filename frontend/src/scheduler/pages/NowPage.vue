@@ -16,6 +16,7 @@ import {
 } from '../api/scheduler'
 import { clock, hm, longDate, mmss, nightOf } from '../format'
 import {
+  abortPayload,
   angleText,
   capitalise,
   contribution,
@@ -35,6 +36,7 @@ import {
   subChart,
   ticksBefore,
   verdictBadge,
+  type AbortPayload,
   type ResumeMode,
 } from '../plan'
 import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../shell'
@@ -125,6 +127,7 @@ function onKey(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     skipOpen.value = false
     pauseOpen.value = false
+    abortFor.value = null
   }
 }
 
@@ -179,6 +182,13 @@ const pauseBlocked = computed(() => {
   if (blockedReason.value) return blockedReason.value
   if (st.value.paused || st.value.pause_requested) return 'The scheduler is already paused.'
   if (state.value !== 'imaging' && state.value !== 'waiting') return 'The scheduler is not running.'
+  return ''
+})
+
+const abortBlocked = computed(() => {
+  if (blockedReason.value) return blockedReason.value
+  if (!exposure.value) return 'No exposure is running.'
+  if (!abortPayload(exposure.value)) return 'The scheduler did not report which exposure is running.'
   return ''
 })
 
@@ -545,6 +555,10 @@ const pauseOpen = ref(false)
 const pauseMount = ref<'track' | 'park'>('track')
 const resumeMode = ref<ResumeMode>('manual')
 const resumeAt = ref('03:00')
+const abortFor = ref<AbortPayload | null>(null)
+const abortStaysPaused = computed(
+  () => !!st.value.pause_requested || !!pauseWaiting.value || !!st.value.paused,
+)
 const busy = ref(false)
 
 const applyWhen = computed(() => whenApplies())
@@ -597,6 +611,25 @@ async function confirmSkip() {
 async function confirmPause() {
   pauseOpen.value = false
   await send('scheduler.pause', pausePayload(pauseMount.value, resumeMode.value, resumeAt.value))
+}
+
+function openAbort() {
+  abortFor.value = abortPayload(exposure.value, target.value?.target_name)
+}
+
+async function confirmAbort() {
+  const p = abortFor.value
+  abortFor.value = null
+  if (!p) return
+  busy.value = true
+  try {
+    const r = await submitCommand('exposure.abort', p)
+    notifyCommand(r, r.title)
+  } catch (e) {
+    errorToast(e, 'The abort did not go through')
+  } finally {
+    busy.value = false
+  }
 }
 
 async function resume() {
@@ -805,6 +838,32 @@ const cross = (x: number, y: number, r: number) =>
               · no exposure running, the countdown starts when the shutter opens</span
             >
           </p>
+          <div class="abort-row">
+            <button
+              type="button"
+              class="btn sm danger abort-btn"
+              aria-haspopup="dialog"
+              :aria-expanded="abortFor ? 'true' : 'false'"
+              :disabled="!!abortBlocked || busy"
+              :title="abortBlocked || 'Stop this exposure now and discard the partial frame'"
+              @click="openAbort"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="6" y="6" width="12" height="12" rx="1" />
+              </svg>
+              Abort now
+            </button>
+          </div>
 
           <div class="why">
             <div class="spread">
@@ -1381,6 +1440,60 @@ const cross = (x: number, y: number, r: number) =>
       </div>
     </div>
 
+    <div v-if="abortFor" class="overlay">
+      <div class="scrim" aria-hidden="true" @click="abortFor = null"></div>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="abort-h"
+        aria-describedby="abort-d"
+        class="dialog"
+      >
+        <div class="row" style="gap: 0.625rem">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--destructive-foreground)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <rect x="6" y="6" width="12" height="12" rx="1" />
+          </svg>
+          <h2 id="abort-h">Abort this exposure?</h2>
+        </div>
+        <p id="abort-d" style="font-size: 0.9375rem; font-weight: 500">
+          This stops the
+          {{ abortFor.filter ? filterName(abortFor.filter) + ' ' : '' }}exposure<template
+            v-if="abortFor.target_name"
+          >
+            on {{ abortFor.target_name }}</template
+          >
+          now. The partial frame is discarded. It is not saved and cannot be recovered.
+        </p>
+        <p class="small muted">
+          <template v-if="abortStaysPaused"
+            >A pause is waiting, so the scheduler stays paused after the abort.</template
+          >
+          <template v-else
+            >Then the scheduler re-plans and picks the next target, which can be the same
+            one.</template
+          >
+          The flat panel, roof and power are not touched. If this exposure ends before the abort
+          arrives, the next one is left alone.
+        </p>
+        <div class="actions">
+          <button type="button" class="btn" @click="abortFor = null">Cancel</button>
+          <button type="button" class="btn danger" :disabled="busy" @click="confirmAbort">
+            Abort and discard
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div v-if="pauseOpen" class="overlay">
       <div class="scrim" aria-hidden="true" @click="pauseOpen = false"></div>
       <div
@@ -1473,6 +1586,11 @@ const cross = (x: number, y: number, r: number) =>
 .blocked {
   margin: -1rem 0 0;
   text-align: right;
+}
+.abort-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.625rem;
 }
 .pause-btn {
   background: color-mix(in oklch, var(--input) 30%, transparent);

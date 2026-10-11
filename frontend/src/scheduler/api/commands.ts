@@ -76,6 +76,8 @@ export interface CommandFilter {
   before?: string
 }
 
+export const NO_UNDO_KINDS: ReadonlySet<string> = new Set(['exposure.abort', 'scheduler.replan'])
+
 export const isWaiting = (s: CommandStatus) => s === 'queued' || s === 'pending'
 
 export const submitCommand = (kind: string, payload: unknown) =>

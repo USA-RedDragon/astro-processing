@@ -5,6 +5,7 @@ import {
   cancelCommand,
   isWaiting,
   listCommands,
+  NO_UNDO_KINDS,
   undoCommand,
   type CommandRecord,
 } from './api/commands'
@@ -83,7 +84,10 @@ export function describeOutcome(r: CommandRecord): { sub: string; tone?: Toast['
     case 'pending':
       return { sub: pendingSub(whenApplies(r)) }
     case 'applied':
-      return { sub: 'Applied by the scheduler.', tone: 'ok' }
+      return {
+        sub: r.category === 'control' && r.message ? r.message : 'Applied by the scheduler.',
+        tone: 'ok',
+      }
     case 'cancelled':
       return { sub: 'It never reached the observatory.' }
     case 'conflict':
@@ -110,6 +114,7 @@ export function notifyCommand(r: CommandRecord, text?: string) {
   upsertWaiting(r)
   const o = describeOutcome(r)
   const undoable =
+    !NO_UNDO_KINDS.has(r.kind) &&
     r.status !== 'cancelled' &&
     r.status !== 'conflict' &&
     r.status !== 'rejected' &&
