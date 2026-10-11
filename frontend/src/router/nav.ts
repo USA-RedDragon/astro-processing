@@ -49,6 +49,12 @@ export const navGroups: NavGroup[] = [
         note: 'Exposure sets and bulk edits',
         names: ['templates'],
       },
+      {
+        to: '/rule-weights',
+        label: 'Rule weights',
+        note: 'One scoring set for every project',
+        names: ['rule-weights'],
+      },
       { to: '/history', label: 'History', note: 'Every change, with undo', names: ['history'] },
       { to: '/add', label: 'Add target', note: 'Find, frame, mosaic, goal', names: ['add'] },
     ],
