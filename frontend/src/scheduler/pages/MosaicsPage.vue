@@ -44,6 +44,15 @@ import PlateauLine from '../components/PlateauLine.vue'
 import { filterShort } from '../plan'
 import { MONTHS } from '../api/discover'
 import { shortDate } from '../format'
+import {
+  STRATEGIES,
+  STRATEGY_METHOD,
+  balancingBadge,
+  balancingText as balancingSummary,
+  horizonText,
+  strategyLabel,
+  strategyNeedsText,
+} from '../mosaicSeasons'
 
 const props = defineProps<{ projectId?: string }>()
 const route = useRoute()
@@ -457,17 +466,9 @@ const behindText = computed(() => {
   const names = [...set].sort((a, b) => a - b).map((n) => 'Panel ' + n)
   return `${joinList(names)} ${set.size === 1 ? 'is' : 'are'} furthest behind now.`
 })
-const balancingText = computed(() => {
-  const b = balancing.value
-  if (!b) return ''
-  const now = b.on
-    ? `Panel Deficit is weighted ${b.panelDeficit} on this mosaic, so the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behindText.value}`
-    : `Panel Deficit is ${b.panelDeficitSet ? 'weighted 0' : 'not set'} on this mosaic, so the scheduler does not steer time to the panel that is behind. Mosaic Completion is ${b.mosaicCompletion}.`
-  const g = globalDeficit.value
-  if (g === null) return now
-  const differs = Math.abs(g - (b.panelDeficitSet ? b.panelDeficit : 0)) > 1e-9
-  return `${now} Panel Deficit is a global rule weight, ${g} for every project${differs ? '; this mosaic differs from it until its weights are reset to the global set' : ''}.`
-})
+const balancingText = computed(() =>
+  balancingSummary(balancing.value, behindText.value, globalDeficit.value),
+)
 
 interface SeamRow {
   pair: string
@@ -591,27 +592,11 @@ watch([strategy, pace], () => {
   loadSeasons()
 })
 
-const STRATEGY_NAME: Record<string, string> = {
-  weakest: 'Weakest panel first',
-  even: 'Even across panels',
-  off: 'Balancing off',
-}
-
-const STRATEGY_METHOD: Record<string, string> = {
-  weakest: 'each step of the season goes to the panel and filter furthest behind its goal, as Panel Deficit steers it',
-  even: 'steps go round the unfinished panels and filters in turn; the scheduler has no rule for this',
-  off: 'each season is split in proportion to the hours each panel and filter already has, the split seen so far; ones with no hours yet get time only after the others finish',
-}
-
 const PACE_NAME: Record<string, string> = {
   measured: 'measured from history',
   last: 'like last season',
   best: 'like the best season',
   worst: 'like the worst season',
-}
-
-function strategyLabel(st: string): string {
-  return STRATEGY_NAME[st] ?? st
 }
 
 const strategyText = computed(() => {
@@ -716,13 +701,11 @@ const pushPanels = computed(() =>
   (seasons.value?.panelPriority ?? []).filter((x) => x.thisSeason).slice(0, 5),
 )
 
-const strategyNeeds = computed(() => {
-  const st = strategy.value
-  if (!st || st === 'even' || st === seasons.value?.strategyInForce) return ''
-  return st === 'weakest'
-    ? 'This plan needs Panel Deficit above 0, set for every project in Rule weights.'
-    : 'This plan needs Panel Deficit at 0, set for every project in Rule weights.'
-})
+const strategyNeeds = computed(() =>
+  strategyNeedsText(strategy.value, seasons.value?.strategyInForce),
+)
+
+const horizonLine = computed(() => horizonText(seasons.value?.horizon))
 
 const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed'))
 const showDecisions = ref(false)
@@ -1045,7 +1028,7 @@ const tabs = computed<[Tab, string][]>(() => [
             <div class="spread" style="align-items: center">
               <h2 id="bal-h">Panel balancing</h2>
               <span class="badge" :class="balancing?.on ? 'ok' : 'bad'">{{
-                balancing?.on ? 'On · Panel Deficit ' + balancing.panelDeficit : 'Off'
+                balancingBadge(balancing)
               }}</span>
             </div>
             <p class="small" style="margin: 0">
@@ -1188,7 +1171,7 @@ const tabs = computed<[Tab, string][]>(() => [
           <label class="field"
             ><span>How nights are shared</span>
             <select v-model="strategy" class="input">
-              <option v-for="st in ['weakest', 'even', 'off']" :key="st" :value="st">
+              <option v-for="st in STRATEGIES" :key="st" :value="st">
                 {{ strategyLabel(st)
                 }}{{ seasons?.strategyInForce === st ? ' (set now)' : '' }}
               </option>
@@ -1204,7 +1187,7 @@ const tabs = computed<[Tab, string][]>(() => [
             </select>
           </label>
           <RouterLink v-if="strategyNeeds" :to="{ name: 'rule-weights' }" class="btn primary"
-            >Change Panel Deficit</RouterLink
+            >Change in Rule weights</RouterLink
           >
         </div>
         <p class="small" style="margin: 0">{{ strategyText }}</p>
@@ -1236,7 +1219,7 @@ const tabs = computed<[Tab, string][]>(() => [
       <section class="card" style="flex: 2 1 22rem" aria-labelledby="months-h">
         <h2 id="months-h">Usable dark hours a night</h2>
         <p class="xsmall muted" style="margin: 0">
-          All panels above the project's minimum altitude in astronomical darkness
+          {{ horizonLine }}
         </p>
         <div v-if="monthCells.length" class="months num">
           <div v-for="m in monthCells" :key="m.month" class="month">

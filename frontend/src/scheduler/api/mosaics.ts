@@ -236,6 +236,7 @@ export interface MosaicDetail {
     mosaicCompletion: number
     on: boolean
     onWeight: number
+    evenPanels?: boolean
   }
   seams: Seam[]
   health: PanelHealth[]
@@ -305,6 +306,14 @@ export interface ProjectionInputs {
   effectivePerRaw: EffectiveRatio | null
 }
 
+export interface SeasonHorizon {
+  kind: 'minimumAltitude' | 'custom'
+  minimumAltitude: number | null
+  offset: number
+  known: boolean
+  reason: string | null
+}
+
 export interface SeasonPlan {
   project: string
   strategy: string
@@ -323,6 +332,7 @@ export interface SeasonPlan {
   compare: Record<string, number>
   months: { month: number; name: string; hours: number }[]
   siteKnown: boolean
+  horizon?: SeasonHorizon | null
   goalHoursSource: string
   effectivePerRaw: EffectiveRatio | null
   panelPriority: {
