@@ -903,11 +903,11 @@ const tabs = computed<[Tab, string][]>(() => [
               >
               <span style="font-size: 0.6875rem; opacity: 0.9">{{ t.label }}</span>
               <span class="bars">
-                <template v-for="b in t.bars" :key="b.f">
-                  <span :title="b.f">{{ filterShort(b.f) }}</span>
+                <span v-for="b in t.bars" :key="b.f" class="bar">
+                  <span class="lab" :title="b.f">{{ filterShort(b.f) }}</span>
                   <span class="track"><span :style="{ width: b.w }" /></span>
-                  <span style="text-align: right">{{ b.v }}</span>
-                </template>
+                  <span class="val">{{ b.v }}</span>
+                </span>
               </span>
             </button>
           </div>
@@ -1334,16 +1334,41 @@ const tabs = computed<[Tab, string][]>(() => [
   text-align: left;
   min-width: 0;
   overflow: hidden;
+  container-type: inline-size;
 }
 .bars {
   margin-top: auto;
-  display: grid;
-  grid-template-columns: 2rem 1fr 3rem;
-  gap: 0.125rem 0.375rem;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
   font-size: 0.6875rem;
   font-variant-numeric: tabular-nums;
   width: 100%;
+}
+.bar {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 3rem;
+  grid-template-areas: 'lab track val';
+  gap: 0.125rem 0.375rem;
+  align-items: center;
+}
+.lab {
+  grid-area: lab;
+}
+.bar .track {
+  grid-area: track;
+}
+.val {
+  grid-area: val;
+  text-align: right;
+}
+@container (max-width: 11rem) {
+  .bar {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      'lab val'
+      'track track';
+  }
 }
 .track {
   height: 0.375rem;
