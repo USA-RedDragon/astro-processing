@@ -3,13 +3,14 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import {
-  basisText,
   filterColor,
+  filterHeadline,
   getProject,
   getStacks,
   goalTiming,
-  filterPercentFor,
   goalDrivenPlugin,
+  leastHeadline,
+  leastText,
   legacyGoalNote,
   measureText,
   objectLinkText,
@@ -155,9 +156,8 @@ function goalValue(fg: FilterGoal, m: GoalKind): number {
 
 const goals = computed(() => target.value?.goals ?? [])
 const weakest = computed(() => {
-  let w: FilterGoal | undefined
-  for (const g of goals.value) if (!w || g.percentComplete < w.percentComplete) w = g
-  return w
+  const f = target.value?.least?.filter
+  return goals.value.find((g) => g.filter === f) ?? goals.value[0]
 })
 const lowConf = computed(() =>
   goals.value.filter((g) => g.measurement?.lowConfidence),
@@ -443,9 +443,16 @@ function planGoal(pl: Plan): FilterGoal | undefined {
   return target.value?.goals.find((g) => g.goalSet && g.filter === pl.filter)
 }
 
-function fgPercent(fg: FilterGoal): { percent: number; basis: string } {
-  const t = target.value
-  return t ? filterPercentFor(t, fg, pluginVersion.value) : { percent: fg.percentComplete, basis: fg.completionBasis }
+function fgFill(fg: FilterGoal): string {
+  if (fg.enough) return '100%'
+  return Math.floor((fg.goalProgress ?? 0) * 100) + '%'
+}
+
+function fgLine(fg: FilterGoal): string {
+  const parts = [filterHeadline(fg)]
+  if (fg.measurement) parts.push(r1(fg.measurement.effectiveHours) + ' h effective')
+  if (!fg.enough && fg.goalProgress !== null) parts.push(goalTiming(fg, pluginVersion.value))
+  return parts.join(' · ')
 }
 
 async function savePlans() {
@@ -780,9 +787,9 @@ function numInput(e: Event): number {
                 {{ mode === 'snr' ? 'Faint-signal SNR per filter' : 'Depth per filter' }}
               </h2>
               <p class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
-                Bars show completion the way Target Scheduler counts it. A filter with a goal
-                finishes on its goal and ignores its desired count; a filter without one finishes
-                on its desired count.
+                Bars show each filter's measured progress toward its goal. A filter with no goal
+                measurement yet reads as not measured, never as a sub count. The target has enough
+                data when every filter does.
               </p>
             </div>
             <div role="group" aria-label="Goal type" class="seg">
@@ -827,31 +834,24 @@ function numInput(e: Event): number {
                 }}</span
               >
               <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
-                <div class="bar tall" :title="pct(fgPercent(fg).percent / 100) + ' ' + basisText(fgPercent(fg).basis)">
+                <div class="bar tall" :title="filterHeadline(fg)">
                   <div
                     :style="{
-                      width: pct(fgPercent(fg).percent / 100),
+                      width: fgFill(fg),
                       background: filterColor(fg.stackFilter),
                     }"
                   />
                 </div>
                 <div class="spread xsmall muted num">
                   <span
-                    >{{ pct(fgPercent(fg).percent / 100) }} {{ basisText(fgPercent(fg).basis) }} ·
-                    {{
-                      fg.measurement
-                        ? r1(fg.measurement.effectiveHours) + ' h effective'
-                        : r1(fg.acceptedHours) + ' h accepted'
-                    }}
-                    · {{ goalTiming(fg, pluginVersion)
-                    }}<span v-if="fg.measurement?.gainPerHourPct != null">
+                    >{{ fgLine(fg) }}<span v-if="fg.measurement?.gainPerHourPct != null">
                       · +1 h gives {{ r1(fg.measurement.gainPerHourPct) }}%</span
                     ></span
                   >
                   <span v-if="fg.goalSet && pluginGoalDriven"
                     >Goal-driven{{ fg.readiness && !fg.readiness.open ? ' · scheduler stopped' : '' }}</span
                   >
-                  <span v-else>Scheduler count {{ fg.accepted }}/{{ fg.desired }}</span>
+                  <span v-else-if="!fg.goalSet">No goal set</span>
                 </div>
               </div>
               <span class="row num" style="justify-content: flex-end; flex-wrap: nowrap">
@@ -900,13 +900,7 @@ function numInput(e: Event): number {
             style="border-top: 1px solid var(--border); padding-top: 0.875rem; align-items: center"
           >
             <span class="small" style="max-width: 60ch">
-              <template v-if="weakest && weakest.percentComplete >= 100"
-                >Every filter is complete.</template
-              >
-              <template v-else-if="weakest"
-                >Least complete: {{ weakest.filter }} at {{ pct(weakest.percentComplete / 100) }}
-                {{ basisText(weakest.completionBasis) }}.</template
-              >
+              <template v-if="target && goals.length">{{ leastText(target.least) }}.</template>
             </span>
             <div class="row">
               <button
@@ -1187,7 +1181,7 @@ function numInput(e: Event): number {
           <div class="tile small">
             <div style="font-weight: 600">Novelty for this target</div>
             <div class="muted">
-              Least complete plan at {{ pct(target?.progress ?? 0) }}, with
+              Least complete filter: {{ leastHeadline(target?.least) }}, with
               {{ r1(target?.effectiveHours ?? 0) }} h ({{ target?.effectiveHoursBasis }}), so
               Novelty scores {{ r2(target?.novelty ?? 0) }}.
             </div>

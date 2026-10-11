@@ -96,6 +96,19 @@ export interface FilterGoal {
   accepted: number
   desired: number
   acceptedHours: number
+  enough: boolean
+  goalProgress: number | null
+  notMeasured?: string
+}
+
+export interface Least {
+  enough: boolean
+  progress: number | null
+  target?: string
+  filter?: string
+  notMeasured?: string
+  unmeasured: number
+  filters: number
 }
 
 export interface Plan {
@@ -149,6 +162,7 @@ export interface Target {
   plans: Plan[]
   goals: FilterGoal[]
   weakest?: FilterGoal
+  least: Least
   progress: number
   percentComplete: number
   effectiveHours: number
@@ -212,6 +226,7 @@ export interface Project {
   progress: number
   weakestTarget?: string
   weakest?: FilterGoal
+  least: Least
   season?: Season
   novelty: number
   rarity: number
@@ -567,46 +582,45 @@ export function legacyGoalNote(version: string | undefined): string {
   )
 }
 
-function onCountsNow(pl: Plan, version: string | undefined): boolean {
-  return !goalDrivenPlugin(version) && pl.completionBasis === 'collecting subs to measure'
+export function floorPct(v: number): string {
+  return Math.floor(Math.max(0, Math.min(1, v)) * 100) + '%'
 }
 
-export function planPercentFor(pl: Plan, version: string | undefined): number {
-  return onCountsNow(pl, version) ? (pl.countPercent ?? 0) : (pl.percentComplete ?? 0)
+export function leastValue(l: Least | undefined): number | null {
+  if (!l || !l.filters) return null
+  return l.enough ? 1 : l.progress
 }
 
-export function planBasisFor(pl: Plan, version: string | undefined): string {
-  return onCountsNow(pl, version) ? (pl.countBasis ?? '') : (pl.completionBasis ?? '')
+export function leastRank(l: Least | undefined): number {
+  if (!l || !l.filters) return -2
+  if (l.enough) return 1
+  return l.progress ?? -1
 }
 
-export function filterPercentFor(
-  t: Target,
-  fg: FilterGoal,
-  version: string | undefined,
-): { percent: number; basis: string } {
-  if (goalDrivenPlugin(version) || fg.completionBasis !== 'collecting subs to measure')
-    return { percent: fg.percentComplete, basis: fg.completionBasis }
-  let best: { percent: number; basis: string } | null = null
-  for (const pl of t.plans) {
-    if (!pl.enabled || pl.filter !== fg.filter) continue
-    const percent = planPercentFor(pl, version)
-    if (!best || percent < best.percent) best = { percent, basis: planBasisFor(pl, version) }
+export function leastHeadline(l: Least | undefined): string {
+  if (!l || !l.filters) return 'no enabled exposure plans'
+  if (l.enough) return 'enough data'
+  if (l.progress === null) return `needs more · ${l.filter} not measured yet`
+  return `${floorPct(l.progress)} · ${l.filter} least complete`
+}
+
+export function leastText(l: Least | undefined): string {
+  if (!l || !l.filters) return 'No enabled exposure plans'
+  if (l.enough) return 'Enough data in every filter'
+  if (l.progress === null)
+    return `Needs more data: ${l.filter} not measured yet${l.notMeasured ? ` (${l.notMeasured})` : ''}`
+  return `Needs more data: ${l.filter} is least complete at ${floorPct(l.progress)} of its goal`
+}
+
+export function filterHeadline(fg: FilterGoal): string {
+  if (fg.enough) {
+    if (fg.goalProgress === null) return 'enough data · ' + (fg.notMeasured || 'stopped')
+    if (fg.progress?.done && fg.progress.progress < 1) return 'enough data · plateau reached'
+    return 'enough data · goal met'
   }
-  return best ?? { percent: fg.percentComplete, basis: fg.completionBasis }
-}
-
-export function projectProgressFor(p: Project, version: string | undefined): number {
-  if (goalDrivenPlugin(version)) return p.progress
-  const plans = p.targets.filter((t) => t.active).flatMap((t) => t.plans.filter((pl) => pl.enabled))
-  if (!plans.some((pl) => onCountsNow(pl, version))) return p.progress
-  let min = 1
-  for (const t of p.targets) {
-    if (!t.active) continue
-    const enabled = t.plans.filter((pl) => pl.enabled)
-    if (!enabled.length) return 0
-    for (const pl of enabled) min = Math.min(min, planPercentFor(pl, version) / 100)
-  }
-  return min
+  if (fg.goalProgress === null)
+    return 'not measured yet' + (fg.notMeasured ? ' · ' + fg.notMeasured : '')
+  return `needs more · ${floorPct(fg.goalProgress)} of its goal`
 }
 
 export function readinessText(fg: FilterGoal, version?: string): string {
@@ -631,7 +645,7 @@ export function planCountText(fg: FilterGoal | undefined, version?: string): str
   const ready = readinessText(fg, version)
   if (ready) return 'goal-driven · ' + ready
   if (fg.progress?.done) return 'goal-driven · ' + (fg.progress.progress >= 1 ? 'goal met' : 'plateau reached')
-  if (fg.progress) return `goal-driven · ${pct(fg.progress.progress)} of its goal`
+  if (fg.progress) return `goal-driven · ${floorPct(fg.progress.progress)} of its goal`
   return 'goal-driven'
 }
 

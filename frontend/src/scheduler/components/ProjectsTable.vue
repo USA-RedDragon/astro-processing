@@ -21,15 +21,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import {
-  basisText,
+  floorPct,
   getPlanning,
-  measureText,
-  filterPercentFor,
   goalDrivenPlugin,
-  pct,
-  projectProgressFor,
+  leastValue,
   r1,
-  readinessText,
   r2,
   seasonLabel,
   PRIORITY_INDEX,
@@ -129,8 +125,8 @@ const adoptTitle = computed(() => {
     : `${what}. Target Scheduler plugin ${pluginVersion.value ?? 'of unknown version'} still finishes each filter on its desired count until the goal is first measured`
 })
 
-function progressOf(p: Project): number {
-  return projectProgressFor(p, pluginVersion.value)
+function progressOf(p: Project): number | null {
+  return leastValue(p.least)
 }
 
 function kindLabel(p: Project): string {
@@ -139,32 +135,19 @@ function kindLabel(p: Project): string {
 }
 
 function weakestText(p: Project): string {
-  const w = p.weakest
-  if (!w) {
-    if (!p.targets.length) return 'No targets'
-    const goals = p.targets.filter((t) => t.active).flatMap((t) => t.goals)
-    if (!goals.length) return 'No enabled exposure plans'
-    if (goals.every((g) => g.progress?.done)) {
-      const plateaued = goals.filter((g) => g.progress?.plateau).length
-      return plateaued
-        ? `Every filter is done; ${plateaued} of ${goals.length} reached the plateau`
-        : 'Every filter met its goal'
-    }
-    return 'No filter below its goal'
-  }
-  const m = p.isMosaic && p.weakestTarget ? /(Panel\s*\d+)\s*$/i.exec(p.weakestTarget) : null
-  const prefix = (m ? m[1] + ' ' : '') + w.filter + ' · '
-  const g = w.progress
+  const l = p.least
+  if (!p.targets.length) return 'No targets'
+  if (!l?.filters) return 'No enabled exposure plans'
+  if (l.enough) return 'Enough data in every filter'
+  const m = p.isMosaic && l.target ? /(Panel\s*\d+)\s*$/i.exec(l.target) : null
+  const prefix = (m ? m[1] + ' ' : '') + l.filter + ' · '
+  if (l.progress === null) return `${prefix}not measured yet${l.notMeasured ? ' · ' + l.notMeasured : ''}`
+  const t = p.targets.find((x) => x.name === l.target)
+  const g = t?.goals.find((x) => x.filter === l.filter)?.progress
   if (g && g.kind === 'depth' && !g.unmeasured)
-    return `${prefix}${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
-  if (g && g.kind === 'snr') return `${prefix}SNR ${r1(g.achieved)} of ${r1(g.goal)}`
-  const ready = readinessText(w, pluginVersion.value)
-  if (ready) return prefix + ready
-  if (g?.unmeasured) return prefix + g.unmeasured
-  const meas = w.measurement ? ` · measured SNR ${r1(w.measurement.snr)}` : ' · ' + measureText(w)
-  const t = p.targets.find((x) => x.name === p.weakestTarget) ?? p.targets[0]
-  const basis = t ? filterPercentFor(t, w, pluginVersion.value).basis : w.completionBasis
-  return `${prefix}${w.accepted}/${w.desired} ${basisText(basis)}${meas}`
+    return `${prefix}needs more · ${r1(g.achieved)} of ${r1(g.goal)} mag/arcsec²`
+  if (g && g.kind === 'snr') return `${prefix}needs more · SNR ${r1(g.achieved)} of ${r1(g.goal)}`
+  return `${prefix}needs more · ${floorPct(l.progress)} of its goal`
 }
 
 async function setField(p: Project, field: 'priority' | 'state', value: unknown) {
@@ -305,9 +288,9 @@ function applySet() {
         </CardTitle>
         <CardDescription>
           Change priority or state right in the row; it applies when the current exposure ends.
-          Progress is the least complete exposure plan, counted as Target Scheduler counts it:
-          a filter with a goal against its goal, a filter without one against its desired count.
-          For a mosaic, its least complete panel.
+          Progress is the least complete enabled filter against its measured goal, never an
+          average and never a sub count. A filter with no goal measurement yet reads as not
+          measured. For a mosaic, its least complete panel.
         </CardDescription>
       </CardHeader>
       <CardContent class="flex flex-col gap-3">
@@ -406,15 +389,15 @@ function applySet() {
                 <TableCell class="align-top whitespace-normal min-w-[11rem] max-w-[18rem]">
                   <div class="flex items-center gap-2">
                     <Progress
-                      :model-value="Math.round(Math.min(1, progressOf(p)) * 100)"
+                      :model-value="Math.floor((progressOf(p) ?? 0) * 100)"
                       class="h-1.5"
                     />
                     <span class="w-11 text-right font-semibold">
-                      {{ pct(Math.min(1, progressOf(p))) }}
+                      {{ progressOf(p) === null ? '—' : floorPct(progressOf(p)!) }}
                     </span>
                   </div>
                   <div class="text-xs text-muted-foreground">
-                    {{ weakestText(p) }}<span v-if="!p.goalDriven"> · finishes on counts</span>
+                    {{ weakestText(p) }}
                   </div>
                 </TableCell>
                 <TableCell class="align-top">

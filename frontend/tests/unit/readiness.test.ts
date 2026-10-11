@@ -1,19 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import {
-  filterPercentFor,
+  filterHeadline,
   goalTiming,
   GOAL_DRIVEN_PLUGIN,
+  leastHeadline,
+  leastRank,
+  leastText,
+  leastValue,
   legacyGoalNote,
-  planBasisFor,
   planCountText,
-  planPercentFor,
-  projectProgressFor,
   readinessText,
   versionAtLeast,
   type FilterGoal,
-  type Plan,
-  type Project,
-  type Target,
+  type Least,
 } from '@/scheduler/api/planning'
 
 const V = '5.8.2.204'
@@ -32,6 +31,8 @@ function fg(extra: Partial<FilterGoal>): FilterGoal {
     accepted: 400,
     desired: 300,
     acceptedHours: 0,
+    enough: false,
+    goalProgress: null,
     ...extra,
   }
 }
@@ -76,29 +77,6 @@ describe('goal readiness text', () => {
 })
 
 describe('plugin version gate', () => {
-  const plan = (extra: Partial<Plan>): Plan => ({
-    id: 1,
-    guid: 'g',
-    templateId: 1,
-    template: 'H-a',
-    filter: 'H-a',
-    exposure: 300,
-    exposureRaw: 300,
-    desired: 100,
-    acquired: 40,
-    accepted: 40,
-    enabled: true,
-    gain: null,
-    moonSeparation: 0,
-    moonWidth: 0,
-    percentComplete: 0,
-    completionBasis: 'collecting subs to measure',
-    goalDriven: true,
-    countPercent: 40,
-    countBasis: 'accepted',
-    ...extra,
-  })
-
   it('compares dotted versions', () => {
     expect(versionAtLeast('5.8.2.204', GOAL_DRIVEN_PLUGIN)).toBe(true)
     expect(versionAtLeast('5.8.2.210', GOAL_DRIVEN_PLUGIN)).toBe(true)
@@ -108,20 +86,65 @@ describe('plugin version gate', () => {
     expect(versionAtLeast('dev', GOAL_DRIVEN_PLUGIN)).toBe(false)
   })
 
-  it('shows the desired count and the old rule before plugin 5.8.2.204', () => {
+  it('keeps the old rule note before plugin 5.8.2.204', () => {
     const g = fg({ readiness: { state: 'collecting', stackSubs: 3, minSubs: 8, subLimit: 32, open: true } })
     expect(readinessText(g, '5.8.2.203')).toBe('')
     expect(planCountText(g, '5.8.2.203')).toBe('')
     expect(legacyGoalNote('5.8.2.203')).toContain('finishes a filter with a goal on its desired count')
-    const pl = plan({})
-    expect(planPercentFor(pl, '5.8.2.203')).toBe(40)
-    expect(planBasisFor(pl, '5.8.2.203')).toBe('accepted')
-    expect(planPercentFor(pl, '5.8.2.204')).toBe(0)
-    const t = { plans: [pl], goals: [g] } as unknown as Target
-    expect(filterPercentFor(t, g, '5.8.2.203')).toEqual({ percent: 40, basis: 'accepted' })
-    expect(filterPercentFor(t, g, '5.8.2.204')).toEqual({ percent: 0, basis: 'collecting subs to measure' })
-    const p = { progress: 0, targets: [{ active: true, plans: [pl, plan({ id: 2, completionBasis: 'accepted', percentComplete: 70 })] }] } as unknown as Project
-    expect(projectProgressFor(p, '5.8.2.203')).toBe(0.4)
-    expect(projectProgressFor(p, '5.8.2.204')).toBe(0)
+  })
+})
+
+describe('least complete filter', () => {
+  const least = (extra: Partial<Least>): Least => ({
+    enough: false,
+    progress: 0.0459,
+    target: 'Andromeda',
+    filter: 'Luminance',
+    unmeasured: 0,
+    filters: 5,
+    ...extra,
+  })
+
+  it('names the weakest filter instead of an average', () => {
+    const l = least({})
+    expect(leastValue(l)).toBeCloseTo(0.0459)
+    expect(leastHeadline(l)).toBe('4% · Luminance least complete')
+    expect(leastText(l)).toBe('Needs more data: Luminance is least complete at 4% of its goal')
+  })
+
+  it('says not measured with the reason, never a sub count', () => {
+    const l = least({ progress: null, filter: 'H-a', notMeasured: 'collecting subs for the first measurement', unmeasured: 1 })
+    expect(leastValue(l)).toBeNull()
+    expect(leastHeadline(l)).toBe('needs more · H-a not measured yet')
+    expect(leastText(l)).toBe('Needs more data: H-a not measured yet (collecting subs for the first measurement)')
+  })
+
+  it('reads enough data when every filter is done', () => {
+    const l = least({ enough: true, progress: 1 })
+    expect(leastValue(l)).toBe(1)
+    expect(leastHeadline(l)).toBe('enough data')
+    expect(leastText(l)).toBe('Enough data in every filter')
+  })
+
+  it('ranks no plans, then not measured, then measured, then enough', () => {
+    const ranks = [
+      least({ filters: 0 }),
+      least({ progress: null }),
+      least({ progress: 0.2 }),
+      least({ enough: true, progress: 1 }),
+    ].map(leastRank)
+    expect([...ranks].sort((a, b) => a - b)).toEqual(ranks)
+    expect(leastHeadline(least({ filters: 0 }))).toBe('no enabled exposure plans')
+  })
+
+  it('describes each filter as enough or needs more', () => {
+    expect(filterHeadline(fg({ goalProgress: 0.487 }))).toBe('needs more · 48% of its goal')
+    expect(
+      filterHeadline(fg({ enough: true, goalProgress: 1, progress: { progress: 0.6, done: true } as FilterGoal['progress'] })),
+    ).toBe('enough data · plateau reached')
+    expect(
+      filterHeadline(fg({ enough: true, goalProgress: 1, progress: { progress: 1.3, done: true } as FilterGoal['progress'] })),
+    ).toBe('enough data · goal met')
+    expect(filterHeadline(fg({ notMeasured: 'no goal set' }))).toBe('not measured yet · no goal set')
   })
 })
