@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { createApp, h, nextTick } from 'vue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApp, h, nextTick, reactive } from 'vue';
 import ProjectCard from '@/components/ProjectCard.vue';
 import type { Project } from '@/graphql/graphql';
 
@@ -14,6 +14,8 @@ const cover = (sig: string) => ({
   updated_at: '2026-10-10T23:16:20Z',
 }) as Project['cover'];
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe('ProjectCard', () => {
   it('gives outline badges a background so they read over the cover picture', async () => {
     const el = document.createElement('div');
@@ -23,6 +25,27 @@ describe('ProjectCard', () => {
     const outline = [...el.querySelectorAll('[data-slot="badge"]')].filter((b) => /Mosaic|LOW|INACTIVE/.test(b.textContent ?? ''));
     expect(outline).toHaveLength(3);
     for (const b of outline) expect(b.className).toContain('bg-background');
+    app.unmount();
+  });
+
+  it('moves to a newly signed cover URL of an unchanged cover', async () => {
+    const loads: (() => void)[] = [];
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null;
+      set src(_: string) { loads.push(() => this.onload?.()); }
+    });
+    const props = reactive({ project: project(cover('a')), planningState: 'ok' });
+    const el = document.createElement('div');
+    const app = createApp({ render: () => h(ProjectCard, props) });
+    app.mount(el);
+    await nextTick();
+    const src = () => el.querySelector('img')!.getAttribute('src');
+    expect(src()).toContain('sig=a');
+    props.project.cover = cover('b');
+    await nextTick();
+    loads.forEach((l) => l());
+    await nextTick();
+    expect(src()).toContain('sig=b');
     app.unmount();
   });
 });

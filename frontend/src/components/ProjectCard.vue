@@ -166,7 +166,6 @@ export default {
       // The cover shown; a changed one replaces it once it has loaded, so
       // the picture never blanks while it updates.
       shownCover: undefined as string | undefined,
-      shownAt: '',
     };
   },
   computed: {
@@ -213,16 +212,14 @@ export default {
     'project.cover': {
       immediate: true,
       handler(cover: Project['cover']) {
-        if (!cover || cover.updated_at === this.shownAt) return;
+        if (!cover || cover.preview_url === this.shownCover) return;
         if (!this.shownCover) {
           this.shownCover = cover.preview_url;
-          this.shownAt = cover.updated_at;
           return;
         }
         const img = new Image();
         img.onload = () => {
-          this.shownCover = cover.preview_url;
-          this.shownAt = cover.updated_at;
+          if (this.project.cover?.preview_url === cover.preview_url) this.shownCover = cover.preview_url;
         };
         img.src = cover.preview_url;
       },
