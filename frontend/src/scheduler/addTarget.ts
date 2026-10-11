@@ -74,3 +74,51 @@ export function pickPlans(
   }
   return out.length ? out : null
 }
+
+export interface LayoutPick {
+  brick: boolean
+  rows: number
+  cols: number
+}
+
+export function layoutFromId(id: unknown): LayoutPick | null {
+  const m = /^(grid|strip|brick)-(\d+)x(\d+)$/.exec(String(id ?? ''))
+  if (!m) return null
+  const rows = Number(m[2])
+  const cols = Number(m[3])
+  if (rows < 1 || cols < 1) return null
+  return { brick: m[1] === 'brick', rows, cols }
+}
+
+export interface FramingOverride {
+  ra?: number
+  dec?: number
+  majorArcmin?: number
+  minorArcmin?: number
+  pa?: number
+}
+
+function num(v: unknown): number | undefined {
+  if (v === undefined || v === null || v === '' || Array.isArray(v)) return undefined
+  const n = Number(v)
+  return Number.isFinite(n) ? n : undefined
+}
+
+export function framingOverride(q: Record<string, unknown>): FramingOverride {
+  const out: FramingOverride = {}
+  const ra = num(q.ra)
+  const dec = num(q.dec)
+  if (ra !== undefined && dec !== undefined && dec >= -90 && dec <= 90) {
+    out.ra = ra >= 0 && ra < 360 ? ra : ((ra % 360) + 360) % 360
+    out.dec = dec
+  }
+  const major = num(q.major)
+  if (major !== undefined && major > 0) {
+    out.majorArcmin = major
+    const minor = num(q.minor)
+    if (minor !== undefined && minor > 0) out.minorArcmin = minor
+    const pa = num(q.pa)
+    if (pa !== undefined) out.pa = pa
+  }
+  return out
+}

@@ -33,8 +33,11 @@ import {
 } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
 import {
+  framingOverride,
   landingStep,
+  layoutFromId,
   matchSummary,
+  type FramingOverride,
   pickDefaultGoal,
   pickPlans,
   pickRequestGoal,
@@ -126,6 +129,18 @@ const plan = reactive({
   rows: 1,
   layoutName: 'One frame',
   layoutId: 'single',
+  brick: false,
+})
+const override = ref<FramingOverride>({})
+const planObject = computed(() => {
+  const o = pick.value?.object
+  if (!o) return null
+  const v = override.value
+  const outline =
+    v.majorArcmin !== undefined
+      ? { majorArcmin: v.majorArcmin, minorArcmin: v.minorArcmin ?? null, pa: v.pa ?? null }
+      : { majorArcmin: o.majorArcmin, minorArcmin: o.minorArcmin, pa: o.pa }
+  return { id: o.id, name: o.name, ra: v.ra ?? o.ra, dec: v.dec ?? o.dec, ...outline }
 })
 const planned = ref<FramePlan | null>(null)
 
@@ -179,8 +194,14 @@ onMounted(async () => {
   const id = String(route.query.object ?? '')
   if (id) {
     await choose(id)
+    override.value = framingOverride(route.query)
     if (route.query.rotation) plan.rotation = Number(route.query.rotation) || 0
-    if (route.query.cols && route.query.rows) {
+    const layout = layoutFromId(route.query.layout)
+    if (layout) {
+      plan.cols = layout.cols
+      plan.rows = layout.rows
+      plan.brick = layout.brick
+    } else if (route.query.cols && route.query.rows) {
       plan.cols = Math.max(1, Number(route.query.cols) || 1)
       plan.rows = Math.max(1, Number(route.query.rows) || 1)
     } else if (route.query.panels) {
@@ -322,7 +343,9 @@ async function choose(id: string) {
   const f = pick.value.fit
   plan.cols = Math.max(1, f.columns)
   plan.rows = Math.max(1, f.rows)
+  plan.brick = false
   plan.rotation = null
+  override.value = {}
   planned.value = null
   form.setId = presetSet.value?.set.id ?? ''
   form.usePick = false
@@ -678,7 +701,7 @@ const depthDefaultText = computed(() => {
 })
 
 const panels = computed<PanelDraft[]>(() => {
-  const o = pick.value?.object
+  const o = planObject.value
   if (!o) return []
   if (planned.value?.panels.length)
     return planned.value.panels.map((p) => ({
@@ -1082,26 +1105,19 @@ async function goStep(i: number) {
         <h2 id="frame-h">
           {{ step === 2 ? 'Frame ' + (pick ? label(pick.object) : '') : 'Mosaic plan' }}
         </h2>
-        <span v-if="pick" class="xsmall muted"
-          >RA {{ (pick.object.ra / 15).toFixed(3) }} h · Dec {{ pick.object.dec.toFixed(2) }}° ·
+        <span v-if="planObject" class="xsmall muted"
+          >RA {{ (planObject.ra / 15).toFixed(3) }} h · Dec {{ planObject.dec.toFixed(2) }}° ·
           {{ frameText }}</span
         >
       </div>
       <FramePlanner
-        v-if="pick"
-        :object="{
-          id: pick.object.id,
-          name: pick.object.name,
-          ra: pick.object.ra,
-          dec: pick.object.dec,
-          majorArcmin: pick.object.majorArcmin,
-          minorArcmin: pick.object.minorArcmin,
-          pa: pick.object.pa,
-        }"
+        v-if="planObject"
+        :object="planObject"
         :step="step === 2 ? 'frame' : 'mosaic'"
         :rotation="plan.rotation ?? undefined"
         :cols="plan.cols"
         :rows="plan.rows"
+        :brick="plan.brick"
         :min-altitude="minAlt ?? undefined"
         @update:plan="onPlan"
       />

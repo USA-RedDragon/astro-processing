@@ -32,6 +32,7 @@ const props = defineProps<{
   panels?: number
   cols?: number
   rows?: number
+  brick?: boolean
   minAltitude?: number
 }>()
 
@@ -50,17 +51,17 @@ const overlap = computed<number | null>({
   },
 })
 const layoutId = ref('')
-const wantGrid = ref<{ rows: number; cols: number } | null>(initialGrid())
+const wantGrid = ref<{ rows: number; cols: number; brick: boolean } | null>(initialGrid())
 const framing = ref<Framing | null>(null)
 const loading = ref(false)
 const error = ref('')
 const survey = ref(true)
 const surveyFailed = ref(false)
 
-function initialGrid(): { rows: number; cols: number } | null {
+function initialGrid(): { rows: number; cols: number; brick: boolean } | null {
   if (props.cols && props.rows)
-    return { rows: Math.max(1, props.rows), cols: Math.max(1, props.cols) }
-  if (props.panels && props.panels > 1) return { rows: 1, cols: props.panels }
+    return { rows: Math.max(1, props.rows), cols: Math.max(1, props.cols), brick: !!props.brick }
+  if (props.panels && props.panels > 1) return { rows: 1, cols: props.panels, brick: false }
   return null
 }
 
@@ -85,6 +86,7 @@ async function load() {
         minAltitude: props.minAltitude,
         rows: wantGrid.value?.rows,
         cols: wantGrid.value?.cols,
+        brick: wantGrid.value?.brick || undefined,
       },
       ctl.signal,
     )
@@ -140,6 +142,7 @@ function useCustom() {
   wantGrid.value = {
     rows: Math.min(MAX_SIDE, Math.max(1, custom.value.rows)),
     cols: Math.min(MAX_SIDE, Math.max(1, custom.value.cols)),
+    brick: false,
   }
   load()
 }
