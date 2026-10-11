@@ -612,19 +612,19 @@ export const MONTHS = [
 ]
 
 export function raText(deg: number): string {
-  const h = (((deg / 15) % 24) + 24) % 24
-  const hh = Math.floor(h)
-  const mm = Math.floor((h - hh) * 60)
-  const ss = Math.round(((h - hh) * 60 - mm) * 60)
-  return `${String(hh).padStart(2, '0')}h ${String(mm).padStart(2, '0')}m ${String(ss % 60).padStart(2, '0')}s`
+  const total = Math.round(((((deg / 15) % 24) + 24) % 24) * 3600) % 86400
+  const hh = Math.floor(total / 3600)
+  const mm = Math.floor((total % 3600) / 60)
+  const ss = total % 60
+  return `${String(hh).padStart(2, '0')}h ${String(mm).padStart(2, '0')}m ${String(ss).padStart(2, '0')}s`
 }
 
 export function decText(deg: number): string {
   const s = deg < 0 ? '−' : '+'
-  const a = Math.abs(deg)
-  const d = Math.floor(a)
-  const m = Math.round((a - d) * 60)
-  return `${s}${String(d).padStart(2, '0')}° ${String(m % 60).padStart(2, '0')}′`
+  const total = Math.round(Math.abs(deg) * 60)
+  const d = Math.floor(total / 60)
+  const m = total % 60
+  return `${s}${String(d).padStart(2, '0')}° ${String(m).padStart(2, '0')}′`
 }
 
 export function rigFrame(r: Rig | null | undefined): { w: number; h: number } | null {
