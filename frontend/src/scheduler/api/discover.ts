@@ -357,6 +357,19 @@ export interface FinderRow {
   subjects: SubjectRef[] | null
   rotation: number | null
   catalogueGap: boolean
+  mosaic?: MosaicCost | null
+}
+
+export interface MosaicCost {
+  hours: number | null
+  nights: number | null
+  seasons: number | null
+  text: string
+}
+
+export function mosaicFlag(c: MosaicCost | null | undefined): string {
+  if (!c || c.seasons === null || c.seasons <= 1) return ''
+  return `more than one season: ${c.seasons} seasons at your pace`
 }
 
 export interface FinderResult {

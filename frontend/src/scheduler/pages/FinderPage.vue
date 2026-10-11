@@ -6,6 +6,7 @@ import {
   MONTHS,
   addLink,
   getFinder,
+  mosaicFlag,
   size,
   typeLabel,
   halphaSource,
@@ -368,6 +369,16 @@ function imaged(r: FinderRow) {
                 <td style="white-space: nowrap">
                   <div>{{ fitText(r) }}</div>
                   <div class="xsmall muted">{{ fillText(r) }}</div>
+                  <div
+                    v-if="r.mosaic"
+                    class="xsmall muted"
+                    style="white-space: normal; max-width: 16rem"
+                  >
+                    {{ r.mosaic.text }}
+                  </div>
+                  <span v-if="mosaicFlag(r.mosaic)" class="badge warn xsmall">{{
+                    mosaicFlag(r.mosaic)
+                  }}</span>
                 </td>
                 <td style="min-width: 12rem">
                   <div class="small">
@@ -434,7 +445,9 @@ function imaged(r: FinderRow) {
           </ul>
           <p style="margin: 0.25rem 0 0">
             Panel counts assume {{ Math.round((result.overlap ?? 0) * 100) }}% overlap, the mosaic
-            wizard's default, with the frame turned whichever way needs fewer panels.
+            wizard's default, with the frame turned whichever way needs fewer panels. Mosaic hours
+            use the mosaic wizard's estimate: your median effective hours per target for each panel,
+            your hours per imaging night, and your imaging nights in the months the object is up.
             <template v-if="result.excluded?.length">
               Left out of the catalogue:
               {{ result.excluded.map((x) => `${x.count} ${x.reason}`).join('; ') }}.
