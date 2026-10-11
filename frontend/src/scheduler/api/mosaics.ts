@@ -369,6 +369,9 @@ export interface Adoption {
     separationDeg: number | null
     nearest?: string
     within?: number
+    instrument?: string
+    targetRig?: string
+    linkedByTs?: boolean
     coords?: boolean
     nameMatch?: boolean
     projectNamed?: string
@@ -457,6 +460,7 @@ function subs(n: number): string {
 
 export function autoOutcome(a: Adoption): string {
   if (a.kind === 'frames' && a.frames) {
+    if (a.suggestion.startsWith('Nothing to do')) return a.suggestion
     return a.frames.target
       ? `Attached ${subs(a.frames.count)} to ${a.frames.target}.`
       : `Kept ${subs(a.frames.count)} separate. Their hours count on their own.`
@@ -468,6 +472,7 @@ export function autoOutcome(a: Adoption): string {
 export function autoReason(a: Adoption): string {
   const f = a.frames
   if (a.kind !== 'frames' || !f) return a.rule.replace(/^High: /, '')
+  if (!f.target && a.suggestion.startsWith('Nothing to do')) return a.rule.replace(/^High: /, '')
   if (!f.target)
     return a.suggestion.replace(/\s*Keep them separate and count their hours on their own\.$/, '')
   const sep =

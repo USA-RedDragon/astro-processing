@@ -145,3 +145,33 @@ describe('automatic decisions', () => {
     expect(autoReason(a)).toBe('every panel overlaps another by 3% or more.')
   })
 })
+
+describe('settled rows', () => {
+  it('says nothing is left to do when Target Scheduler linked the subs since', () => {
+    const a = {
+      ...subsRow(
+        undefined,
+        "Nothing to do: Target Scheduler's own records already link these subs to a target.",
+      ),
+      confidence: 'High',
+      rule: 'High: Target Scheduler\'s own records now link 9 subs named "NGC 2937" to a target, so nothing is left to decide.',
+    }
+    expect(autoOutcome(a)).toBe(
+      "Nothing to do: Target Scheduler's own records already link these subs to a target.",
+    )
+    expect(autoReason(a)).toBe(
+      'Target Scheduler\'s own records now link 9 subs named "NGC 2937" to a target, so nothing is left to decide.',
+    )
+  })
+
+  it('names the other instrument for subs kept apart', () => {
+    const a = subsRow(
+      undefined,
+      "Squid Nebula is 0.27° from the subs' mount position, but the subs were taken with FLI PL16083 on SPA-3, not ZWO ASI2600MM Pro on Apertura 75Q, the rig that images it. Keep them separate and count their hours on their own.",
+    )
+    expect(autoOutcome(a)).toBe('Kept 12 subs separate. Their hours count on their own.')
+    expect(autoReason(a)).toBe(
+      "Squid Nebula is 0.27° from the subs' mount position, but the subs were taken with FLI PL16083 on SPA-3, not ZWO ASI2600MM Pro on Apertura 75Q, the rig that images it.",
+    )
+  })
+})
