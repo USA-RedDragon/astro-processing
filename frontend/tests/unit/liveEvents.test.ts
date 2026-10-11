@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 class FakeSource {
+  static CLOSED = 2;
+  readyState = 1;
+  close() {
+    this.readyState = FakeSource.CLOSED;
+  }
   static last: FakeSource | null = null;
+  static opened = 0;
   url: string;
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
@@ -9,6 +15,7 @@ class FakeSource {
   constructor(url: string) {
     this.url = url;
     FakeSource.last = this;
+    FakeSource.opened++;
   }
   send(e: object) {
     this.onmessage?.({ data: JSON.stringify(e) });
@@ -19,6 +26,7 @@ beforeEach(() => {
   vi.resetModules();
   vi.useFakeTimers();
   FakeSource.last = null;
+  FakeSource.opened = 0;
   vi.stubGlobal('EventSource', FakeSource);
 });
 
@@ -67,14 +75,22 @@ describe('onChange', () => {
 });
 
 describe('scheduler events', () => {
-  it('calls reconnect handlers only after the stream drops and comes back', async () => {
+  it('share the one stream and hear its reconnects', async () => {
+    const live = await import('@/lib/events');
     const { onEvent, onReconnect } = await import('@/scheduler/api/events');
+    live.watchStatus();
     const back = vi.fn();
     const subs = vi.fn();
+    const command = vi.fn();
     onReconnect(back);
     onEvent('subs', subs);
+    onEvent('command', command);
     const s = FakeSource.last!;
-    expect(s.url).toBe('/api/v1/events');
+    expect(s.url).toBe('/events');
+    expect(FakeSource.opened).toBe(1);
+    s.send({ type: 'command', data: { status: 'applied' } });
+    expect(command).toHaveBeenCalledWith({ type: 'command', data: { status: 'applied' } });
+    expect(subs).not.toHaveBeenCalled();
     s.onopen?.();
     expect(back).not.toHaveBeenCalled();
     s.onerror?.();
@@ -82,5 +98,22 @@ describe('scheduler events', () => {
     expect(back).toHaveBeenCalledTimes(1);
     s.send({ type: 'subs', object: 'M 31' });
     expect(subs).toHaveBeenCalledWith({ type: 'subs', object: 'M 31' });
+  });
+});
+
+describe('stream recovery', () => {
+  it('opens a new stream when the browser gives up on an error answer, then reloads', async () => {
+    const { onReconnect } = await import('@/lib/events');
+    const back = vi.fn();
+    onReconnect(back);
+    const first = FakeSource.last!;
+    first.onopen?.();
+    first.readyState = FakeSource.CLOSED;
+    first.onerror?.();
+    expect(FakeSource.opened).toBe(1);
+    vi.advanceTimersByTime(5000);
+    expect(FakeSource.opened).toBe(2);
+    FakeSource.last!.onopen?.();
+    expect(back).toHaveBeenCalledTimes(1);
   });
 });

@@ -2,7 +2,7 @@
 import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { listCommands, type CommandRecord } from '../api/commands'
-import { onEvent } from '../api/events'
+import { onEvent, onReconnect } from '../api/events'
 import { clock, shortDate, show } from '../format'
 import { historyBadge, undoState } from '../plan'
 import { cancel, shell, undo, whenApplies } from '../shell'
@@ -88,8 +88,10 @@ watch(
 )
 
 let off: (() => void) | undefined
+let offReconnect: (() => void) | undefined
 onMounted(() => {
   load()
+  offReconnect = onReconnect(load)
   off = onEvent('command', (e: { data?: CommandRecord }) => {
     const r = e.data
     if (!r) return
@@ -100,6 +102,7 @@ onMounted(() => {
 })
 onUnmounted(() => {
   if (off) off()
+  if (offReconnect) offReconnect()
   if (qTimer) clearTimeout(qTimer)
 })
 

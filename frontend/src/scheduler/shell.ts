@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 import { ApiError } from './api/client'
-import { onEvent } from './api/events'
+import { onEvent, onReconnect } from './api/events'
 import {
   cancelCommand,
   isWaiting,
@@ -183,15 +183,29 @@ export async function refreshWaiting() {
 
 let started = false
 
+// How long without a scheduler message before the shell asks for the state.
+const STATUS_SILENCE_MS = 25000
+
 export function startShell() {
   if (started) return
   started = true
   refreshStatus()
   refreshWaiting()
-  setInterval(refreshStatus, 15000)
+  // The stacker sends the scheduler's state every 10 s; ask for it only
+  // when those messages stop, such as while the stacker is down.
+  let heard = Date.now()
+  setInterval(() => {
+    if (Date.now() - heard > STATUS_SILENCE_MS) refreshStatus()
+  }, 15000)
   setInterval(() => (shell.now = Date.now()), 1000)
   onEvent('scheduler', (e: { data?: SchedulerStatus }) => {
-    if (e.data) shell.scheduler = e.data
+    if (!e.data) return
+    heard = Date.now()
+    shell.scheduler = e.data
+  })
+  onReconnect(() => {
+    refreshStatus()
+    refreshWaiting()
   })
   onEvent('command', (e: { data?: CommandRecord }) => {
     const r = e.data

@@ -1,5 +1,6 @@
 // One shared connection to the backend's event stream: rendered previews,
-// updated masters, and what the stacker is working on.
+// updated masters, what the stacker is working on, the observatory
+// scheduler's state and commands.
 import { reactive } from 'vue';
 
 export interface Worker {
@@ -22,12 +23,14 @@ export interface LiveEvent {
   id?: number;
   // preview, master and mosaic come from the stacker, frames when it indexes
   // new files, subs when it measures or triages a target's lights; data
-  // from the backend when scheduler tables change.
-  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'subs' | 'data';
+  // from the backend when scheduler tables change; scheduler and command
+  // carry the observatory scheduler's state and commands in data.
+  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'subs' | 'data' | 'scheduler' | 'command';
   object?: string;
   filter?: string;
   key?: string;
   tables?: string[];
+  data?: unknown;
   time: string;
 }
 
@@ -41,6 +44,8 @@ const handlers = new Set<(e: LiveEvent) => void>();
 const reconnectHandlers = new Set<() => void>();
 let source: EventSource | null = null;
 let dropped = false;
+// How long to wait before opening a new stream after the browser gave up.
+const RECONNECT_MS = 5000;
 
 function connect() {
   if (source || typeof EventSource === 'undefined') return;
@@ -57,6 +62,13 @@ function connect() {
   source.onerror = () => {
     status.connected = false;
     dropped = true;
+    // The browser retries a dropped stream itself, but gives up for good
+    // when the server answers with an error (a 502 during a deploy, say).
+    if (source?.readyState === EventSource.CLOSED) {
+      source.close();
+      source = null;
+      setTimeout(connect, RECONNECT_MS);
+    }
   };
   source.onmessage = (m) => {
     let e;
