@@ -33,11 +33,16 @@ import {
 } from '../api/planning'
 import { submitCommand } from '../api/commands'
 import {
+  MINIMUM_ALTITUDE_RANGE,
+  MINIMUM_TIME_RANGE,
   SETTINGS,
   flatsLabel,
   flatsOptions,
+  minimumAltitudeError,
+  minimumTimeError,
   projectSettings,
   settingChanges,
+  settingError,
   settingErrors,
   settingText,
   type SettingKey,
@@ -614,11 +619,34 @@ const schedValues = computed<ProjectSettingValues | null>(() =>
 const schedChanges = computed(() =>
   sched.value ? settingChanges(sched.value, schedDraft) : [],
 )
+const minAltChanged = computed(
+  () => optDraft.minimumAltitude !== undefined && optDraft.minimumAltitude !== p.value?.minimumAltitude,
+)
 const schedErrors = computed<Partial<Record<SettingKey, string>>>(() => {
-  if (!schedValues.value || !p.value || !schedChanges.value.length) return {}
-  return settingErrors(schedValues.value, optDraft.minimumAltitude ?? p.value.minimumAltitude)
+  if (!schedValues.value || !p.value) return {}
+  const minAlt = optDraft.minimumAltitude ?? p.value.minimumAltitude
+  if (schedChanges.value.length) return settingErrors(schedValues.value, minAlt)
+  if (!minAltChanged.value) return {}
+  const spec = SETTINGS.find((s) => s.key === 'maximumAltitude')!
+  const e = settingError(spec, schedValues.value.maximumAltitude, minAlt)
+  return e ? { maximumAltitude: e } : {}
 })
-const schedInvalid = computed(() => Object.keys(schedErrors.value).length > 0)
+const optErrors = computed(() => ({
+  minimumTime:
+    optDraft.minimumTime !== undefined && optDraft.minimumTime !== p.value?.minimumTime
+      ? minimumTimeError(optDraft.minimumTime)
+      : '',
+  minimumAltitude:
+    minAltChanged.value && optDraft.minimumAltitude !== undefined
+      ? minimumAltitudeError(optDraft.minimumAltitude)
+      : '',
+}))
+const schedInvalid = computed(
+  () =>
+    Object.keys(schedErrors.value).length > 0 ||
+    !!optErrors.value.minimumTime ||
+    !!optErrors.value.minimumAltitude,
+)
 
 function setSched(key: SettingKey, v: number | boolean) {
   ;(schedDraft as Record<SettingKey, number | boolean>)[key] = v
@@ -1308,22 +1336,33 @@ function numInput(e: Event): number {
             <input
               class="input num"
               type="number"
-              min="10"
-              max="600"
-              :value="optDraft.minimumTime ?? p.minimumTime"
-              @change="optDraft.minimumTime = numInput($event)"
+              :min="MINIMUM_TIME_RANGE.min"
+              :max="MINIMUM_TIME_RANGE.max"
+              :value="Number.isNaN(optDraft.minimumTime) ? '' : (optDraft.minimumTime ?? p.minimumTime)"
+              :aria-invalid="!!optErrors.minimumTime"
+              @change="optDraft.minimumTime = inputNum($event)"
             />
+            <span v-if="optErrors.minimumTime" class="xsmall" style="color: var(--bad)">{{
+              optErrors.minimumTime
+            }}</span>
           </label>
           <label class="field">
             <span>Minimum altitude, °</span>
             <input
               class="input num"
               type="number"
-              min="0"
-              max="80"
-              :value="optDraft.minimumAltitude ?? p.minimumAltitude"
-              @change="optDraft.minimumAltitude = numInput($event)"
+              :min="MINIMUM_ALTITUDE_RANGE.min"
+              :max="MINIMUM_ALTITUDE_RANGE.max"
+              step="0.1"
+              :value="
+                Number.isNaN(optDraft.minimumAltitude) ? '' : (optDraft.minimumAltitude ?? p.minimumAltitude)
+              "
+              :aria-invalid="!!optErrors.minimumAltitude"
+              @change="optDraft.minimumAltitude = inputNum($event)"
             />
+            <span v-if="optErrors.minimumAltitude" class="xsmall" style="color: var(--bad)">{{
+              optErrors.minimumAltitude
+            }}</span>
           </label>
         </div>
         <div v-if="sched && schedValues" class="sched" aria-labelledby="sched-h">

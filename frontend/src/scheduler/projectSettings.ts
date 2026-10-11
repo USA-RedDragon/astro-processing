@@ -216,3 +216,18 @@ export function defaultsBasisText(d: ProjectSettingDefaults): string {
 export function settingsSummary(vals: ProjectSettingValues): string {
   return SETTINGS.map((s) => `${s.label}: ${settingText(s, vals[s.key])}`).join(' · ')
 }
+
+export const MINIMUM_TIME_RANGE = { min: 1, max: 1440 }
+export const MINIMUM_ALTITUDE_RANGE = { min: 0, max: 90 }
+
+export function minimumTimeError(v: number): string {
+  if (!Number.isInteger(v) || v < MINIMUM_TIME_RANGE.min || v > MINIMUM_TIME_RANGE.max)
+    return `Minimum time must be a whole number of minutes, ${MINIMUM_TIME_RANGE.min} to ${MINIMUM_TIME_RANGE.max}`
+  return ''
+}
+
+export function minimumAltitudeError(v: number): string {
+  if (!Number.isFinite(v) || v < MINIMUM_ALTITUDE_RANGE.min || v > MINIMUM_ALTITUDE_RANGE.max)
+    return `Minimum altitude must be ${MINIMUM_ALTITUDE_RANGE.min} to ${MINIMUM_ALTITUDE_RANGE.max}°`
+  return ''
+}

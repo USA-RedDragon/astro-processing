@@ -8,6 +8,8 @@ import {
   flatsOptions,
   projectSettings,
   settingChanges,
+  minimumAltitudeError,
+  minimumTimeError,
   settingError,
   settingErrors,
   settingText,
@@ -143,5 +145,20 @@ describe('defaults', () => {
 
   it('keeps only the setting values', () => {
     expect(defaultValues(d)).toEqual(vals)
+  })
+})
+
+describe('minimum time and altitude', () => {
+  it('takes the plugin edit ranges', () => {
+    expect(minimumTimeError(1)).toBe('')
+    expect(minimumTimeError(1440)).toBe('')
+    expect(minimumTimeError(0)).toMatch(/1 to 1440/)
+    expect(minimumTimeError(1441)).toMatch(/1 to 1440/)
+    expect(minimumTimeError(30.5)).toMatch(/whole number/)
+    expect(minimumTimeError(NaN)).toMatch(/1 to 1440/)
+    expect(minimumAltitudeError(0)).toBe('')
+    expect(minimumAltitudeError(90)).toBe('')
+    expect(minimumAltitudeError(91)).toMatch(/0 to 90/)
+    expect(minimumAltitudeError(NaN)).toMatch(/0 to 90/)
   })
 })
