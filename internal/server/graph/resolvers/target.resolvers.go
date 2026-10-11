@@ -75,6 +75,9 @@ func (r *queryResolver) Target(ctx context.Context, id int) (*model.Target, erro
 	db := r.db.WithContext(ctx)
 	var target targetscheduler.Target
 	if err := db.First(&target, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return target.GraphQL(), nil

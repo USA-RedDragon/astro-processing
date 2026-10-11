@@ -32,3 +32,23 @@ func TestTargetWithoutProjectHasNoProject(t *testing.T) {
 		}
 	}
 }
+
+func TestMissingTargetOrProjectIsNull(t *testing.T) {
+	t.Parallel()
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sqlDB, _ := db.DB()
+	sqlDB.SetMaxOpenConns(1)
+	if err := db.AutoMigrate(&targetscheduler.Project{}, &targetscheduler.Target{}); err != nil {
+		t.Fatal(err)
+	}
+	r := &queryResolver{&Resolver{db: db}}
+	if tg, err := r.Target(context.Background(), 999999); err != nil || tg != nil {
+		t.Errorf("target: %+v, %v", tg, err)
+	}
+	if p, err := r.Project(context.Background(), 999999); err != nil || p != nil {
+		t.Errorf("project: %+v, %v", p, err)
+	}
+}
