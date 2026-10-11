@@ -184,21 +184,6 @@ watch(q, () => {
   timer = setTimeout(search, 250)
 })
 
-function parseCoords(s: string): { ra: number; dec: number } | null {
-  const t = s.trim().replace(/[,]/g, ' ')
-  const dec2 = /^(\d+(?:\.\d+)?)\s+([+-−]?\d+(?:\.\d+)?)$/.exec(t)
-  if (dec2) return { ra: Number(dec2[1]), dec: Number(dec2[2].replace('−', '-')) }
-  const hms =
-    /^(\d{1,2})[h:\s](\d{1,2}(?:\.\d+)?)m?(?:[:\s]?(\d{1,2}(?:\.\d+)?)s?)?\s+([+-−])?(\d{1,2}(?:\.\d+)?)(?:[°d:\s](\d{1,2}(?:\.\d+)?))?/.exec(
-      t,
-    )
-  if (!hms) return null
-  const ra = (Number(hms[1]) + Number(hms[2]) / 60 + Number(hms[3] ?? 0) / 3600) * 15
-  const sign = hms[4] === '-' || hms[4] === '−' ? -1 : 1
-  const dec = sign * (Number(hms[5]) + Number(hms[6] ?? 0) / 60)
-  return { ra, dec }
-}
-
 let searchSeq = 0
 
 async function search() {
@@ -210,19 +195,10 @@ async function search() {
   const seq = ++searchSeq
   searching.value = true
   try {
-    const c = parseCoords(term)
-    let found: Hit[]
-    if (c) {
-      const objs = await api.get<CatalogObject[]>(
-        '/catalog/cone' + query({ ra: c.ra, dec: c.dec, radius: 1 }),
-      )
-      found = objs.slice(0, 40).map((o) => ({ object: o, how: 'coordinates' }))
-    } else {
-      const ms = await api.get<{ object: CatalogObject; how: string }[]>(
-        '/catalog/search' + query({ q: term, limit: 40 }),
-      )
-      found = ms.map((m) => ({ object: m.object, how: m.how }))
-    }
+    const ms = await api.get<{ object: CatalogObject; how: string }[]>(
+      '/catalog/search' + query({ q: term, limit: 40 }),
+    )
+    const found: Hit[] = ms.map((m) => ({ object: m.object, how: m.how }))
     if (seq !== searchSeq) return
     hits.value = found
     searchError.value = ''
