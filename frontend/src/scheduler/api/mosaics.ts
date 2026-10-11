@@ -1,7 +1,7 @@
 import { api, query } from './client'
 import { submitCommand } from './commands'
 import type { Rig as DiscoverRig } from './discover'
-import type { ObjectLink } from './planning'
+import { r1, type ObjectLink } from './planning'
 
 export interface SkyPoint {
   ra: number
@@ -453,4 +453,35 @@ export function meanCentre(points: SkyPoint[]): SkyPoint {
   const ra = (Math.atan2(y, x) / deg + 360) % 360
   const dec = Math.atan2(z, Math.hypot(x, y)) / deg
   return { ra, dec }
+}
+
+export interface SeamSeverity {
+  severity: number
+  value: string
+}
+
+export function seamSeverity(s: Seam, L: SeamLimits | null): SeamSeverity {
+  const noise = {
+    severity: s.noiseRatio / (L?.noiseRatio ?? 1),
+    value: s.noiseRatio ? r1(s.noiseRatio) + '× noise' : '—',
+  }
+  if (!L) return { severity: s.ok ? 0 : 1, value: noise.value }
+  const parts: SeamSeverity[] = [
+    noise,
+    { severity: s.level / L.levelSigma, value: s.level.toFixed(2) + 'σ level' },
+    { severity: s.step / L.stepSigma, value: s.step.toFixed(2) + 'σ step' },
+  ]
+  if (s.samples < L.minBlocks)
+    parts.push({ severity: L.minBlocks / Math.max(1, s.samples), value: s.samples + ' blocks' })
+  if ((s.starMatches ?? 0) >= L.minStarMatches && s.registrationP90Px != null)
+    parts.push({
+      severity: s.registrationP90Px / L.registrationP90Px,
+      value: s.registrationP90Px.toFixed(2) + ' px p90',
+    })
+  if (s.colourMismatch != null)
+    parts.push({
+      severity: Math.abs(s.colourMismatch) / L.colourMismatch,
+      value: (s.colourMismatch >= 0 ? '+' : '') + Math.round(s.colourMismatch * 100) + '% colour',
+    })
+  return parts.reduce((a, b) => (b.severity > a.severity ? b : a))
 }

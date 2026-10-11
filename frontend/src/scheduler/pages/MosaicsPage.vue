@@ -11,6 +11,7 @@ import {
   listAdoptions,
   listMosaics,
   mosaicPreviews,
+  seamSeverity,
   setBalancing,
   project,
   meanCentre,
@@ -20,7 +21,6 @@ import {
   type MosaicPanel,
   type MosaicSummary,
   type PanelFilter,
-  type Seam,
   type SeamLimits,
   type SeasonPlan,
   type SkyPoint,
@@ -432,20 +432,6 @@ interface SeamRow {
 
 const limits = computed<SeamLimits | null>(() => detail.value?.seamLimits ?? null)
 
-function severity(s: Seam, L: SeamLimits | null): number {
-  if (!L) return s.ok ? 0 : 1
-  const parts = [
-    s.noiseRatio / L.noiseRatio,
-    s.level / L.levelSigma,
-    s.step / L.stepSigma,
-    s.samples < L.minBlocks ? L.minBlocks / Math.max(1, s.samples) : 0,
-  ]
-  if ((s.starMatches ?? 0) >= L.minStarMatches && s.registrationP90Px != null)
-    parts.push(s.registrationP90Px / L.registrationP90Px)
-  if (s.colourMismatch != null) parts.push(Math.abs(s.colourMismatch) / L.colourMismatch)
-  return Math.max(...parts)
-}
-
 const seamRows = computed<SeamRow[]>(() => {
   const d = detail.value
   if (!d) return []
@@ -455,8 +441,7 @@ const seamRows = computed<SeamRow[]>(() => {
   return (d.seams ?? [])
     .map((s) => ({
       pair: `Panel ${s.panelA} ↔ Panel ${s.panelB} · ${s.filter}`,
-      severity: severity(s, L),
-      value: s.noiseRatio ? r1(s.noiseRatio) + '×' : '—',
+      ...seamSeverity(s, L),
       detail: [
         `level ${s.level.toFixed(2)}σ`,
         `step ${s.step.toFixed(2)}σ`,
