@@ -2,9 +2,9 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { submitCommand, type CommandRecord } from '../api/commands'
-import { onEvent, onReconnect } from '../api/events'
+import { onEvent } from '../api/events'
 import { onChange } from '@/lib/events'
-import { onReconnectOrUrlsAging, samePicture } from '@/lib/signedUrls'
+import { onUrlsAging, samePicture } from '@/lib/signedUrls'
 import {
   getConditions,
   getMoon,
@@ -158,10 +158,9 @@ onMounted(() => {
     onEvent('command', (e: { data?: CommandRecord }) => {
       if (e.data?.status === 'applied') loadPreview()
     }),
-    onReconnect(soon),
     onChange(['acquiredimage'], soon),
     onChange(['project', 'target', 'exposureplan'], loadPreview, 10000),
-    onReconnectOrUrlsAging(soon),
+    onUrlsAging(soon),
   )
   window.addEventListener('keydown', onKey)
 })
