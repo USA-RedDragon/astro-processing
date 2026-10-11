@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { CommandRecord } from '@/scheduler/api/commands'
 import type { PlanBlock, Preview, SchedProject, TonightSub } from '@/scheduler/api/scheduler'
 import {
+  angleText,
   addChange,
   decDm,
   editsFor,
@@ -127,6 +128,17 @@ describe('coordinates and numbers', () => {
     expect(median([3, 1, 2])).toBe(2)
     expect(median([1, 2, 3, 4])).toBe(2.5)
     expect(median([])).toBeNull()
+  })
+})
+
+describe('angles', () => {
+  it('wraps angles that round up to a full turn', () => {
+    expect(angleText(359.95123)).toBe('0.0°')
+    expect(angleText(359.94)).toBe('359.9°')
+    expect(angleText(-0.04)).toBe('0.0°')
+    expect(angleText(-90)).toBe('270.0°')
+    expect(angleText(359.7, 0)).toBe('0°')
+    expect(angleText(12.34)).toBe('12.3°')
   })
 })
 

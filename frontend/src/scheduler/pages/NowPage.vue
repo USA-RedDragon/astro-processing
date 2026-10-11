@@ -16,6 +16,7 @@ import {
 } from '../api/scheduler'
 import { clock, hm, longDate, mmss, nightOf } from '../format'
 import {
+  angleText,
   capitalise,
   contribution,
   decDm,
@@ -355,14 +356,11 @@ const facts = computed(() => {
   if (r && hasData(r) && r.connected !== false && r.position !== undefined)
     out.push({
       label: 'Rotator',
-      value: r.position.toFixed(1) + '°',
-      note:
-        t?.rotation !== undefined && t.rotation !== null
-          ? 'target asks ' + t.rotation.toFixed(1) + '°'
-          : '',
+      value: angleText(r.position),
+      note: t?.rotation !== undefined && t.rotation !== null ? 'target asks ' + angleText(t.rotation) : '',
     })
   else if (t?.rotation !== undefined && t.rotation !== null)
-    out.push({ label: 'Rotation', value: t.rotation.toFixed(1) + '°', note: 'from the target' })
+    out.push({ label: 'Rotation', value: angleText(t.rotation), note: 'from the target' })
   const cam = c?.camera
   if (cam && hasData(cam) && cam.connected !== false && cam.temperature !== undefined)
     out.push({
@@ -746,7 +744,7 @@ const cross = (x: number, y: number, r: number) =>
                   >Dec {{ decDm(target.dec_degrees) }} ·
                 </template>
                 <template v-if="target.rotation !== undefined && target.rotation !== null"
-                  >rotation {{ target.rotation.toFixed(0) }}°</template
+                  >rotation {{ angleText(target.rotation, 0) }}</template
                 >
               </p>
             </div>

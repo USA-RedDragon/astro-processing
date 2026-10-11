@@ -103,6 +103,12 @@ export function decDm(deg?: number | null): string {
   return `${sign}${String(d).padStart(2, '0')}° ${String(m).padStart(2, '0')}′`
 }
 
+export function angleText(deg: number, digits = 1): string {
+  const f = 10 ** digits
+  const v = Math.round((((deg % 360) + 360) % 360) * f) / f
+  return (v >= 360 ? 0 : v).toFixed(digits) + '°'
+}
+
 export function duration(seconds: number): string {
   const mins = Math.round(Math.max(0, seconds) / 60)
   const h = Math.floor(mins / 60)
