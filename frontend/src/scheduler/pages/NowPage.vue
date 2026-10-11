@@ -121,6 +121,15 @@ let conditionsTimer: ReturnType<typeof setInterval> | undefined
 let debounce: ReturnType<typeof setTimeout> | undefined
 const offs: (() => void)[] = []
 
+// tonights reloads the subs when an event is about a target imaged
+// tonight or the one being imaged; the stacker also works through older
+// targets' lights.
+function tonights(e: { object?: string }) {
+  const names = new Set(allSubs.value.map((x) => x.target))
+  if (target.value) names.add(target.value.target_name)
+  if (!e.object || names.has(e.object)) soon()
+}
+
 function soon() {
   if (debounce) clearTimeout(debounce)
   debounce = setTimeout(loadSubs, 3000)
@@ -144,8 +153,8 @@ onMounted(() => {
   previewTimer = setInterval(loadPreview, 300000)
   offs.push(
     onEvent('frames', soon),
-    onEvent('preview', soon),
-    onEvent('subs', soon),
+    onEvent('preview', tonights),
+    onEvent('subs', tonights),
     onEvent('command', (e: { data?: CommandRecord }) => {
       if (e.data?.status === 'applied') loadPreview()
     }),

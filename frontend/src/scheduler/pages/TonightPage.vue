@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { editEntity } from '../api/commands'
 import {
@@ -67,6 +67,8 @@ import {
   timelineScrollLeft,
 } from '../nowtonight'
 import { getPlanning, type Snapshot } from '../api/planning'
+import { onEvent } from '../api/events'
+import { onChange } from '@/lib/events'
 import { flatsTile, moonTile, mosaicTile } from '../tonightTiles'
 
 const night = ref<Night>('tonight')
@@ -75,7 +77,7 @@ const error = ref('')
 const loading = ref(false)
 const previewReq = latestOnly()
 
-async function load(fresh = false) {
+async function load(fresh = false, live = false) {
   const current = previewReq.next()
   loading.value = true
   try {
@@ -90,7 +92,7 @@ async function load(fresh = false) {
         sub: "The plan now reflects the scheduler's current state.",
       })
   } catch (e) {
-    if (!current()) return
+    if (!current() || live) return
     preview.value = null
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -163,12 +165,30 @@ async function loadWeights() {
   }
 }
 
+// The plan follows the scheduler's tables and applied commands; a failed
+// live reload keeps the plan on screen.
+function reloadLive() {
+  load(false, true)
+  loadProjects()
+  loadPlanning()
+}
+
+const offLive: (() => void)[] = []
+
 onMounted(() => {
   load()
   loadProjects()
   loadPlanning()
   loadWeights()
+  offLive.push(
+    onChange(['project', 'target', 'exposureplan', 'acquiredimage'], reloadLive, 15000),
+    onEvent('command', (e: { data?: { status?: string } }) => {
+      if (e.data?.status === 'applied') reloadLive()
+    }),
+  )
 })
+
+onUnmounted(() => offLive.forEach((f) => f()))
 
 watch(night, () => {
   preview.value = null
