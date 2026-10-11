@@ -5,11 +5,7 @@
     </CardHeader>
     <CardContent class="space-y-3">
       <div v-if="loading" class="h-4 w-2/3 rounded bg-muted animate-pulse" />
-      <p v-else class="text-sm tabular-nums">
-        Lights with a flat from the same night: {{ sameNightFlats }} / {{ totalLights }}
-        &middot; with darks: {{ withDarks }} / {{ totalLights }}
-        &middot; with bias: {{ withBias }} / {{ totalLights }}
-      </p>
+      <p v-else class="text-sm tabular-nums">{{ summary }}</p>
       <div class="border rounded-md max-h-[60vh] overflow-auto">
         <UiTable>
           <TableHeader class="sticky top-0 bg-background">
@@ -76,7 +72,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import SkeletonRows from '@/components/SkeletonRows.vue';
-import { darkText, importedText, importedTitle, rowKey } from '@/lib/calibration';
+import { coverageSummary, darkText, importedText, importedTitle, rowKey } from '@/lib/calibration';
 import type { CalibrationMatch, CalibrationRow } from '../graphql/graphql';
 
 export default {
@@ -106,17 +102,8 @@ export default {
     },
   },
   computed: {
-    totalLights(): number {
-      return this.rows.reduce((t, r) => t + r.lights, 0);
-    },
-    sameNightFlats(): number {
-      return this.rows.filter((r) => r.flat.quality === 'EXACT').reduce((t, r) => t + r.lights, 0);
-    },
-    withDarks(): number {
-      return this.rows.filter((r) => r.dark.quality !== 'MISSING').reduce((t, r) => t + r.lights, 0);
-    },
-    withBias(): number {
-      return this.rows.filter((r) => r.bias.quality !== 'MISSING').reduce((t, r) => t + r.lights, 0);
+    summary(): string {
+      return coverageSummary(this.rows);
     },
   },
   methods: {

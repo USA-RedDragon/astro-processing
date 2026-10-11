@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CalibrationQuality, CalibrationSource } from '@/graphql/graphql'
-import { darkText, fmt, importedText, importedTitle, rowKey } from '@/lib/calibration'
+import { coverageSummary, darkText, fmt, importedText, importedTitle, rowKey } from '@/lib/calibration'
 
 describe('fmt', () => {
   it('uses a true minus sign and two decimals at most', () => {
@@ -47,5 +47,21 @@ describe('calibration row key', () => {
     const row = { night: '2024-12-21', filter: 'Blue', exposure: 300, gain: 0, set_temp: -20, rotator: 156 }
     expect(rowKey({ ...row, offset: 50 })).not.toBe(rowKey({ ...row, offset: 240 }))
     expect(rowKey({ ...row, offset: 50 })).toBe(rowKey({ ...row, offset: 50 }))
+  })
+})
+
+describe('calibration summary', () => {
+  it('counts only exact flats and says what exact means', () => {
+    const q = CalibrationQuality
+    const rows = [
+      { lights: 19, flat: { quality: q.Fallback }, dark: { quality: q.Fallback }, bias: { quality: q.Exact } },
+      { lights: 4, flat: { quality: q.Exact }, dark: { quality: q.Missing }, bias: { quality: q.Missing } },
+    ]
+    expect(coverageSummary(rows)).toBe(
+      'Lights with a flat from the same night, angle and gain: 4 / 23 · with darks: 19 / 23 · with bias: 19 / 23',
+    )
+    expect(coverageSummary([])).toBe(
+      'Lights with a flat from the same night, angle and gain: 0 / 0 · with darks: 0 / 0 · with bias: 0 / 0',
+    )
   })
 })

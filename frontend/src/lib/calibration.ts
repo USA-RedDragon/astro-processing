@@ -1,4 +1,5 @@
 import {
+  CalibrationQuality,
   CalibrationSource,
   type CalibrationBasis,
   type CalibrationMatch,
@@ -11,6 +12,24 @@ export function rowKey(
   r: Pick<CalibrationRow, 'night' | 'filter' | 'exposure' | 'gain' | 'offset' | 'set_temp' | 'rotator'>,
 ): string {
   return [r.night, r.filter, r.exposure, r.gain, r.offset, r.set_temp, r.rotator].join('|');
+}
+
+type SummaryRow = Pick<CalibrationRow, 'lights'> & {
+  flat: Pick<CalibrationMatch, 'quality'>;
+  dark: Pick<CalibrationMatch, 'quality'>;
+  bias: Pick<CalibrationMatch, 'quality'>;
+};
+
+export function coverageSummary(rows: SummaryRow[]): string {
+  const sum = (keep: (r: SummaryRow) => boolean) => rows.filter(keep).reduce((t, r) => t + r.lights, 0);
+  const total = sum(() => true);
+  const flats = sum((r) => r.flat.quality === CalibrationQuality.Exact);
+  const darks = sum((r) => r.dark.quality !== CalibrationQuality.Missing);
+  const bias = sum((r) => r.bias.quality !== CalibrationQuality.Missing);
+  return (
+    `Lights with a flat from the same night, angle and gain: ${flats} / ${total}` +
+    ` · with darks: ${darks} / ${total} · with bias: ${bias} / ${total}`
+  );
 }
 
 export function darkText(
