@@ -10,12 +10,11 @@ export function formatDate(timestamp: number): string {
   });
 }
 
-export function formatRA(ra: number): string {
-  // Convert decimal degrees to hours
-  const hours = ra / 15;
-  const h = Math.floor(hours);
-  const m = Math.floor((hours - h) * 60);
-  const s = Math.round(((hours - h) * 60 - m) * 60);
+export function formatRA(raHours: number): string {
+  const total = ((Math.round(raHours * 3600) % 86400) + 86400) % 86400;
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
   return `${h}h ${m}m ${s}s`;
 }
 
