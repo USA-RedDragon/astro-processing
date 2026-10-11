@@ -857,7 +857,7 @@ const cross = (x: number, y: number, r: number) =>
             ><template v-if="latest.preview_url"> · stretched preview</template>
           </span>
         </div>
-        <template v-if="latest">
+        <template v-if="latest || latestShown">
           <img
             v-if="latestShown"
             :src="latestShown.sub.preview_url"
@@ -892,7 +892,7 @@ const cross = (x: number, y: number, r: number) =>
           <p v-if="latestShown?.note" class="small muted" style="margin: 0">
             {{ latestShown.note }}
           </p>
-          <div class="spread" style="align-items: flex-start; gap: 1rem 1.5rem">
+          <div v-if="latest" class="spread" style="align-items: flex-start; gap: 1rem 1.5rem">
             <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
               <div style="font-weight: 600; font-size: 0.9375rem">
                 {{ latest.target }}

@@ -354,9 +354,29 @@ describe('latest sub image', () => {
     )
   })
 
-  it('shows nothing when no sub tonight has a preview', () => {
+  it('shows nothing when no sub of any night has a preview', () => {
     const latest = sub(5, 5, 18, 'H-a')
     expect(latestImage({ since: t(0), subs: [latest], latest })).toBeNull()
+    expect(latestImage({ since: t(0), subs: [] })).toBeNull()
     expect(latestImage(null)).toBeNull()
+  })
+
+  it('dates a preview from an earlier night', () => {
+    const latest = sub(5, 5, 18, 'H-a')
+    const lastNight = { ...older, id: 0, time: new Date(Date.UTC(2026, 9, 9, 8, 30)).toISOString() }
+    expect(
+      latestImage({ since: t(0), subs: [latest], latest, latest_preview: lastNight })?.note,
+    ).toBe(
+      'Showing the Fri 9 Oct 03:30 O-III sub of Garlic Nebula, the newest with a preview. The 00:18 H-a sub has not reached the stacker yet.',
+    )
+  })
+
+  it('shows the newest preview before the first sub of the night', () => {
+    const lastNight = { ...older, id: 0, time: new Date(Date.UTC(2026, 9, 9, 8, 30)).toISOString() }
+    const got = latestImage({ since: t(0), subs: [], latest_preview: lastNight })
+    expect(got?.sub).toBe(lastNight)
+    expect(got?.note).toBe(
+      'No subs yet tonight. Showing the Fri 9 Oct 03:30 O-III sub of Garlic Nebula, the newest with a preview.',
+    )
   })
 })

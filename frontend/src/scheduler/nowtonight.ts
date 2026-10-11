@@ -466,17 +466,23 @@ export interface LatestImage {
 }
 
 export function latestImage(subs: TonightSubs | null | undefined): LatestImage | null {
-  const latest = subs?.latest
-  if (!latest) return null
-  if (latest.preview_url) return { sub: latest, note: '' }
+  if (!subs) return null
+  const latest = subs.latest
+  if (latest?.preview_url) return { sub: latest, note: '' }
   const shown = subs.latest_preview
-  if (!shown?.preview_url || shown.id === latest.id) return null
+  if (!shown?.preview_url || shown.id === latest?.id) return null
+  const when =
+    new Date(shown.time).getTime() < new Date(subs.since).getTime()
+      ? `${shortDate(shown.time)} ${hm(shown.time)}`
+      : hm(shown.time)
+  const showing = `Showing the ${when} ${filterName(shown.filter)} sub of ${shown.target}, the newest with a preview.`
+  if (!latest) return { sub: shown, note: `No subs yet tonight. ${showing}` }
   const of = latest.target !== shown.target ? ` of ${latest.target}` : ''
   const stage = latest.indexed
     ? 'is in the stacker, but its preview is not made yet'
     : 'has not reached the stacker yet'
   return {
     sub: shown,
-    note: `Showing the ${hm(shown.time)} ${filterName(shown.filter)} sub of ${shown.target}, the newest with a preview. The ${hm(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
+    note: `${showing} The ${hm(latest.time)} ${filterName(latest.filter)} sub${of} ${stage}.`,
   }
 }
