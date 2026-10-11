@@ -55,8 +55,8 @@
               <span class="text-muted-foreground tabular-nums">{{ m.subs }} subs</span>
             </div>
             <div class="tabular-nums">
-              {{ m.effective_hours.toFixed(1) }} h effective
-              <span class="text-muted-foreground">&middot; {{ m.exposure_hours.toFixed(1) }} h total</span>
+              {{ formatExposure(m.effective_hours) }} effective
+              <span class="text-muted-foreground">&middot; {{ formatExposure(m.exposure_hours) }} total</span>
             </div>
             <div v-if="m.lowest_score != null" class="text-xs text-muted-foreground tabular-nums">
               {{ m.subs }} subs, scores &ge; {{ m.lowest_score.toFixed(2) }} as stacked
@@ -119,6 +119,7 @@ import type { PropType } from 'vue';
 import { LoaderCircle } from 'lucide-vue-next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/formatters';
+import { formatExposure } from '@/lib/exposure';
 import type { FilterMaster } from '../graphql/graphql';
 
 export default {
@@ -177,6 +178,7 @@ export default {
   },
   methods: {
     formatDate,
+    formatExposure,
   },
 };
 </script>
