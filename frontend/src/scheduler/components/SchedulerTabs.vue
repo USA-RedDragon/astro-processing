@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/formatters'
 import {
   filterColor,
   filterHeadline,
+  filterPlateau,
   getProject,
   getStacks,
   goalTiming,
@@ -17,6 +18,8 @@ import {
   objectLinkText,
   pct,
   planCountText,
+  plateauTitle,
+  plateauWhere,
   r1,
   r2,
   seasonLabel,
@@ -52,6 +55,7 @@ import {
 import { errorToast, exposureEnd, notifyCommand, shell, whenApplies } from '../shell'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
+import PlateauLine from './PlateauLine.vue'
 import { api, query } from '../api/client'
 
 interface GoalMaskInfo {
@@ -910,6 +914,7 @@ function numInput(e: Event): number {
                     }"
                   />
                 </div>
+                <PlateauLine :plateau="filterPlateau(fg)" :rollup="false" />
                 <div class="spread xsmall muted num">
                   <span
                     >{{ fgLine(fg) }}<span v-if="fg.measurement?.gainPerHourPct != null">
@@ -969,6 +974,11 @@ function numInput(e: Event): number {
           >
             <span class="small" style="max-width: 60ch">
               <template v-if="target && goals.length">{{ leastText(target.least) }}.</template>
+              <template v-if="target?.least?.plateau && goals.length">
+                <span :title="plateauTitle(target.least.plateau)" style="color: var(--plateau)">
+                  Furthest from its plateau: {{ plateauWhere(target.least.plateau) }}.</span
+                ></template
+              >
             </span>
             <div class="row">
               <button

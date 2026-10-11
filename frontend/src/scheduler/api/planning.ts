@@ -17,6 +17,13 @@ export interface Goal {
   region?: Point[]
 }
 
+export interface Plateau {
+  hours: number | null
+  progress: number | null
+  unmeasured?: string
+  gainPct: number
+}
+
 export interface Progress {
   object: string
   filter: string
@@ -31,6 +38,7 @@ export interface Progress {
   hoursNeeded: number
   gainPerHourPct: number
   plateau: boolean
+  plateauAt?: Plateau
   lowConfidence: boolean
   lowReason?: string
   unmeasured?: string
@@ -65,6 +73,7 @@ export interface Measurement {
   heldOutErrPct: number | null
   gainPerHourPct: number | null
   plateau: boolean
+  plateauAt?: Plateau
   depth: number | null
   depthBand?: string
   depthApprox: boolean
@@ -99,6 +108,21 @@ export interface FilterGoal {
   enough: boolean
   goalProgress: number | null
   notMeasured?: string
+  plateauAt?: Plateau
+}
+
+export interface LeastPlateau {
+  progress: number | null
+  hours: number | null
+  effectiveHours?: number
+  gainPerHourPct?: number | null
+  target?: string
+  filter?: string
+  panel?: number
+  notMeasured?: string
+  unmeasured?: number
+  filters?: number
+  gainPct: number
 }
 
 export interface Least {
@@ -109,6 +133,7 @@ export interface Least {
   notMeasured?: string
   unmeasured: number
   filters: number
+  plateau?: LeastPlateau
 }
 
 export interface Plan {
@@ -723,4 +748,91 @@ export function goalTiming(fg: FilterGoal, version?: string): string {
   if (p.done) return p.progress >= 1 ? 'goal met' : 'plateau reached'
   if (p.hoursNeeded < 0) return 'time needed unknown'
   return `≈ ${r1(p.hoursNeeded)} h more at √t`
+}
+
+export function plateauLabel(p: Pick<LeastPlateau, 'progress' | 'hours'> | null | undefined): string {
+  if (!p || p.progress === null || p.progress === undefined) return 'plateau not measured yet'
+  if (p.progress >= 1) return 'plateau reached'
+  if (p.hours === null || p.hours === undefined) return 'plateau not measured yet'
+  return `plateau at ~${r1(p.hours)} h, ${floorPct(p.progress)} there`
+}
+
+export function plateauWho(p: Pick<LeastPlateau, 'filter' | 'target' | 'panel'>, mosaic = false): string {
+  const panel = p.panel
+    ? `Panel ${p.panel}`
+    : mosaic && p.target
+      ? (/(Panel\s*\d+)\s*$/i.exec(p.target)?.[1] ?? '')
+      : ''
+  return [panel, p.filter].filter(Boolean).join(' ')
+}
+
+export function plateauRollupLabel(p: LeastPlateau | null | undefined, mosaic = false): string {
+  if (!p || (!p.filters && p.progress === null && !p.filter)) return ''
+  const who = plateauWho(p, mosaic)
+  return who ? `${who} ${plateauLabel(p)}` : plateauLabel(p)
+}
+
+export function sqrtLimitHours(gainPct: number): number {
+  const q = (1 - gainPct / 100) ** 2
+  return q / (1 - q)
+}
+
+export function plateauWhere(p: LeastPlateau | null | undefined, mosaic = false): string {
+  if (!p) return ''
+  const who = plateauWho(p, mosaic)
+  const what =
+    p.progress === null || p.progress === undefined || p.hours === null || p.hours === undefined
+      ? p.progress !== null && p.progress !== undefined && p.progress >= 1
+        ? 'reached'
+        : 'not measured yet'
+      : p.progress >= 1
+        ? 'reached'
+        : `at ~${r1(p.hours)} h, ${floorPct(p.progress)} there`
+  return who ? `${who} ${what}` : what
+}
+
+export function plateauRule(gainPct: number): string {
+  return (
+    `The plateau is where one more hour lowers the measured noise by under ${gainPct}%, the rule the plateau stop uses. ` +
+    'It is estimated from the noise fit σ(t) = √(a²/t + b²) over the stack\'s draw levels: ' +
+    `with no noise floor (b = 0) it falls at ${r1(sqrtLimitHours(gainPct))} h, and a floor brings it earlier. ` +
+    'The line is effective hours over the estimated plateau hours.'
+  )
+}
+
+export function plateauTitle(p: LeastPlateau | null | undefined, mosaic = false, rollup = true): string {
+  if (!p) return ''
+  const who = plateauWho(p, mosaic)
+  const rule = plateauRule(p.gainPct)
+  if (p.progress === null || p.progress === undefined) {
+    const why = p.notMeasured ? `: ${p.notMeasured}` : ''
+    return `Plateau not measured yet${who ? ' for ' + who : ''}${why}. ${rule}`
+  }
+  const parts: string[] = []
+  const lead = rollup && who ? `${who} is furthest from its plateau` : who ? `${who} plateau` : 'Plateau'
+  if (p.progress >= 1) parts.push(`${lead}: reached.`)
+  else if (p.hours !== null && p.hours !== undefined)
+    parts.push(`${lead}: estimated at ~${r1(p.hours)} h effective, ${floorPct(p.progress)} of the way there.`)
+  const now: string[] = []
+  if (p.effectiveHours) now.push(`${r1(p.effectiveHours)} h effective now`)
+  if (p.gainPerHourPct !== null && p.gainPerHourPct !== undefined)
+    now.push(`one more hour lowers the noise by ${r1(p.gainPerHourPct)}%`)
+  if (now.length) parts.push(now.join('; ') + '.')
+  if (rollup && p.unmeasured) parts.push(`${p.unmeasured} filter${p.unmeasured === 1 ? '' : 's'} not measured.`)
+  parts.push(rule)
+  return parts.join(' ')
+}
+
+export function filterPlateau(fg: FilterGoal): LeastPlateau | null {
+  const p = fg.plateauAt
+  if (!p) return null
+  return {
+    progress: p.progress,
+    hours: p.hours,
+    effectiveHours: fg.measurement?.effectiveHours,
+    gainPerHourPct: fg.measurement?.gainPerHourPct ?? null,
+    filter: fg.filter,
+    notMeasured: p.unmeasured,
+    gainPct: p.gainPct,
+  }
 }

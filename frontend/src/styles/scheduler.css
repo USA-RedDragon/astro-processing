@@ -22,6 +22,8 @@
   --day: oklch(0.552 0.016 285.938);
   --violet: oklch(0.5 0.22 303.9);
   --violet-bg: oklch(0.627 0.265 303.9 / 0.16);
+  --plateau: oklch(0.5 0.22 303.9);
+  --plateau-track: oklch(0.627 0.265 303.9 / 0.18);
   --done: oklch(0.62 0.14 162);
   --prog: oklch(0.62 0.14 264);
   --prog-bg: oklch(0.62 0.14 264 / 0.28);
@@ -53,6 +55,8 @@
   --info: oklch(0.72 0.14 264);
   --day: oklch(0.705 0.015 286.067);
   --violet: oklch(0.72 0.18 303.9);
+  --plateau: oklch(0.74 0.17 303.9);
+  --plateau-track: oklch(0.72 0.18 303.9 / 0.24);
   --neb: oklch(0.62 0.15 20);
   --bar-off: oklch(0.35 0.01 286);
   --prog-stripe: oklch(0.42 0.17 264 / 0.75);

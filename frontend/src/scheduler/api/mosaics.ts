@@ -1,7 +1,7 @@
 import { api, query } from './client'
 import { submitCommand } from './commands'
 import type { Rig as DiscoverRig } from './discover'
-import { r1, type ObjectLink } from './planning'
+import { r1, type LeastPlateau, type ObjectLink, type Plateau } from './planning'
 
 export interface SkyPoint {
   ra: number
@@ -108,6 +108,7 @@ export interface PanelFilter {
   lowConfidence?: boolean
   measured: boolean
   notMeasured?: string
+  plateauAt?: Plateau
 }
 
 export interface MosaicPanel {
@@ -127,6 +128,7 @@ export interface MosaicPanel {
   progress: number | null
   weakest: string
   pastGoal: boolean
+  plateau?: LeastPlateau
 }
 
 export interface Seam {
@@ -225,6 +227,7 @@ export interface MosaicDetail {
   weakestPanel: number
   weakestFilter: string
   notMeasured?: string
+  plateau?: LeastPlateau
   effectiveHours: number
   hoursLeft: HoursLeft
   balancing: {
@@ -253,6 +256,7 @@ export interface MosaicSummary {
   weakestPanel: number
   weakestFilter: string
   notMeasured?: string
+  plateau?: LeastPlateau
   seamWarnings: number
   balancing: boolean
 }

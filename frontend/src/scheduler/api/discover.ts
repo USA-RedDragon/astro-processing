@@ -1,6 +1,7 @@
 import { api, query } from './client'
 import { submitCommand, type CommandRecord } from './commands'
 import { SITE_TZ } from '../format'
+import { plateauRollupLabel, plateauTitle, type LeastPlateau } from './planning'
 
 export interface CatalogObject {
   id: string
@@ -106,6 +107,7 @@ export interface Progress {
   leastFilter?: string
   notMeasured?: string
   enough: boolean
+  plateau?: LeastPlateau
 }
 
 export interface Tally {
@@ -171,6 +173,32 @@ export function progressText(e: Pick<CatalogueEntry, 'status' | 'progress'>): st
   if (p.percent === null)
     return `needs more · ${f} not measured yet${p.notMeasured ? ` (${p.notMeasured})` : ''}`
   return `${floorPct(p.percent)} · ${f} least complete`
+}
+
+const PLATEAU_STATUSES: Completion[] = ['in-progress', 'measuring', 'done']
+
+function entryPlateau(e: Pick<CatalogueEntry, 'status' | 'progress'>): LeastPlateau | null {
+  if (!PLATEAU_STATUSES.includes(e.status)) return null
+  const p = e.progress?.plateau
+  if (!p || (!p.filters && (p.progress === null || p.progress === undefined))) return null
+  return p
+}
+
+export function plateauFill(e: Pick<CatalogueEntry, 'status' | 'progress'>): number | null {
+  const p = entryPlateau(e)
+  if (!p || p.progress === null || p.progress === undefined) return null
+  return Math.min(1, Math.max(0, p.progress))
+}
+
+export function plateauText(e: Pick<CatalogueEntry, 'status' | 'progress'>): string {
+  const p = entryPlateau(e)
+  return p ? plateauRollupLabel(p) : ''
+}
+
+export function plateauHint(e: Pick<CatalogueEntry, 'status' | 'progress'>): string {
+  const p = entryPlateau(e)
+  if (!p) return ''
+  return (p.target ? `${p.target}: ` : '') + plateauTitle(p)
 }
 
 export function mastersText(t: Pick<Tally, 'filters' | 'measured' | 'short'>): string {

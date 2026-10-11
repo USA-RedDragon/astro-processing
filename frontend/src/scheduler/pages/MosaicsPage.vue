@@ -28,7 +28,19 @@ import {
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
 import { errorToast, notifyCommand } from '../shell'
-import { filterColor, floorPct, objectLinkText, pct, r1 } from '../api/planning'
+import {
+  filterColor,
+  floorPct,
+  objectLinkText,
+  pct,
+  plateauLabel,
+  plateauRollupLabel,
+  plateauTitle,
+  r1,
+  type LeastPlateau,
+} from '../api/planning'
+import { plateauCaption } from '../leastCards'
+import PlateauLine from '../components/PlateauLine.vue'
 import { filterShort } from '../plan'
 import { MONTHS } from '../api/discover'
 import { shortDate } from '../format'
@@ -139,11 +151,46 @@ function pf(p: MosaicPanel, f: string): PanelFilter | undefined {
   return (p.filters ?? []).find((x) => x.filter === f)
 }
 
-function mosaicListProgress(m: MosaicSummary): string {
+function mosaicListGoal(m: MosaicSummary): string {
   if (!m.weakestPanel) return 'no data yet'
   if (m.complete === null) return `Panel ${m.weakestPanel} ${m.weakestFilter} not measured`
   if (m.complete >= 1) return 'enough data'
   return `${floorPct(m.complete)} · Panel ${m.weakestPanel} ${m.weakestFilter} least complete`
+}
+
+function mosaicListProgress(m: MosaicSummary): string {
+  const goal = mosaicListGoal(m)
+  if (!m.weakestPanel || !m.plateau) return goal
+  return `${goal} · ${plateauRollupLabel(m.plateau, true)}`
+}
+
+function panelFilterPlateau(p: MosaicPanel, f: PanelFilter): LeastPlateau | null {
+  const a = f.plateauAt
+  if (!a) return null
+  return {
+    progress: a.progress,
+    hours: a.hours,
+    effectiveHours: f.effectiveHours,
+    panel: p.number,
+    filter: f.filter,
+    notMeasured: a.unmeasured,
+    gainPct: a.gainPct,
+  }
+}
+
+function tilePlateau(p: MosaicPanel): { text: string; title: string; fill: number | null } | null {
+  const pl = p.plateau
+  if (!pl || !(p.filters ?? []).length) return null
+  const measured = pl.progress !== null && pl.progress !== undefined
+  const pctv = measured ? Math.floor(Math.max(0, Math.min(1, pl.progress!)) * 100) : null
+  const per = (p.filters ?? [])
+    .map((f) => `${f.filter} ${plateauLabel(panelFilterPlateau(p, f))}`)
+    .join('; ')
+  return {
+    text: `${pl.filter ? filterShort(pl.filter) + ' ' : ''}${plateauCaption(pctv)}`,
+    title: `${plateauTitle(pl, true)} Per filter: ${per}.`,
+    fill: measured ? Math.max(0, Math.min(1, pl.progress!)) : null,
+  }
 }
 
 function shown(p: MosaicPanel): PanelFilter | undefined {
@@ -246,6 +293,7 @@ const tiles = computed(() => {
       label:
         (filter.value === 'weakest' ? 'Weakest: ' + (p.weakest || '—') : filter.value) +
         (weakest ? ' · holds the mosaic back' : p.pastGoal ? ' · past its goal' : ''),
+      plateau: tilePlateau(p),
       bars: (p.filters ?? []).map((f) => ({
         f: f.filter,
         w: floorPct(fValue(f) ?? 0),
@@ -832,6 +880,7 @@ const tabs = computed<[Tab, string][]>(() => [
           <div class="xsmall muted">Mosaic complete, weakest panel</div>
           <div class="big num">{{ stats.complete }}</div>
           <div class="xsmall">{{ stats.completeNote }}</div>
+          <PlateauLine v-if="detail.plateau && panels.length" class="mt" :plateau="detail.plateau" mosaic />
         </div>
         <div class="stat">
           <div class="xsmall muted">Average panel</div>
@@ -893,7 +942,7 @@ const tabs = computed<[Tab, string][]>(() => [
               type="button"
               class="tile"
               :style="t.style"
-              :aria-label="`Panel ${t.p.number}, ${t.label}, ${metric(t.x)}`"
+              :aria-label="`Panel ${t.p.number}, ${t.label}, ${metric(t.x)}${t.plateau ? ', ' + t.plateau.text : ''}`"
               @click="openPanel(t.p)"
             >
               <span class="spread" style="width: 100%"
@@ -910,12 +959,23 @@ const tabs = computed<[Tab, string][]>(() => [
                   <span class="val">{{ b.v }}</span>
                 </span>
               </span>
+              <span v-if="t.plateau" class="pchip" :title="t.plateau.title" data-testid="tile-plateau">
+                <span class="pchip-track" :class="{ unmeasured: t.plateau.fill === null }"
+                  ><span
+                    v-if="t.plateau.fill !== null"
+                    :style="{ width: (t.plateau.fill * 100).toFixed(1) + '%' }"
+                /></span>
+                <span class="pchip-text">{{ t.plateau.text }}</span>
+              </span>
             </button>
           </div>
           <div class="row xsmall muted" style="gap: 0.75rem">
             <span
               >Progress is each filter's measured progress toward its goal. A filter with no goal
-              measurement yet reads as not measured, and a plateau stop counts as enough data.</span
+              measurement yet reads as not measured, and a plateau stop counts as enough data.
+              The violet line is the panel's filter furthest from its plateau: effective hours over
+              the hours at which one more hour lowers the noise by under
+              {{ detail.plateau?.gainPct ?? '…' }}%, estimated from the noise fit.</span
             >
             <span v-if="weakestPanels.size" class="row" style="gap: 0.375rem"
               ><span class="swatch" /> Holds the mosaic back</span
@@ -1370,6 +1430,37 @@ const tabs = computed<[Tab, string][]>(() => [
       'lab val'
       'track track';
   }
+}
+.pchip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  width: 100%;
+  padding: 0.125rem 0.375rem 0.1875rem;
+  border-radius: 0.25rem;
+  background: var(--card);
+  color: var(--plateau);
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  text-align: left;
+}
+.pchip-track {
+  display: block;
+  height: 0.1875rem;
+  border-radius: 999px;
+  background: var(--plateau-track);
+  overflow: hidden;
+}
+.pchip-track.unmeasured {
+  background: repeating-linear-gradient(90deg, var(--plateau-track) 0 4px, transparent 4px 7px);
+}
+.pchip-track > span {
+  display: block;
+  height: 100%;
+  background: var(--plateau);
+}
+.mt {
+  margin-top: 0.375rem;
 }
 .track {
   height: 0.375rem;

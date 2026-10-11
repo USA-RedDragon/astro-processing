@@ -3,6 +3,8 @@ import {
   leastRank,
   leastText,
   leastValue,
+  plateauTitle,
+  plateauWhere,
   type Least,
   type Project,
   type Snapshot,
@@ -16,6 +18,29 @@ export interface CardCircle {
   percent: number | null
   caption: string
   title: string
+  plateau?: CardPlateau
+}
+
+export interface CardPlateau {
+  percent: number | null
+  text: string
+  title: string
+}
+
+export function plateauCaption(percent: number | null): string {
+  if (percent === null) return 'plateau not measured'
+  return percent >= 100 ? 'plateau reached' : `${percent}% to plateau`
+}
+
+export function cardPlateau(l: Least | null | undefined, mosaic = false): CardPlateau | undefined {
+  const p = l?.plateau
+  if (!l?.filters || !p) return undefined
+  const measured = p.progress !== null && p.progress !== undefined
+  return {
+    percent: measured ? Math.floor(Math.max(0, Math.min(1, p.progress!)) * 100) : null,
+    text: plateauWhere(p, mosaic),
+    title: plateauTitle(p, mosaic),
+  }
 }
 
 export function cardCircle(l: Least | null | undefined, state: PlanningState, mosaic = false): CardCircle {
@@ -39,11 +64,12 @@ export function cardCircle(l: Least | null | undefined, state: PlanningState, mo
   const f = panel && l.filter ? `${panel} ${l.filter}` : l.filter
   if (!l.filters) return { show: true, percent: null, caption: 'no enabled exposure plans', title }
   const v = leastValue(l)
-  if (l.enough) return { show: true, percent: 100, caption: 'enough data', title }
+  const plateau = cardPlateau(l, mosaic)
+  if (l.enough) return { show: true, percent: 100, caption: 'enough data', title, plateau }
   if (v === null)
-    return { show: true, percent: null, caption: `${f ?? 'a filter'} not measured yet`, title }
+    return { show: true, percent: null, caption: `${f ?? 'a filter'} not measured yet`, title, plateau }
   const percent = Math.min(99, Math.floor(Math.max(0, v) * 100))
-  return { show: true, percent, caption: `${f} least complete`, title }
+  return { show: true, percent, caption: `${f} least complete`, title, plateau }
 }
 
 export function hasEnoughData(l: Least | null | undefined): boolean {

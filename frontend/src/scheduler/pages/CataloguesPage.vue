@@ -19,6 +19,9 @@ import {
   mastersText,
   size,
   paText,
+  plateauFill,
+  plateauHint,
+  plateauText,
   progressFill,
   progressText,
   typeLabel,
@@ -157,7 +160,18 @@ function hidden(e: CatalogueEntry): boolean {
   return status.value !== 'All' && statusLabel[e.status] !== status.value
 }
 
+function plateauStrip(e: CatalogueEntry): string {
+  const f = plateauFill(e)
+  if (f === null) return ''
+  const w = `${(f * 100).toFixed(1)}%`
+  return `linear-gradient(to right, var(--plateau) ${w}, var(--plateau-track) ${w}) top / 100% 3px no-repeat, `
+}
+
 function cellBackground(e: CatalogueEntry): string {
+  return plateauStrip(e) + goalBackground(e)
+}
+
+function goalBackground(e: CatalogueEntry): string {
   switch (e.status) {
     case 'done':
       return 'var(--done)'
@@ -201,12 +215,14 @@ function cellStyle(e: CatalogueEntry) {
 function cellLabel(e: CatalogueEntry): string {
   const name = e.object.name ? ' ' + e.object.name : ''
   const prog = progressText(e)
-  return `${e.label}${name}: ${statusLabel[e.status]?.toLowerCase()}${prog ? ', ' + prog : ''}${e.tonight?.up ? ', up tonight' : ''}`
+  const plat = plateauText(e)
+  return `${e.label}${name}: ${statusLabel[e.status]?.toLowerCase()}${prog ? ', ' + prog : ''}${plat ? ', ' + plat : ''}${e.tonight?.up ? ', up tonight' : ''}`
 }
 
 function cellTitle(e: CatalogueEntry): string {
   const prog = progressText(e)
-  return [label(e.object), prog ? prog[0]!.toUpperCase() + prog.slice(1) : '', e.completionBasis]
+  const plat = plateauHint(e)
+  return [label(e.object), prog ? prog[0]!.toUpperCase() + prog.slice(1) : '', e.completionBasis, plat]
     .filter(Boolean)
     .join(' · ')
 }
@@ -251,7 +267,8 @@ function pickStatus(e: CatalogueEntry): string {
   const s = statusLabel[e.status] ?? e.status
   const subj = e.subjects.filter((x) => x.status !== 'rejected' && x.status !== 'suggested')
   const prog = progressText(e)
-  const head = `${s}${prog ? ', ' + prog : ''} · ${measuredText(e)}`
+  const plat = plateauText(e)
+  const head = `${s}${prog ? ', ' + prog : ''}${plat ? ' · ' + plat : ''} · ${measuredText(e)}`
   if (!subj.length) return head
   return `${head} · ${subj.map((x) => x.name + (x.state ? ` (${x.state})` : '')).join(', ')}`
 }
@@ -422,6 +439,18 @@ async function decide(m: ReviewItem, after: Decision) {
               border: 1px solid var(--prog);
             "
           />In progress, filled to its least complete filter's goal progress</span
+        >
+        <span class="row" style="gap: 0.375rem"
+          ><span
+            class="key"
+            style="
+              background:
+                linear-gradient(to right, var(--plateau) 30%, var(--plateau-track) 30%) top / 100% 3px
+                  no-repeat,
+                var(--done);
+            "
+          />Top line: the filter furthest from its plateau, as effective hours over the estimated
+          plateau hours</span
         >
         <span class="row" style="gap: 0.375rem"
           ><span

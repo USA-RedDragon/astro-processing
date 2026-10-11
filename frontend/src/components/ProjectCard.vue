@@ -83,6 +83,9 @@
             <p v-if="circle.show" class="text-xs" :class="enoughData ? 'text-green-600' : 'text-muted-foreground'">
               <span class="font-medium">Data:</span> {{ circle.title }}
             </p>
+            <p v-if="circle.plateau" class="text-xs plateau-text" :title="circle.plateau.title">
+              <span class="font-medium">Plateau:</span> {{ circle.plateau.text }}
+            </p>
           </div>
         </CardHeader>
 
@@ -99,6 +102,9 @@
             :percentage="circle.percent"
             :caption="circle.caption"
             :title="circle.title"
+            :plateau="circle.plateau ? circle.plateau.percent : undefined"
+            :plateau-caption="circle.plateau ? plateauCaption(circle.plateau.percent) : ''"
+            :plateau-title="circle.plateau?.title ?? ''"
           />
         </div>
         </Card>
@@ -120,7 +126,7 @@ import { status } from '@/lib/events';
 import StatsDisplay from './StatsDisplay.vue';
 import { formatDate } from '@/lib/formatters';
 import type { Project as PlanningProject } from '@/scheduler/api/planning';
-import { cardCircle, hasEnoughData, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
+import { cardCircle, hasEnoughData, plateauCaption, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
 import type {
   Project,
   ProjectPriority,
@@ -226,6 +232,7 @@ export default {
     },
   },
   methods: {
+    plateauCaption,
     formatDate,
     getPriorityVariant(priority: ProjectPriority): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (priority === 'HIGH') return 'destructive';
@@ -237,4 +244,7 @@ export default {
 </script>
 
 <style scoped>
+.plateau-text {
+  color: var(--plateau);
+}
 </style>

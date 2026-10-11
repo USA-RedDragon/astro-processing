@@ -27,6 +27,9 @@
             <p v-if="circle.show" class="text-xs" :class="enoughData ? 'text-green-600' : 'text-muted-foreground'">
               <span class="font-medium">Data:</span> {{ circle.title }}
             </p>
+            <p v-if="circle.plateau" class="text-xs plateau-text" :title="circle.plateau.title">
+              <span class="font-medium">Plateau:</span> {{ circle.plateau.text }}
+            </p>
           </div>
         </CardHeader>
 
@@ -40,7 +43,14 @@
               :class="{ 'bg-green-500/20 dark:bg-green-500/30': g.enough }"
             >
               <span class="font-medium">{{ g.filter }}</span>
-              <span class="text-right">{{ filterHeadline(g) }}</span>
+              <span class="flex flex-col text-right">
+                <span>{{ filterHeadline(g) }}</span>
+                <span
+                  v-if="g.plateauAt"
+                  class="plateau-text"
+                  :title="plateauTitle(filterPlateau(g), false, false)"
+                >{{ plateauLabel(filterPlateau(g)) }}</span>
+              </span>
             </div>
           </div>
 
@@ -70,6 +80,9 @@
             :percentage="circle.percent"
             :caption="circle.caption"
             :title="circle.title"
+            :plateau="circle.plateau ? circle.plateau.percent : undefined"
+            :plateau-caption="circle.plateau ? plateauCaption(circle.plateau.percent) : ''"
+            :plateau-title="circle.plateau?.title ?? ''"
           />
         </div>
         </Card>
@@ -91,10 +104,13 @@ import { formatDate, formatRA, formatDec } from '@/lib/formatters';
 import type { Target, TargetFilterStats } from '../graphql/graphql';
 import {
   filterHeadline,
+  filterPlateau,
+  plateauLabel,
+  plateauTitle,
   type FilterGoal,
   type Target as PlanningTarget,
 } from '@/scheduler/api/planning';
-import { cardCircle, hasEnoughData, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
+import { cardCircle, hasEnoughData, plateauCaption, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
 
 export default {
   components: {
@@ -140,6 +156,10 @@ export default {
     },
   },
   methods: {
+    plateauCaption,
+    filterPlateau,
+    plateauLabel,
+    plateauTitle,
     filterHeadline,
     formatDate,
     formatRA,
@@ -174,4 +194,7 @@ export default {
 </script>
 
 <style scoped>
+.plateau-text {
+  color: var(--plateau);
+}
 </style>

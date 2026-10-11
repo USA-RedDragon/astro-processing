@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import PlateauLine from './PlateauLine.vue'
 import {
   Select,
   SelectContent,
@@ -399,6 +400,12 @@ function applySet() {
                   <div class="text-xs text-muted-foreground">
                     {{ weakestText(p) }}
                   </div>
+                  <PlateauLine
+                    v-if="p.least?.filters"
+                    class="mt-1"
+                    :plateau="p.least.plateau"
+                    :mosaic="p.isMosaic"
+                  />
                 </TableCell>
                 <TableCell class="align-top">
                   <Badge
