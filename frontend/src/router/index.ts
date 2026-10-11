@@ -1,3 +1,4 @@
+import { reactive } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import routes from './routes'
 
@@ -13,6 +14,8 @@ router.afterEach((to) => {
 
 const CHUNK_ERROR = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed/i
 
+export const pageLoad = reactive({ failed: '' })
+
 function reloadKey(path: string): string {
   return 'chunk-reload:' + path
 }
@@ -20,15 +23,20 @@ function reloadKey(path: string): string {
 router.onError((err, to) => {
   if (!CHUNK_ERROR.test(String((err as Error)?.message ?? err))) return
   try {
-    if (sessionStorage.getItem(reloadKey(to.fullPath))) return
-    sessionStorage.setItem(reloadKey(to.fullPath), '1')
+    if (!sessionStorage.getItem(reloadKey(to.fullPath))) {
+      sessionStorage.setItem(reloadKey(to.fullPath), '1')
+      window.location.assign(to.fullPath)
+      return
+    }
   } catch {
+    pageLoad.failed = to.fullPath
     return
   }
-  window.location.assign(to.fullPath)
+  pageLoad.failed = to.fullPath
 })
 
 router.afterEach((to) => {
+  pageLoad.failed = ''
   try {
     sessionStorage.removeItem(reloadKey(to.fullPath))
   } catch {
