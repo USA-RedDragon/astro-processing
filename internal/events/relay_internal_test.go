@@ -70,3 +70,34 @@ func TestRelayPassesWorkerEventsThrough(t *testing.T) {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
+
+// A browser that connects between the worker's scheduler broadcasts still
+// gets the latest one first, as it would from the worker itself.
+func TestRelaySendsLatestSchedulerStateFirst(t *testing.T) {
+	t.Parallel()
+	relay := NewRelay()
+	relay.dispatch(0, `{"type":"scheduler","data":{"state":"waiting"}}`)
+	relay.dispatch(0, `{"type":"command","data":{"status":"applied"}}`)
+	relay.dispatch(0, `{"type":"scheduler","data":{"state":"imaging"}}`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	browser := httptest.NewServer(relay)
+	defer browser.Close()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, browser.URL, nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	s := bufio.NewScanner(res.Body)
+	for s.Scan() {
+		if l := s.Text(); strings.HasPrefix(l, "data: ") {
+			if want := `data: {"type":"scheduler","data":{"state":"imaging"}}`; l != want {
+				t.Fatalf("first message %q, want %q", l, want)
+			}
+			return
+		}
+	}
+	t.Fatal("stream ended without a message")
+}
