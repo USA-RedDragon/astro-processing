@@ -806,7 +806,10 @@ const cross = (x: number, y: number, r: number) =>
                 {{ exposure.number ? 'Exposure ' + exposure.number + ' · ' : ''
                 }}{{ filterName(exposure.filter) }} {{ Math.round(exposure.seconds) }} s
               </span>
-              <span v-if="expProgress" class="num muted"
+              <span v-if="expProgress && st.activity === 'downloading'" class="num muted"
+                >{{ mmss(expProgress.len) }} · downloading</span
+              >
+              <span v-else-if="expProgress" class="num muted"
                 >{{ mmss(expProgress.elapsed) }} of {{ mmss(expProgress.len) }} · finishes
                 {{ clock(expProgress.end) }}</span
               >
