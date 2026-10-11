@@ -3,7 +3,7 @@
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger as-child>
-          <ShadButton variant="ghost" size="icon" @click="switchColorMode">
+          <ShadButton variant="ghost" size="icon" :aria-label="label" @click="switchColorMode">
             <template v-if="colorMode === 'dark'">
               <Sun class="w-8 h-8" />
             </template>
@@ -16,15 +16,7 @@
           </ShadButton>
         </TooltipTrigger>
         <TooltipContent>
-          <template v-if="colorMode === 'dark'">
-            Switch to light mode
-          </template>
-          <template v-else-if="colorMode === 'light'">
-            Switch to auto mode
-          </template>
-          <template v-else>
-            Switch to dark mode
-          </template>
+          {{ label }}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -66,6 +58,13 @@ export default {
         emitAuto: true,
       }),
     };
+  },
+  computed: {
+    label(): string {
+      if (this.colorMode === 'dark') return 'Switch to light mode';
+      if (this.colorMode === 'light') return 'Switch to auto mode';
+      return 'Switch to dark mode';
+    },
   },
   mounted() {
   },
