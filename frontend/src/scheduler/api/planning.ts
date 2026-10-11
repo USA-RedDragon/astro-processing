@@ -405,10 +405,34 @@ export interface TargetEffect {
   changes: boolean
 }
 
+export interface GoalSetting {
+  kind: 0 | 1
+  snr_goal: number
+  depth_goal?: number
+  plateau_stop: boolean
+  region?: string
+}
+
+export interface GoalChange {
+  target_id: number
+  target_guid: string
+  target_name: string
+  filter: string
+  before: GoalSetting | null
+  after: GoalSetting | null
+}
+
+export interface GoalEditPayload {
+  project_id: number
+  project_name: string
+  goals: GoalChange[]
+}
+
 export interface ApplySetDraft {
   payload?: unknown
   effects: TargetEffect[]
   missing?: string[]
+  goals?: GoalEditPayload[] | null
 }
 
 export interface PanelDraft {

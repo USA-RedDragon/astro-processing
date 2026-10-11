@@ -13,6 +13,7 @@ import {
   type Template,
 } from '../api/planning'
 import { submitCommand } from '../api/commands'
+import { applySetCount, canApplySet, submitApplySet } from '../applySet'
 import { errorToast, notifyCommand } from '../shell'
 import { onEvent } from '../api/events'
 import { ApiError } from '../api/client'
@@ -115,7 +116,8 @@ function effectOf(id: number): string {
   return e ? e.effect : draftError.value ? '' : '…'
 }
 
-const changingCount = computed(() => draft.value?.effects.filter((e) => e.changes).length ?? 0)
+const changingCount = computed(() => applySetCount(draft.value))
+const applyReady = computed(() => canApplySet(draft.value))
 const applyLabel = computed(() => {
   const set = snap.value?.sets.find((s) => s.id === setId.value)
   const n = changingCount.value
@@ -123,11 +125,10 @@ const applyLabel = computed(() => {
 })
 
 async function applyTargets() {
-  if (!draft.value?.payload) return
+  if (!draft.value || !canApplySet(draft.value)) return
   try {
-    const r = await submitCommand('exposureplan.applyset', draft.value.payload)
-    notifyCommand(r)
-    Object.keys(picked).forEach((k) => delete picked[Number(k)])
+    if (await submitApplySet(draft.value, submitCommand, (r) => notifyCommand(r)))
+      Object.keys(picked).forEach((k) => delete picked[Number(k)])
     await load()
   } catch (e) {
     errorToast(e)
@@ -387,7 +388,7 @@ function moonText(t: Template): string {
         </table>
       </div>
       <p v-if="draftError" class="small" style="margin: 0; color: var(--bad)">{{ draftError }}</p>
-      <div class="row" style="justify-content: flex-end">
+      <div class="row" style="justify-content: flex-end; flex-wrap: wrap">
         <button
           type="button"
           class="btn"
@@ -395,7 +396,13 @@ function moonText(t: Template): string {
         >
           Clear
         </button>
-        <button type="button" class="btn primary" :disabled="!draft?.payload" @click="applyTargets">
+        <button
+          type="button"
+          class="btn primary"
+          style="white-space: normal; height: auto; min-height: 2.25rem; padding-block: 0.375rem; max-width: 100%"
+          :disabled="!applyReady"
+          @click="applyTargets"
+        >
           {{ applyLabel }}
         </button>
       </div>
