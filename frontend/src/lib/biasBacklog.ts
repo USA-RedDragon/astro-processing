@@ -24,9 +24,9 @@ export function biasFramesNeededText(b: Pick<BiasBacklog, 'frames_needed'>): str
   return `Bias frames needed per set: ${fmt(b.frames_needed)}.`
 }
 
-export function maxAgeText(b: Pick<BiasBacklog, 'max_age_days'>): string {
-  if (b.max_age_days == null) return `Maximum bias age: ${NOT_RECORDED}.`
-  return `A bias set more than ${fmt(b.max_age_days)} days from a light's night is stale when a new set would be nearer.`
+export function biasNeedRuleText(b: Pick<BiasBacklog, 'frames_needed'>): string {
+  const target = b.frames_needed == null ? `the frame target (${NOT_RECORDED})` : `${fmt(b.frames_needed)} frames`
+  return `Bias does not go stale by age. Lights use the nearest bias set of their gain, offset and binning, however old. A setup is on the backlog only when it has no bias set or its set has fewer than ${target}.`
 }
 
 export function biasSessionGapText(b: Pick<BiasBacklog, 'session_gap_hours'>): string {

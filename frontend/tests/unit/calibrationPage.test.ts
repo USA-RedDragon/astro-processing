@@ -38,15 +38,13 @@ const biasBacklog = {
   computed_at: '2026-10-11T00:00:00Z',
   frames_needed: 30,
   frames_needed_basis: 'The target of 30 bias frames per set matches the only bias set on record.',
-  max_age_days: 30,
-  max_age_basis: 'A setting, not a measurement.',
   session_gap_hours: 36,
   combos: [
     {
       combo_key: 'bias|100|50|1', priority: 1, gain: 100, offset: 50, binning: 1, readout_mode: null,
-      frames_needed: 30, frames_have: 0, lights_missing: 0, lights_stale: 1200, lights_thin: 0, nights: 12,
+      frames_needed: 30, frames_have: 0, lights_missing: 0, lights_thin: 1200, nights: 12,
       latest_night: '2026-10-10', newest_bias_at: null, current_bias_night: '2025-02-05',
-      current_bias_age_days: 612, requests: [ref], basis: 'stale bias',
+      current_bias_age_days: 612, requests: [ref], basis: 'short bias set',
     },
   ],
   unschedulable: [{ lights: 562, reason: 'the lights have no GAIN or OFFSET in their header' }],
@@ -99,7 +97,9 @@ describe('CalibrationPage', () => {
     const text = el.textContent ?? ''
     expect(text).toContain('Bias backlog')
     expect(text).toContain('Bias frames needed per set: 30.')
-    expect(text).toContain('Basis: A setting, not a measurement.')
+    expect(text).toContain('Bias does not go stale by age.')
+    expect(text).toContain('fewer than 30 frames')
+    expect(text).not.toContain('Lights stale')
     const row = el.querySelector('[data-combo="bias|100|50|1"]')?.textContent ?? ''
     expect(row).toContain('1200')
     expect(row).toContain('2025-02-05, 612 d old')

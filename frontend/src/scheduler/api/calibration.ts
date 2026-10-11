@@ -59,7 +59,6 @@ export interface BiasBacklogCombo {
   frames_needed: number | null
   frames_have: number | null
   lights_missing: number | null
-  lights_stale: number | null
   lights_thin: number | null
   nights: number | null
   latest_night: string | null
@@ -88,8 +87,6 @@ export interface BiasBacklog {
   computed_at: string | null
   frames_needed: number | null
   frames_needed_basis: string | null
-  max_age_days: number | null
-  max_age_basis: string | null
   session_gap_hours: number | null
   combos: BiasBacklogCombo[] | null
   unschedulable: BiasBacklogUnschedulable[] | null

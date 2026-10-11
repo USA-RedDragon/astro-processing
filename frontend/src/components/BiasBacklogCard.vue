@@ -8,13 +8,13 @@ import { getBiasBacklog, type BiasBacklog } from '@/scheduler/api/calibration'
 import { onChange } from '@/lib/events'
 import {
   biasFramesNeededText,
+  biasNeedRuleText,
   biasOpenSetTitle,
   biasPublishText,
   biasSessionGapText,
   biasUnavailableText,
   currentBiasText,
   isBiasBacklog,
-  maxAgeText,
   newestBiasText,
   sortBiasCombos,
 } from '@/lib/biasBacklog'
@@ -64,8 +64,7 @@ void load()
         <div class="space-y-1 text-sm text-muted-foreground">
           <p>{{ biasFramesNeededText(backlog) }}</p>
           <p>{{ basisText(backlog.frames_needed_basis) }}</p>
-          <p>{{ maxAgeText(backlog) }}</p>
-          <p>{{ basisText(backlog.max_age_basis) }}</p>
+          <p>{{ biasNeedRuleText(backlog) }}</p>
           <p>{{ biasSessionGapText(backlog) }}</p>
           <p>{{ computedText(backlog) }}</p>
         </div>
@@ -84,7 +83,6 @@ void load()
                 <TableHead>Readout mode</TableHead>
                 <TableHead class="text-right" :title="biasOpenSetTitle(backlog)">Open set</TableHead>
                 <TableHead class="text-right">Lights missing</TableHead>
-                <TableHead class="text-right">Lights stale</TableHead>
                 <TableHead
                   class="text-right"
                   :title="`Lights whose bias set has fewer than ${backlog.frames_needed ?? '?'} frames`"
@@ -111,7 +109,6 @@ void load()
                 <TableCell>{{ readoutText(c) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ framesText(c) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.lights_missing, '', NOT_RECORDED) }}</TableCell>
-                <TableCell class="text-right tabular-nums">{{ num(c.lights_stale, '', NOT_RECORDED) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.lights_thin, '', NOT_RECORDED) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ num(c.nights) }}</TableCell>
                 <TableCell>{{ text(c.latest_night, NOT_RECORDED) }}</TableCell>

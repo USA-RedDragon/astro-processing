@@ -3,13 +3,13 @@ import { ApiError } from '@/scheduler/api/client'
 import type { BiasBacklogCombo } from '@/scheduler/api/calibration'
 import {
   biasFramesNeededText,
+  biasNeedRuleText,
   biasOpenSetTitle,
   biasPublishText,
   biasSessionGapText,
   biasUnavailableText,
   currentBiasText,
   isBiasBacklog,
-  maxAgeText,
   newestBiasText,
   sortBiasCombos,
 } from '@/lib/biasBacklog'
@@ -24,15 +24,14 @@ const combo = (priority: number, key: string): BiasBacklogCombo => ({
   frames_needed: 30,
   frames_have: 0,
   lights_missing: 0,
-  lights_stale: 1200,
-  lights_thin: 0,
+  lights_thin: 1200,
   nights: 12,
   latest_night: '2026-10-10',
   newest_bias_at: null,
   current_bias_night: '2025-02-05',
   current_bias_age_days: 612,
   requests: [],
-  basis: 'stale',
+  basis: 'thin',
 })
 
 describe('bias backlog', () => {
@@ -45,8 +44,9 @@ describe('bias backlog', () => {
   it('states the thresholds and their gaps', () => {
     expect(biasFramesNeededText({ frames_needed: 30 })).toBe('Bias frames needed per set: 30.')
     expect(biasFramesNeededText({ frames_needed: null })).toBe('Bias frames needed per set: not recorded.')
-    expect(maxAgeText({ max_age_days: 30 })).toContain('more than 30 days')
-    expect(maxAgeText({ max_age_days: null })).toBe('Maximum bias age: not recorded.')
+    expect(biasNeedRuleText({ frames_needed: 30 })).toContain('does not go stale by age')
+    expect(biasNeedRuleText({ frames_needed: 30 })).toContain('fewer than 30 frames')
+    expect(biasNeedRuleText({ frames_needed: null })).toContain('the frame target (not recorded)')
     expect(biasSessionGapText({ session_gap_hours: 36 })).toContain('less than 36 h apart')
     expect(biasOpenSetTitle({ session_gap_hours: null })).toContain('not recorded')
   })
