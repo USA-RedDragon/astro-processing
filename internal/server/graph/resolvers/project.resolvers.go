@@ -60,19 +60,7 @@ func (r *queryResolver) Projects(ctx context.Context, orderBy *model.ProjectOrde
 				WHERE target.projectid = project."Id"
 			) %s NULLS LAST`, direction))
 		case model.ProjectOrderFieldProgress:
-			// Special case: calculate progress as accepted/desired ratio
-			db = db.Order(fmt.Sprintf(`(
-				SELECT CASE 
-					WHEN COALESCE(SUM(ep.desired), 0) = 0 THEN 0 
-					ELSE CAST(
-						(SELECT COUNT(*) FROM acquiredimage WHERE "targetId" IN (SELECT "Id" FROM target WHERE projectid = project."Id") AND "gradingStatus" = 1) 
-						AS FLOAT
-					) / COALESCE(SUM(ep.desired), 1)
-				END
-				FROM target t
-				JOIN exposureplan ep ON ep.targetid = t."Id"
-				WHERE t.projectid = project."Id"
-			) %s NULLS LAST`, direction))
+			db = db.Order("name ASC")
 		case model.ProjectOrderFieldName:
 			db = db.Order(fmt.Sprintf("name %s", direction))
 		case model.ProjectOrderFieldState:
@@ -91,6 +79,10 @@ func (r *queryResolver) Projects(ctx context.Context, orderBy *model.ProjectOrde
 	var projects []targetscheduler.Project
 	if err := db.Find(&projects).Error; err != nil {
 		return nil, err
+	}
+
+	if orderBy != nil && orderBy.Field == model.ProjectOrderFieldProgress {
+		r.sortByLeast(ctx, projects, orderBy.Direction == model.OrderDirectionDesc)
 	}
 
 	var result []*model.Project

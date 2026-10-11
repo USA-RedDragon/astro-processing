@@ -240,6 +240,30 @@ func (c *Client) Covers(ctx context.Context) (*Covers, error) {
 	return &covers, err
 }
 
+// Least is a project's least complete enabled filter against its measured goal.
+type Least struct {
+	Enough   bool     `json:"enough"`
+	Progress *float64 `json:"progress"`
+	Filters  int      `json:"filters"`
+}
+
+// ProjectLeast is one project of the stacker's planning snapshot.
+type ProjectLeast struct {
+	ID    int   `json:"id"`
+	Least Least `json:"least"`
+}
+
+// ProjectLeasts returns every project's least complete filter from the planning snapshot.
+func (c *Client) ProjectLeasts(ctx context.Context) ([]ProjectLeast, error) {
+	var snap struct {
+		Projects []ProjectLeast `json:"projects"`
+	}
+	if err := c.get(ctx, "/api/v1/planning", &snap); err != nil {
+		return nil, err
+	}
+	return snap.Projects, nil
+}
+
 // Object is a target with lights, as the worker's files know it.
 type Object struct {
 	Name       string  `json:"name"`
