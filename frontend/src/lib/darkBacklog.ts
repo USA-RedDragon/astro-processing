@@ -107,6 +107,14 @@ export function rejectedHead(b: Pick<DarkBacklog, 'session_gap_hours'>): string 
   return b.session_gap_hours == null ? 'Rejected' : `Rejected, last ${fmt(b.session_gap_hours)} h`
 }
 
+export function rejectedMore(shown: number, total: number | null | undefined): number {
+  return total != null && total > shown ? total - shown : 0
+}
+
+export function rejectedShownText(shown: number, total: number | null | undefined): string {
+  return rejectedMore(shown, total) ? `Showing the newest ${shown} of ${total}.` : ''
+}
+
 export function newestDarkText(c: Pick<DarkBacklogCombo, 'newest_dark_at'>): string {
   return when(c.newest_dark_at, 'none taken')
 }

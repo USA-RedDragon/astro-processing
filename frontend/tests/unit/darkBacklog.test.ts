@@ -16,6 +16,8 @@ import {
   publishText,
   readoutText,
   rejectedHead,
+  rejectedMore,
+  rejectedShownText,
   sessionGapText,
   sessionText,
   setTempMatchText,
@@ -200,5 +202,16 @@ describe('dark backlog ordering', () => {
     expect(first[24].priority).toBe(25)
     expect(visibleCombos(input, true)).toHaveLength(110)
     expect(visibleCombos(input.slice(0, 3), false)).toHaveLength(3)
+  })
+})
+
+describe('rejected darks shown', () => {
+  it('says how many of the total are listed only when some are left out', () => {
+    expect(rejectedShownText(50, 73)).toBe('Showing the newest 50 of 73.')
+    expect(rejectedMore(50, 73)).toBe(23)
+    expect(rejectedShownText(12, 12)).toBe('')
+    expect(rejectedShownText(73, 73)).toBe('')
+    expect(rejectedShownText(50, null)).toBe('')
+    expect(rejectedShownText(50, undefined)).toBe('')
   })
 })

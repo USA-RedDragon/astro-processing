@@ -126,6 +126,13 @@
               </TableRow>
             </TableBody>
           </UiTable>
+          <div v-if="rejectedNote" class="mt-3 flex flex-wrap items-center gap-3">
+            <span class="text-sm text-muted-foreground">{{ rejectedNote }}</span>
+            <UiButton variant="outline" size="sm" :disabled="loadingRejected" @click="loadAllRejected">
+              {{ loadingRejected ? 'Loading…' : `Show all ${backlog.rejected_total}` }}
+            </UiButton>
+          </div>
+          <p v-if="rejectedError" class="mt-2 text-sm text-destructive">{{ rejectedError }}</p>
         </CardContent>
       </Card>
 
@@ -186,6 +193,7 @@ import {
   publishText,
   readoutText,
   rejectedHead,
+  rejectedShownText,
   sessionGapText,
   sessionText,
   setTempMatchText,
@@ -201,6 +209,7 @@ import {
 } from '@/lib/darkBacklog';
 import {
   getDarkBacklog,
+  getRejectedDarks,
   type DarkBacklog,
   type DarkBacklogCombo,
   type DarkBacklogRejected,
@@ -228,6 +237,9 @@ export default {
       unavailable: '',
       loaded: false,
       showAll: false,
+      allRejected: null as DarkBacklogRejected[] | null,
+      loadingRejected: false,
+      rejectedError: '',
       seq: 0,
       COMBO_LIMIT,
       NOT_RECORDED,
@@ -249,7 +261,10 @@ export default {
       return visibleCombos(this.combos, this.showAll);
     },
     rejected(): DarkBacklogRejected[] {
-      return this.backlog?.rejected ?? [];
+      return this.allRejected ?? this.backlog?.rejected ?? [];
+    },
+    rejectedNote(): string {
+      return rejectedShownText(this.rejected.length, this.backlog?.rejected_total);
     },
     unschedulable(): DarkBacklogUnschedulable[] {
       return this.backlog?.unschedulable ?? [];
@@ -276,12 +291,24 @@ export default {
     thinText,
     uncheckedText,
     when,
+    async loadAllRejected() {
+      this.loadingRejected = true;
+      try {
+        this.allRejected = await getRejectedDarks();
+        this.rejectedError = '';
+      } catch (error) {
+        this.rejectedError = `Could not load every rejected dark: ${error instanceof Error ? error.message : String(error)}`;
+      } finally {
+        this.loadingRejected = false;
+      }
+    },
     async fetchData() {
       const seq = ++this.seq;
       try {
         const response = await getDarkBacklog();
         if (seq !== this.seq) return;
         this.backlog = isDarkBacklog(response) ? response : null;
+        if (this.allRejected) void this.loadAllRejected();
         this.unavailable = this.backlog ? '' : 'Not available: the stacker returned no dark backlog.';
       } catch (error) {
         if (seq !== this.seq) return;

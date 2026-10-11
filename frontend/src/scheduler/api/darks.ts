@@ -68,9 +68,13 @@ export interface DarkBacklog {
   unschedulable: DarkBacklogUnschedulable[] | null
   last_session: DarkBacklogSession | null
   rejected: DarkBacklogRejected[] | null
+  rejected_total?: number | null
   unchecked: number | null
   publish: DarkBacklogPublish | null
 }
 
 export const getDarkBacklog = (signal?: AbortSignal) =>
   api.get<DarkBacklog>('/coverage/dark-backlog', signal)
+
+export const getRejectedDarks = (signal?: AbortSignal) =>
+  api.get<DarkBacklogRejected[]>('/coverage/dark-backlog/rejected', signal)
