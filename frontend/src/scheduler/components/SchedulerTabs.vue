@@ -1528,7 +1528,7 @@ function numInput(e: Event): number {
 }
 @media (max-width: 640px) {
   .goalrow {
-    grid-template-columns: 4rem minmax(0, 1fr);
+    grid-template-columns: 5.75rem minmax(0, 1fr);
   }
   .goalrow > :last-child {
     grid-column: 1 / -1;
