@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  tolerancePercent,
   candidateText,
   lengthsNote,
   reviewLengths,
@@ -71,7 +72,7 @@ describe('planLengthView', () => {
     expect(v.state).toBe('auto')
     expect(v.compact).toBe('300 s (dark) / 180 s (low) / 120 s (mid) / 60 s (bright)')
     expect(v.text).toBe(
-      'Chosen automatically: 300 s (dark) / 180 s (low) / 120 s (mid) / 60 s (bright) because each is the shortest length with a full dark set within 5% of the best SNR per hour for the sky measured on this target.',
+      'Chosen automatically: 300 s (dark) / 180 s (low) / 120 s (mid) / 60 s (bright) because each is the shortest length with a full dark set within 2% of the best SNR per hour for the sky measured on this target.',
     )
   })
 
@@ -132,7 +133,7 @@ describe('planLengthView', () => {
     expect(v.state).toBe('site')
     expect(v.compact).toBe('600 s (dark)')
     expect(v.text).toBe(
-      'Not computed for this target yet. From the sky at this site it would be 600 s (dark) because it is the shortest length with a full dark set within 5% of the best SNR per hour for the sky measured on every target at this site; the template length (600 s) is used until then.',
+      'Not computed for this target yet. From the sky at this site it would be 600 s (dark) because it is the shortest length with a full dark set within 2% of the best SNR per hour for the sky measured on every target at this site; the template length (600 s) is used until then.',
     )
   })
 
@@ -263,5 +264,13 @@ describe('review summary', () => {
     expect(lengthsNote([none])).toMatch(/not measured yet/)
     expect(lengthsNote([])).toBe('')
     expect(reviewLengths([])).toBe('')
+  })
+})
+
+describe('tolerance in the reason', () => {
+  it('uses the stacker tolerance and defaults to 2%', () => {
+    expect(tolerancePercent([])).toBe('2')
+    expect(tolerancePercent([{ tolerance: 0.05 }])).toBe('5')
+    expect(tolerancePercent([{ tolerance: undefined }, { tolerance: 0.015 }])).toBe('1.5')
   })
 })

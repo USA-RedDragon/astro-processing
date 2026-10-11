@@ -15,6 +15,7 @@ export interface LengthPart {
   basis: string
   source: string
   candidates: SubLengthCandidate[]
+  tolerance?: number
 }
 
 export type LengthState = 'auto' | 'would' | 'site' | 'unmeasured'
@@ -51,11 +52,18 @@ function fallbackText(f: Fallback): string {
   return f.exposure && f.exposure > 0 ? `${what} (${seconds(f.exposure)})` : what
 }
 
+export const DEFAULT_TOLERANCE = 0.02
+
+export function tolerancePercent(parts: Pick<LengthPart, 'tolerance'>[]): string {
+  const t = parts.map((p) => p.tolerance).find((v): v is number => typeof v === 'number' && v > 0 && v < 1) ?? DEFAULT_TOLERANCE
+  return String(Math.round(t * 1000) / 10)
+}
+
 function because(parts: LengthPart[]): string {
   const sources = [...new Set(parts.map((p) => p.source).filter(Boolean))]
   const on = sources.length ? ` measured on ${sources.join(' and ')}` : ' measured'
   const each = parts.length > 1 ? 'each is' : 'it is'
-  return `because ${each} the shortest length with a full dark set within 5% of the best SNR per hour for the sky${on}`
+  return `because ${each} the shortest length with a full dark set within ${tolerancePercent(parts)}% of the best SNR per hour for the sky${on}`
 }
 
 function missingBuckets(parts: LengthPart[]): Bucket[] {
@@ -129,6 +137,7 @@ function rowPart(r: SubLengthRow): LengthPart {
     basis: r.basis,
     source: r.sky_source,
     candidates: r.candidates ?? [],
+    tolerance: r.tolerance,
   }
 }
 
@@ -193,6 +202,7 @@ export function pickLengthView(
       basis: l.basis,
       source: row?.sky_source ?? 'every target at this site',
       candidates: row?.candidates ?? [],
+      tolerance: row?.tolerance,
     }
   })
   return lengthView(f.automatic ? 'on' : 'off', parts, { exposure: templateExposure }, {

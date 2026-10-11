@@ -42,6 +42,7 @@ export interface SubLengthRow {
   ideal_snr_rate_gain: number
   candidates: SubLengthCandidate[] | null
   basis: string
+  tolerance?: number
 }
 
 export interface SubLengthResult {
