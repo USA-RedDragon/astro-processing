@@ -18,7 +18,7 @@ import {
   legacyGoalNote,
 } from '../api/planning'
 import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
-import { rigSource } from '../api/discover'
+import { rigSource, typeLabel } from '../api/discover'
 import {
   SETTINGS,
   defaultValues,
@@ -716,7 +716,7 @@ const review = computed(() => {
   const set = chosenSet.value
   if (!o) return []
   return [
-    { k: 'Object', v: label(o) + ' · ' + o.type },
+    { k: 'Object', v: label(o) + ' · ' + typeLabel(o.type) },
     {
       k: 'Project',
       v: `${form.name} · ${priority.value ?? 'no'} priority · minimum altitude ${minAlt.value ?? 'not set'}° · minimum time ${minTime.value ?? 'not set'} min`,
@@ -940,7 +940,7 @@ async function goStep(i: number) {
               <td class="muted" style="white-space: nowrap">
                 {{ (h.object.aliases ?? []).slice(0, 2).join(', ') || '—' }}
               </td>
-              <td style="white-space: nowrap">{{ h.object.type }}</td>
+              <td style="white-space: nowrap">{{ typeLabel(h.object.type) }}</td>
               <td class="num" style="white-space: nowrap">{{ sizeText(h.object) }}</td>
               <td style="white-space: nowrap" :style="{ color: inDataText(h).tone }">
                 {{ inDataText(h).text }}
