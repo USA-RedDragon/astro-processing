@@ -301,7 +301,7 @@ export default {
       this.fetchData();
     },
     sortDirection() {
-      this.fetchData();
+      if (this.sortField !== 'PROGRESS') this.fetchData();
     },
   },
   methods: {
@@ -375,10 +375,11 @@ export default {
         this.error = null;
 
         // Fetch all projects with their stats via GraphQL with sorting
+        const byProgress = this.sortField === 'PROGRESS';
         const response = await API.request(GET_PROJECTS_QUERY, {
           orderBy: {
-            field: this.sortField,
-            direction: this.sortDirection,
+            field: byProgress ? 'NAME' : this.sortField,
+            direction: byProgress ? 'ASC' : this.sortDirection,
           },
         });
         const projects = response.projects;
