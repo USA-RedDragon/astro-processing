@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seamSeverity, type Seam, type SeamLimits } from '@/scheduler/api/mosaics'
+import { seamColourText, seamSeverity, type Seam, type SeamLimits } from '@/scheduler/api/mosaics'
 
 const limits: SeamLimits = {
   levelSigma: 0.2,
@@ -70,5 +70,17 @@ describe('seamSeverity', () => {
 
   it('falls back to the noise ratio without limits', () => {
     expect(seamSeverity(seam({ ok: false }), null)).toEqual({ severity: 1, value: '1.0× noise' })
+  })
+})
+
+describe('seamColourText', () => {
+  it('names the mean of every filter the seam is compared with', () => {
+    expect(seamColourText(-0.06, 'Blue,Green,H-a,Luminance,Red')).toBe(
+      'colour mismatch -6% against the mean of Blue, Green, H-a, Luminance, Red',
+    )
+    expect(seamColourText(0.2, 'Blue,Red')).toBe(
+      'colour mismatch +20% against the mean of Blue, Red',
+    )
+    expect(seamColourText(0.02, null)).toBe('colour mismatch +2%')
   })
 })

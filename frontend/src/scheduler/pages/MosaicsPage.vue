@@ -11,6 +11,7 @@ import {
   listAdoptions,
   listMosaics,
   mosaicPreviews,
+  seamColourText,
   seamSeverity,
   setBalancing,
   project,
@@ -456,7 +457,7 @@ const seamRows = computed<SeamRow[]>(() => {
           ? `star flux ratio ${fx(s.starFluxRatio, 2)}`
           : '',
         s.colourMismatch !== null && s.colourMismatch !== undefined
-          ? `colour mismatch ${Math.round(s.colourMismatch * 100)}%${s.colourReference ? ' against ' + s.colourReference.split(',').join(', ') : ''}`
+          ? seamColourText(s.colourMismatch, s.colourReference)
           : '',
         s.measuredAt ? 'measured ' + shortDate(s.measuredAt) : '',
       ]
@@ -505,7 +506,7 @@ const seamNote = computed(() => {
   const base =
     "Measured by the stacker on the matched overlaps: level and gradient step in units of the background noise σ, the two panels' noise ratio, star registration and star colour."
   if (!L) return base
-  return `${base} A seam warns when the level differs by more than ${L.levelSigma}σ, the gradient step is over ${L.stepSigma}σ, one panel is over ${L.noiseRatio}× noisier, the overlap is under ${L.minBlocks} blocks, stars are misregistered by more than ${L.registrationP90Px} px at p90 (checked with ${L.minStarMatches} or more star matches), or star colour differs by more than ${Math.round(L.colourMismatch * 100)}% from the other filters. A coverage gap warns above ${Math.round(L.gapFraction * 100)}% of a panel's planned frame.`
+  return `${base} A seam warns when the level differs by more than ${L.levelSigma}σ, the gradient step is over ${L.stepSigma}σ, one panel is over ${L.noiseRatio}× noisier, the overlap is under ${L.minBlocks} blocks, stars are misregistered by more than ${L.registrationP90Px} px at p90 (checked with ${L.minStarMatches} or more star matches), or star colour differs by more than ${Math.round(L.colourMismatch * 100)}% from the mean of every filter at the seam. A coverage gap warns above ${Math.round(L.gapFraction * 100)}% of a panel's planned frame.`
 })
 const seamWarnings = computed(() => seamRows.value.filter((s) => !s.ok).length)
 const showAllSeams = ref(false)

@@ -485,3 +485,10 @@ export function seamSeverity(s: Seam, L: SeamLimits | null): SeamSeverity {
     })
   return parts.reduce((a, b) => (b.severity > a.severity ? b : a))
 }
+
+export function seamColourText(mismatch: number, reference?: string | null): string {
+  const filters = (reference ?? '').split(',').filter(Boolean)
+  const sign = mismatch > 0 ? '+' : ''
+  const base = `colour mismatch ${sign}${Math.round(mismatch * 100)}%`
+  return filters.length ? `${base} against the mean of ${filters.join(', ')}` : base
+}
