@@ -38,7 +38,6 @@
               </span>
               <span class="text-muted-foreground tabular-nums">{{ m.panels }} of {{ m.panels_total }} panels</span>
             </div>
-            <div class="text-muted-foreground tabular-nums">{{ m.width }} × {{ m.height }}</div>
             <div class="text-xs text-muted-foreground">Updated {{ formatDate(Date.parse(m.updated_at) / 1000) }}</div>
             <a :href="m.master_url" class="inline-block mt-1 border rounded-md px-3 py-1 hover:bg-accent">
               Download FITS
