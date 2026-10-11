@@ -41,7 +41,7 @@ export function biasOpenSetTitle(b: Pick<BiasBacklog, 'session_gap_hours'>): str
 
 export function currentBiasText(c: Pick<BiasBacklogCombo, 'current_bias_night' | 'current_bias_age_days'>): string {
   if (!c.current_bias_night) return 'none on record'
-  const age = c.current_bias_age_days == null ? `age ${NOT_RECORDED}` : `${fmt(c.current_bias_age_days)} d from the latest night`
+  const age = c.current_bias_age_days == null ? `age ${NOT_RECORDED}` : `${fmt(c.current_bias_age_days)} d old`
   return `${c.current_bias_night}, ${age}`
 }
 

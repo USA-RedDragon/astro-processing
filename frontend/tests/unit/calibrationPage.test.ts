@@ -102,7 +102,7 @@ describe('CalibrationPage', () => {
     expect(text).toContain('Basis: A setting, not a measurement.')
     const row = el.querySelector('[data-combo="bias|100|50|1"]')?.textContent ?? ''
     expect(row).toContain('1200')
-    expect(row).toContain('2025-02-05, 612 d from the latest night')
+    expect(row).toContain('2025-02-05, 612 d old')
     expect(row).toContain('none taken')
     expect(row).toContain('requested')
     expect(text).toContain('the lights have no GAIN or OFFSET in their header')

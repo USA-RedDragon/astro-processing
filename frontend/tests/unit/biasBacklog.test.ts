@@ -52,7 +52,7 @@ describe('bias backlog', () => {
   })
 
   it('shows the current set and the newest frame honestly', () => {
-    expect(currentBiasText(combo(1, 'k'))).toBe('2025-02-05, 612 d from the latest night')
+    expect(currentBiasText(combo(1, 'k'))).toBe('2025-02-05, 612 d old')
     expect(currentBiasText({ current_bias_night: null, current_bias_age_days: null })).toBe('none on record')
     expect(currentBiasText({ current_bias_night: '2025-02-05', current_bias_age_days: null })).toBe('2025-02-05, age not recorded')
     expect(newestBiasText({ newest_bias_at: null })).toBe('none taken')
