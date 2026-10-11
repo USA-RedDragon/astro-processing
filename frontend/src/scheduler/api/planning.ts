@@ -454,7 +454,7 @@ export interface ProjectDraft {
   minimumAltitude: number
   minimumTime: number
   setId: string
-  plans?: { templateId: number; exposure: number }[]
+  plans?: { templateId: number }[]
   goalDriven?: boolean
   desired?: number
   goal: { kind: GoalKind; snr: number; depth: number; plateauStop?: boolean }

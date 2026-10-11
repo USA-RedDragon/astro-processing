@@ -65,12 +65,11 @@ export function templateLength(
 export function pickPlans(
   rows: { template: { id: number } | null }[],
   templates: Pick<Template, 'id' | 'defaultExposure'>[] | null | undefined,
-): { templateId: number; exposure: number }[] | null {
-  const out: { templateId: number; exposure: number }[] = []
+): { templateId: number }[] | null {
+  const out: { templateId: number }[] = []
   for (const r of rows) {
-    const exposure = templateLength(templates, r.template?.id)
-    if (!r.template || exposure === null) return null
-    out.push({ templateId: r.template.id, exposure })
+    if (!r.template || templateLength(templates, r.template.id) === null) return null
+    out.push({ templateId: r.template.id })
   }
   return out.length ? out : null
 }

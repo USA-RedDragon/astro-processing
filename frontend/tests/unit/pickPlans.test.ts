@@ -7,8 +7,10 @@ describe('pickPlans', () => {
     { id: 2, defaultExposure: 0 },
   ]
 
-  it('sends the template length, never a picked one', () => {
-    expect(pickPlans([{ template: { id: 1 } }], templates)).toEqual([{ templateId: 1, exposure: 600 }])
+  it('sends no length so the plan uses the system or template length', () => {
+    const plans = pickPlans([{ template: { id: 1 } }], templates)
+    expect(plans).toEqual([{ templateId: 1 }])
+    expect(plans?.[0]).not.toHaveProperty('exposure')
     expect(templateLength(templates, 1)).toBe(600)
   })
 
