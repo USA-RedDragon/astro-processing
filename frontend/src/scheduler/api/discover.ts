@@ -132,7 +132,17 @@ export interface Tonight {
   siteResolved: boolean
 }
 
-export type Completion = 'done' | 'in-progress' | 'measuring' | 'being-added' | 'not-started'
+export type Completion =
+  'done' | 'in-progress' | 'measuring' | 'being-added' | 'scheduled' | 'not-started'
+
+export const completionLabel: Record<Completion, string> = {
+  done: 'Done',
+  'in-progress': 'In progress',
+  measuring: 'Measuring',
+  'being-added': 'Being added',
+  scheduled: 'Scheduled',
+  'not-started': 'Not started',
+}
 
 export interface Adding {
   commandId: string
@@ -231,6 +241,15 @@ export interface CatalogueSummary {
   notStarted: number
   scheduled: number
   upTonight: number
+}
+
+export function summaryCounts(
+  c: Pick<CatalogueSummary, 'inProgress' | 'measuring' | 'beingAdded' | 'scheduled' | 'notStarted'>,
+): string {
+  const parts = [`${c.inProgress} in progress`, `${c.measuring} measuring`]
+  if (c.beingAdded) parts.push(`${c.beingAdded} being added`)
+  parts.push(`${c.scheduled} scheduled`, `${c.notStarted} not started`)
+  return parts.join(' · ')
 }
 
 export interface NightInfo {

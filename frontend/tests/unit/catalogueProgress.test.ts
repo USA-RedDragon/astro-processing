@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { backfillHead, mastersText, progressFill, progressText } from '@/scheduler/api/discover'
+import {
+  backfillHead,
+  completionLabel,
+  mastersText,
+  progressFill,
+  progressText,
+  summaryCounts,
+} from '@/scheduler/api/discover'
 
 const progress = {
   percent: 0.0459,
@@ -42,7 +49,7 @@ describe('catalogue progress', () => {
   })
 
   it('leaves other states alone', () => {
-    for (const status of ['done', 'being-added', 'not-started'] as const) {
+    for (const status of ['done', 'being-added', 'scheduled', 'not-started'] as const) {
       expect(progressFill({ status, progress })).toBeNull()
       expect(progressText({ status, progress })).toBe('')
     }
@@ -66,5 +73,20 @@ describe('master measurement counts', () => {
     expect(backfillHead({ total: 10, measured: 8, current: 6, failed: 0 })).toBe(
       'Goal measurements: 8 of 10 masters measured (6 of the 8 checked on the current method)',
     )
+  })
+})
+
+describe('scheduled with nothing captured', () => {
+  it('counts scheduled objects apart from not started', () => {
+    const c = { inProgress: 2, measuring: 1, beingAdded: 0, scheduled: 7, notStarted: 99 }
+    expect(summaryCounts(c)).toBe('2 in progress · 1 measuring · 7 scheduled · 99 not started')
+    expect(summaryCounts({ ...c, beingAdded: 1 })).toBe(
+      '2 in progress · 1 measuring · 1 being added · 7 scheduled · 99 not started',
+    )
+  })
+
+  it('labels the scheduled state', () => {
+    expect(completionLabel.scheduled).toBe('Scheduled')
+    expect(new Set(Object.values(completionLabel)).size).toBe(Object.keys(completionLabel).length)
   })
 })

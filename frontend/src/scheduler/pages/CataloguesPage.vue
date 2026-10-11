@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   addLink,
   backfillHead,
+  completionLabel,
   decideMatch,
   filterColour,
   filterOrder,
@@ -24,6 +25,7 @@ import {
   plateauText,
   progressFill,
   progressText,
+  summaryCounts,
   typeLabel,
   type CatalogueEntry,
   type Decision,
@@ -55,13 +57,7 @@ const detail = ref<ObjectDetail | null>(null)
 const busy = ref('')
 const sourcesOpen = ref(false)
 
-const statusLabel: Record<string, string> = {
-  done: 'Done',
-  'in-progress': 'In progress',
-  measuring: 'Measuring',
-  'being-added': 'Being added',
-  'not-started': 'Not started',
-}
+const statusLabel: Record<string, string> = completionLabel
 
 const backfill = computed(() => overview.value?.backfill ?? null)
 
@@ -203,7 +199,9 @@ function cellStyle(e: CatalogueEntry) {
             ? '1px dashed var(--prog)'
             : s === 'being-added'
               ? '1px dashed var(--warn)'
-              : '1px dashed var(--border)',
+              : s === 'scheduled'
+                ? '1px dashed var(--prog)'
+                : '1px dashed var(--border)',
     boxShadow: e.tonight?.up ? 'inset 0 -3px 0 var(--warn)' : 'none',
     textShadow: s === 'measuring' ? '0 0 3px var(--card), 0 0 2px var(--card)' : 'none',
     opacity: hidden(e) ? 0.18 : 1,
@@ -222,7 +220,12 @@ function cellLabel(e: CatalogueEntry): string {
 function cellTitle(e: CatalogueEntry): string {
   const prog = progressText(e)
   const plat = plateauHint(e)
-  return [label(e.object), prog ? prog[0]!.toUpperCase() + prog.slice(1) : '', e.completionBasis, plat]
+  return [
+    label(e.object),
+    prog ? prog[0]!.toUpperCase() + prog.slice(1) : '',
+    e.completionBasis,
+    plat,
+  ]
     .filter(Boolean)
     .join(' · ')
 }
@@ -347,7 +350,8 @@ async function decide(m: ReviewItem, after: Decision) {
       <span>
         Catalogue objects inside your plate-solved frames. Done means Target Scheduler has finished
         every filter. Progress is the least complete filter against its measured goal, never an
-        average. Measuring means a filter with a goal has no measurement yet. Only names that point
+        average. Measuring means a filter with a goal has no measurement yet. Scheduled means a
+        Target Scheduler project plans it but no frames are captured yet. Only names that point
         outside your frames wait for you below.
       </span>
       <template #actions>
@@ -381,11 +385,7 @@ async function decide(m: ReviewItem, after: Decision) {
         </span>
         <span class="row num" style="align-items: baseline">
           <span style="font-size: 1.5rem; font-weight: 600; line-height: 1.1">{{ c.done }}</span>
-          <span class="xsmall muted"
-            >done · {{ c.inProgress }} in progress · {{ c.measuring }} measuring ·
-            <template v-if="c.beingAdded">{{ c.beingAdded }} being added · </template
-            >{{ c.notStarted }} not started</span
-          >
+          <span class="xsmall muted">done · {{ summaryCounts(c) }}</span>
         </span>
         <span class="bar" aria-hidden="true">
           <span :style="{ width: (c.done / c.total) * 100 + '%', background: 'var(--done)' }" />
@@ -401,8 +401,8 @@ async function decide(m: ReviewItem, after: Decision) {
           />
         </span>
         <span class="xsmall muted"
-          >Done by goal {{ c.doneByGoal }} · by subs against desired {{ c.doneByCounts }} ·
-          scheduled, nothing captured {{ c.scheduled }} · up tonight {{ c.upTonight }}</span
+          >Done by goal {{ c.doneByGoal }} · by subs against desired {{ c.doneByCounts }} · up
+          tonight {{ c.upTonight }}</span
         >
       </button>
     </div>
@@ -421,6 +421,7 @@ async function decide(m: ReviewItem, after: Decision) {
               <option>Not started</option>
               <option>Measuring</option>
               <option>Being added</option>
+              <option>Scheduled</option>
               <option>In progress</option>
               <option>Done</option>
             </select>
@@ -445,8 +446,8 @@ async function decide(m: ReviewItem, after: Decision) {
             class="key"
             style="
               background:
-                linear-gradient(to right, var(--plateau) 30%, var(--plateau-track) 30%) top / 100% 3px
-                  no-repeat,
+                linear-gradient(to right, var(--plateau) 30%, var(--plateau-track) 30%) top / 100%
+                  3px no-repeat,
                 var(--done);
             "
           />Top line: the filter furthest from its plateau, as effective hours over the estimated
@@ -460,6 +461,10 @@ async function decide(m: ReviewItem, after: Decision) {
         >
         <span class="row" style="gap: 0.375rem"
           ><span class="key" style="border: 1px dashed var(--warn)" />Being added</span
+        >
+        <span class="row" style="gap: 0.375rem"
+          ><span class="key" style="border: 1px dashed var(--prog)" />Scheduled, nothing captured
+          yet</span
         >
         <span class="row" style="gap: 0.375rem"
           ><span class="key" style="border: 1px dashed var(--muted-foreground)" />Not started</span
