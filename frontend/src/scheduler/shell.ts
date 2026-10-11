@@ -75,6 +75,9 @@ export function queuedShort(): string {
 export function describeOutcome(r: CommandRecord): { sub: string; tone?: Toast['tone'] } {
   switch (r.status) {
     case 'saved':
+      if (r.category === 'calibration') {
+        return { sub: 'Saved in the app. The stacker passes calibration requests to the observatory when publishing is on.' }
+      }
       return { sub: 'Saved in the app. Nothing changes in the scheduler.' }
     case 'queued':
       return {

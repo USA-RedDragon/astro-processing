@@ -1,3 +1,4 @@
+import type { CalibrationRequestRef } from './calibration'
 import { api } from './client'
 
 export interface DarkBacklogCombo {
@@ -19,6 +20,7 @@ export interface DarkBacklogCombo {
   nights: number | null
   latest_night: string | null
   newest_dark_at: string | null
+  requests?: CalibrationRequestRef[] | null
   basis: string | null
 }
 

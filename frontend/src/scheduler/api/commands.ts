@@ -13,6 +13,7 @@ export type CommandCategory =
   | 'created'
   | 'matching'
   | 'adoption'
+  | 'calibration'
 
 export interface ObjectRef {
   entity: string

@@ -34,6 +34,7 @@ const categories = [
   { value: 'created', label: 'Created' },
   { value: 'matching', label: 'Name matches' },
   { value: 'adoption', label: 'Mosaic adoption' },
+  { value: 'calibration', label: 'Calibration' },
 ]
 
 let seq = 0
