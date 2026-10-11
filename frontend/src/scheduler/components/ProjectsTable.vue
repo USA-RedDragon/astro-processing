@@ -140,7 +140,18 @@ function kindLabel(p: Project): string {
 
 function weakestText(p: Project): string {
   const w = p.weakest
-  if (!w) return p.targets.length ? 'No enabled exposure plans' : 'No targets'
+  if (!w) {
+    if (!p.targets.length) return 'No targets'
+    const goals = p.targets.filter((t) => t.active).flatMap((t) => t.goals)
+    if (!goals.length) return 'No enabled exposure plans'
+    if (goals.every((g) => g.progress?.done)) {
+      const plateaued = goals.filter((g) => g.progress?.plateau).length
+      return plateaued
+        ? `Every filter is done; ${plateaued} of ${goals.length} reached the plateau`
+        : 'Every filter met its goal'
+    }
+    return 'No filter below its goal'
+  }
   const m = p.isMosaic && p.weakestTarget ? /(Panel\s*\d+)\s*$/i.exec(p.weakestTarget) : null
   const prefix = (m ? m[1] + ' ' : '') + w.filter + ' · '
   const g = w.progress
