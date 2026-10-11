@@ -1068,8 +1068,8 @@ async function goStep(i: number) {
       />
       <p v-if="step === 3" class="xsmall muted" style="margin: 0">
         Every panel gets the same goal, measured per panel, and the weakest one sets completion. New
-        mosaics get the Panel Deficit rule at
-        {{ snap?.defaults?.panelDeficitWeight ?? 'its on-weight' }} and are adopted as planned
+        mosaics get the global rule weights, with Panel Deficit at
+        {{ snap?.defaults?.panelDeficitWeight ?? 'its global value' }}, and are adopted as planned
         mosaics straight away. Dark hours use minimum altitude {{ minAlt ?? 'not set' }}°{{
           form.minAlt === null && usualAlt ? ' (your usual)' : ''
         }}; change it on the Exposures and goal step.

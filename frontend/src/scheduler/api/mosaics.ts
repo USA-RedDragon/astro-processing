@@ -382,8 +382,6 @@ export interface Adoption {
   }
 }
 
-export const RULE_PANEL_DEFICIT = 'Panel Deficit'
-
 export const listMosaics = () => api.get<MosaicSummary[]>('/mosaics/projects')
 export const getMosaic = (key: string) =>
   api.get<MosaicDetail>('/mosaics/projects/' + encodeURIComponent(key))
@@ -400,16 +398,6 @@ export const mosaicPreviews = (project: string) =>
   api.get<{ filter: string; preview_url?: string; panels: number; panels_total: number }[]>(
     '/mosaics' + query({ project }),
   )
-
-export function setBalancing(d: MosaicDetail, on: boolean) {
-  const before = d.balancing.panelDeficitSet ? d.balancing.panelDeficit : null
-  return submitCommand('ruleweight.edit', {
-    project_id: d.ts.id,
-    project_guid: d.projectGuid,
-    project_name: d.project,
-    changes: [{ rule: RULE_PANEL_DEFICIT, before, after: on ? d.balancing.onWeight : 0 }],
-  })
-}
 
 export interface AdoptionDecision {
   id: number

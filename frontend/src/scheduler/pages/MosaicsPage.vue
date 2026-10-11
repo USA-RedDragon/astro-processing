@@ -13,7 +13,6 @@ import {
   mosaicPreviews,
   seamColourText,
   seamSeverity,
-  setBalancing,
   project,
   meanCentre,
   type Adoption,
@@ -27,6 +26,7 @@ import {
   type SkyPoint,
 } from '../api/mosaics'
 import { onEvent } from '../api/events'
+import { getRuleWeights } from '../api/ruleweights'
 import { errorToast, notifyCommand } from '../shell'
 import {
   filterColor,
@@ -112,9 +112,19 @@ async function loadAdoptions() {
   }
 }
 
+const globalDeficit = ref<number | null>(null)
+
+async function loadGlobal() {
+  try {
+    globalDeficit.value = (await getRuleWeights()).weights['Panel Deficit'] ?? null
+  } catch {
+    globalDeficit.value = null
+  }
+}
+
 async function loadAll() {
   await loadList()
-  await Promise.all([loadDetail(), loadAdoptions(), loadSeasons()])
+  await Promise.all([loadDetail(), loadAdoptions(), loadSeasons(), loadGlobal()])
 }
 
 let off: (() => void) | undefined
@@ -450,25 +460,14 @@ const behindText = computed(() => {
 const balancingText = computed(() => {
   const b = balancing.value
   if (!b) return ''
-  return b.on
-    ? `Panel Deficit is weighted ${b.panelDeficit}, so the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behindText.value}`
-    : `Panel Deficit is ${b.panelDeficitSet ? 'weighted 0' : 'not set'}, so the scheduler does not steer time to the panel that is behind. Turning it on sets it to ${b.onWeight}; Mosaic Completion stays at ${b.mosaicCompletion}.`
+  const now = b.on
+    ? `Panel Deficit is weighted ${b.panelDeficit} on this mosaic, so the scheduler adds weight to the panel furthest behind its goal and none to panels past it. ${behindText.value}`
+    : `Panel Deficit is ${b.panelDeficitSet ? 'weighted 0' : 'not set'} on this mosaic, so the scheduler does not steer time to the panel that is behind. Mosaic Completion is ${b.mosaicCompletion}.`
+  const g = globalDeficit.value
+  if (g === null) return now
+  const differs = Math.abs(g - (b.panelDeficitSet ? b.panelDeficit : 0)) > 1e-9
+  return `${now} Panel Deficit is a global rule weight, ${g} for every project${differs ? '; this mosaic differs from it until its weights are reset to the global set' : ''}.`
 })
-const busy = ref(false)
-
-async function toggleBalancing() {
-  const d = detail.value
-  if (!d || busy.value) return
-  busy.value = true
-  try {
-    notifyCommand(await setBalancing(d, !d.balancing.on))
-    await loadDetail()
-  } catch (e) {
-    errorToast(e)
-  } finally {
-    busy.value = false
-  }
-}
 
 interface SeamRow {
   pair: string
@@ -717,24 +716,13 @@ const pushPanels = computed(() =>
   (seasons.value?.panelPriority ?? []).filter((x) => x.thisSeason).slice(0, 5),
 )
 
-async function applyStrategy() {
-  const d = detail.value
-  if (!d || strategy.value === 'even' || !strategy.value) return
-  const want = strategy.value === 'weakest'
-  if (d.balancing.on === want) {
-    errorToast(new Error('Balancing already matches this plan.'), 'Already set')
-    return
-  }
-  busy.value = true
-  try {
-    notifyCommand(await setBalancing(d, want))
-    await loadDetail()
-  } catch (e) {
-    errorToast(e)
-  } finally {
-    busy.value = false
-  }
-}
+const strategyNeeds = computed(() => {
+  const st = strategy.value
+  if (!st || st === 'even' || st === seasons.value?.strategyInForce) return ''
+  return st === 'weakest'
+    ? 'This plan needs Panel Deficit above 0, set for every project in Rule weights.'
+    : 'This plan needs Panel Deficit at 0, set for every project in Rule weights.'
+})
 
 const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed'))
 const showDecisions = ref(false)
@@ -1064,14 +1052,7 @@ const tabs = computed<[Tab, string][]>(() => [
               {{ balancingText }}
             </p>
             <div class="row" style="justify-content: flex-end">
-              <button
-                type="button"
-                class="btn primary"
-                :disabled="busy || !detail.ts.id"
-                @click="toggleBalancing"
-              >
-                {{ balancing?.on ? 'Turn off balancing' : 'Turn on balancing' }}
-              </button>
+              <RouterLink :to="{ name: 'rule-weights' }" class="btn">Edit in Rule weights</RouterLink>
             </div>
           </section>
           <section v-if="detail.needs.length" class="card" aria-labelledby="needs-h">
@@ -1222,16 +1203,12 @@ const tabs = computed<[Tab, string][]>(() => [
               <option value="worst">Like the worst season</option>
             </select>
           </label>
-          <button
-            type="button"
-            class="btn primary"
-            :disabled="busy || strategy === 'even' || strategy === seasons?.strategyInForce"
-            @click="applyStrategy"
+          <RouterLink v-if="strategyNeeds" :to="{ name: 'rule-weights' }" class="btn primary"
+            >Change Panel Deficit</RouterLink
           >
-            Use this plan
-          </button>
         </div>
         <p class="small" style="margin: 0">{{ strategyText }}</p>
+        <p v-if="strategyNeeds" class="xsmall muted" style="margin: 0">{{ strategyNeeds }}</p>
         <p v-if="seasons" class="xsmall muted" style="margin: 0">{{ basisText }}</p>
         <p v-if="seasons?.projection" class="xsmall muted" style="margin: 0">
           Projected at {{ r1(seasons.projection.hoursPerSeason) }} h effective a season, in
