@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/lru"
@@ -24,6 +25,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -56,6 +58,12 @@ func graphqlHandler(cfg *config.Config, version string, commit string, relay *ev
 	h.AddTransport(transport.POST{})
 
 	h.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+
+	h.SetErrorPresenter(func(ctx context.Context, err error) *gqlerror.Error {
+		gqlErr := graphql.DefaultErrorPresenter(ctx, err)
+		slog.Warn("GraphQL error", "path", gqlErr.Path.String(), "error", gqlErr.Message)
+		return gqlErr
+	})
 
 	h.Use(extension.Introspection{})
 	h.Use(extension.AutomaticPersistedQuery{
