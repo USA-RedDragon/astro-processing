@@ -314,6 +314,7 @@ const pct = (w: number) => Math.round(w * 100)
 
 
 const leftOut = computed(() => (preview.value?.left_out ?? []).map(leftOutView))
+const targetRoute = (id: number) => ({ name: 'TargetDetails', params: { id: String(id) } })
 
 const fields: OverrideField[] = ['priority', 'state', 'minimumtime']
 const wiProject = ref<number | null>(null)
@@ -669,40 +670,82 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                 {{ moonPhase }}
               </text>
             </g>
-            <g v-for="(b, i) in targetBars" :key="'tb' + i">
-              <title>{{ b.title }}</title>
-              <rect
-                :x="b.x"
-                y="40"
-                :width="b.w"
-                height="56"
-                rx="6"
-                :fill="b.wait ? 'none' : b.colour"
-                :fill-opacity="b.wait ? undefined : 0.3"
-                :stroke="b.colour"
-                :stroke-dasharray="b.wait ? '3 3' : undefined"
-              />
-              <template v-if="b.w > 36">
-                <text
-                  :x="b.x + 8"
-                  y="63"
-                  :font-size="b.w > 90 ? 13 : 11"
-                  font-weight="600"
-                  :fill="b.wait ? 'var(--muted-foreground)' : 'var(--foreground)'"
-                >
-                  {{ b.name }}
-                </text>
-                <text
-                  v-if="b.sub && b.w > 70"
-                  :x="b.x + 8"
-                  y="82"
-                  font-size="11"
-                  fill="var(--muted-foreground)"
-                >
-                  {{ b.sub }}
-                </text>
-              </template>
-            </g>
+            <template v-for="(b, i) in targetBars" :key="'tb' + i">
+              <RouterLink
+                v-if="b.targetId !== undefined"
+                v-slot="{ href, navigate }"
+                :to="targetRoute(b.targetId)"
+                custom
+              >
+                <a :href="href" class="tl-link" :aria-label="b.title" @click="navigate">
+                  <title>{{ b.title }}</title>
+                  <rect
+                    :x="b.x"
+                    y="40"
+                    :width="b.w"
+                    height="56"
+                    rx="6"
+                    :fill="b.colour"
+                    fill-opacity="0.3"
+                    :stroke="b.colour"
+                  />
+                  <template v-if="b.w > 36">
+                    <text
+                      :x="b.x + 8"
+                      y="63"
+                      :font-size="b.w > 90 ? 13 : 11"
+                      font-weight="600"
+                      fill="var(--foreground)"
+                    >
+                      {{ b.name }}
+                    </text>
+                    <text
+                      v-if="b.sub && b.w > 70"
+                      :x="b.x + 8"
+                      y="82"
+                      font-size="11"
+                      fill="var(--muted-foreground)"
+                    >
+                      {{ b.sub }}
+                    </text>
+                  </template>
+                </a>
+              </RouterLink>
+              <g v-else>
+                <title>{{ b.title }}</title>
+                <rect
+                  :x="b.x"
+                  y="40"
+                  :width="b.w"
+                  height="56"
+                  rx="6"
+                  :fill="b.wait ? 'none' : b.colour"
+                  :fill-opacity="b.wait ? undefined : 0.3"
+                  :stroke="b.colour"
+                  :stroke-dasharray="b.wait ? '3 3' : undefined"
+                />
+                <template v-if="b.w > 36">
+                  <text
+                    :x="b.x + 8"
+                    y="63"
+                    :font-size="b.w > 90 ? 13 : 11"
+                    font-weight="600"
+                    :fill="b.wait ? 'var(--muted-foreground)' : 'var(--foreground)'"
+                  >
+                    {{ b.name }}
+                  </text>
+                  <text
+                    v-if="b.sub && b.w > 70"
+                    :x="b.x + 8"
+                    y="82"
+                    font-size="11"
+                    fill="var(--muted-foreground)"
+                  >
+                    {{ b.sub }}
+                  </text>
+                </template>
+              </g>
+            </template>
             <g>
               <rect
                 v-for="(f, i) in filterBars"
@@ -1096,6 +1139,24 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
   border-radius: 0.5rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.8125rem;
+}
+.tl-link {
+  cursor: pointer;
+}
+.tl-link rect {
+  transition: fill-opacity 0.1s;
+}
+.tl-link:hover rect,
+.tl-link:focus-visible rect {
+  fill-opacity: 0.55;
+  stroke-width: 2;
+}
+.tl-link:focus {
+  outline: none;
+}
+.tl-link:focus-visible rect {
+  stroke: var(--foreground);
+  stroke-width: 3;
 }
 .wi-grid {
   display: grid;
