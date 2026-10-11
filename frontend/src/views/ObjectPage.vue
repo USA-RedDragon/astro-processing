@@ -4,6 +4,7 @@
       <div class="h-7 w-72 rounded bg-muted animate-pulse" />
       <div class="h-4 w-2/3 rounded bg-muted animate-pulse" />
     </div>
+    <p v-else-if="!target && failed" role="alert" class="text-red-600">Could not load {{ name }}: {{ failed }}</p>
     <p v-else-if="!target" class="text-muted-foreground">No target named {{ name }}.</p>
     <div v-if="target">
       <router-link to="/" class="text-sm text-muted-foreground hover:underline">&larr; Home</router-link>
@@ -71,6 +72,7 @@ export default {
       target: null as OtherTarget | null,
       masters: [] as FilterMaster[],
       loaded: false,
+      failed: '',
       stopEvents: () => {},
       stopReconnect: () => {},
     };
@@ -108,8 +110,10 @@ export default {
         const r = await API.request(GET_OTHER_TARGET_QUERY, { name: this.name });
         this.target = (r.otherTarget as OtherTarget | null) ?? null;
         this.masters = (this.target?.masters ?? []) as FilterMaster[];
+        this.failed = '';
       } catch (error) {
         console.error('Error fetching target:', error);
+        this.failed = error instanceof Error ? error.message : String(error);
       } finally {
         this.loaded = true;
       }
