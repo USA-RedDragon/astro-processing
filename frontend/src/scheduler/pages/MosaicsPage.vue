@@ -5,24 +5,16 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   adopt,
   adoptionDecision,
-  autoOutcome,
-  autoReason,
-  keepOrder,
-  openLabel,
-  splitAdoptions,
-  undoAuto,
   getHistory,
   getMosaic,
   getSeasons,
   listAdoptions,
   listMosaics,
   mosaicPreviews,
-  runAdoption,
   setBalancing,
   project,
   meanCentre,
   type Adoption,
-  type AdoptionDecision,
   type MosaicDetail,
   type MosaicHistory,
   type MosaicPanel,
@@ -44,8 +36,9 @@ const props = defineProps<{ projectId?: string }>()
 const route = useRoute()
 const router = useRouter()
 
-type Tab = 'panels' | 'seams' | 'seasons' | 'adopt'
-const tab = ref<Tab>((route.query.tab as Tab) || 'panels')
+type Tab = 'panels' | 'seams' | 'seasons'
+const TABS: Tab[] = ['panels', 'seams', 'seasons']
+const tab = ref<Tab>(TABS.includes(route.query.tab as Tab) ? (route.query.tab as Tab) : 'panels')
 watch(tab, (t) => router.replace({ query: { ...route.query, tab: t } }))
 
 const list = ref<MosaicSummary[]>([])
@@ -100,7 +93,7 @@ async function loadDetail() {
 
 async function loadAdoptions() {
   try {
-    adoptions.value = keepOrder(adoptions.value, await listAdoptions())
+    adoptions.value = await listAdoptions()
   } catch (e) {
     loadError.value = e instanceof Error ? e.message : String(e)
   }
@@ -709,88 +702,32 @@ async function applyStrategy() {
   }
 }
 
-const adoptionGroups = computed(() => splitAdoptions(adoptions.value))
-const openAdoptions = computed(() => adoptionGroups.value.open.length)
-const cleanOpen = computed(() => adoptions.value.filter((a) => a.status === 'proposed' && a.clean))
+const openAdoptions = computed(() => adoptions.value.filter((a) => a.status === 'proposed'))
+const showDecisions = ref(false)
 const deciding = reactive(new Set<number>())
 
-async function sendAdoption(ds: AdoptionDecision[]) {
-  if (!ds.length || ds.some((d) => deciding.has(d.id))) return
-  for (const d of ds) deciding.add(d.id)
+async function decide(a: Adoption, choice: 'accepted' | 'rejected') {
+  if (deciding.has(a.id)) return
+  deciding.add(a.id)
   try {
-    notifyCommand(await adopt(ds))
-    for (const d of ds) {
-      const a = adoptions.value.find((x) => x.id === d.id)
-      if (a) a.status = d.after
-    }
-    await loadAdoptions()
-  } catch (e) {
-    errorToast(e)
-    await loadAdoptions()
-  } finally {
-    for (const d of ds) deciding.delete(d.id)
-  }
-}
-
-function decide(a: Adoption, choice: 'accepted' | 'rejected') {
-  return sendAdoption([adoptionDecision(a, choice)])
-}
-
-function acceptAllClean() {
-  return sendAdoption(cleanOpen.value.map((a) => adoptionDecision(a, 'accepted')))
-}
-
-const adoptRunning = ref(false)
-async function rerunAdoption() {
-  adoptRunning.value = true
-  try {
-    await runAdoption(false)
-    await loadAdoptions()
+    notifyCommand(await adopt([adoptionDecision(a, choice)]))
+    a.status = choice
   } catch (e) {
     errorToast(e)
   } finally {
-    adoptRunning.value = false
+    deciding.delete(a.id)
+    await loadAdoptions()
   }
-}
-
-function adoptionTimes(a: Adoption): string {
-  const parts: string[] = []
-  if (a.foundAt) parts.push('found ' + shortDate(a.foundAt))
-  if (a.wordedAt && a.wordedAt !== a.foundAt) parts.push('wording last changed ' + shortDate(a.wordedAt))
-  if (a.decidedAt) {
-    const verb =
-      a.status === 'auto'
-        ? 'decided automatically'
-        : a.status === 'proposed'
-          ? 'reopened'
-          : 'decided'
-    const who = a.status !== 'auto' && a.decidedBy ? ' by ' + a.decidedBy : ''
-    parts.push(`${verb} ${shortDate(a.decidedAt)}${who}`)
-  }
-  return parts.join(' · ')
 }
 
 function adoptionTitle(a: Adoption): string {
   return a.kind === 'frames' ? a.project + ' · unmatched subs' : a.project
 }
 
-function statusBadge(a: Adoption): { text: string; cls: string } | null {
-  switch (a.status) {
-    case 'accepted':
-      return { text: 'Accepted', cls: 'ok' }
-    case 'rejected':
-      return { text: 'Rejected', cls: '' }
-    case 'auto':
-      return { text: 'Automatic', cls: 'ok' }
-  }
-  return a.clean ? { text: 'Clean', cls: 'info' } : null
-}
-
 const tabs = computed<[Tab, string][]>(() => [
   ['panels', 'Panels and goal'],
   ['seams', 'Seam health'],
   ['seasons', 'Seasons'],
-  ['adopt', 'Adoption review' + (openAdoptions.value ? ' · ' + openAdoptions.value : '')],
 ])
 </script>
 
@@ -812,7 +749,7 @@ const tabs = computed<[Tab, string][]>(() => [
         >
       </span>
       <span v-else-if="!list.length && !loadError">
-        No mosaics yet. Add one from Add target, or adopt your existing ones under Adoption review.
+        No mosaics yet. Add one from Add target.
       </span>
       <template #actions>
         <label
@@ -837,6 +774,57 @@ const tabs = computed<[Tab, string][]>(() => [
     </PageHead>
 
     <p v-if="loadError" class="small" style="margin: 0; color: var(--bad)">{{ loadError }}</p>
+
+    <section v-if="openAdoptions.length" class="card decisions" aria-labelledby="decide-h">
+      <div class="spread">
+        <p id="decide-h" class="small" style="margin: 0">
+          <strong
+            >{{ openAdoptions.length }} adoption
+            {{ openAdoptions.length === 1 ? 'decision needs' : 'decisions need' }} you.</strong
+          >
+          Everything else was decided automatically.
+        </p>
+        <button
+          type="button"
+          class="btn sm"
+          :aria-expanded="showDecisions"
+          @click="showDecisions = !showDecisions"
+        >
+          {{ showDecisions ? 'Hide' : 'Review' }}
+        </button>
+      </div>
+      <ul v-if="showDecisions" class="decide">
+        <li v-for="a in openAdoptions" :key="a.id">
+          <div
+            class="small"
+            style="min-width: 0; display: flex; flex-direction: column; gap: 0.125rem"
+          >
+            <span style="font-weight: 600; font-size: 0.875rem">{{ adoptionTitle(a) }}</span>
+            <span v-if="a.issue">{{ a.issue }}</span>
+            <span class="muted">Suggested: {{ a.suggestion }}</span>
+            <span v-if="a.rule" class="xsmall muted">Why: {{ a.rule }}</span>
+          </div>
+          <div role="group" :aria-label="'Decision for ' + a.project" class="row">
+            <button
+              type="button"
+              class="btn"
+              :disabled="deciding.has(a.id)"
+              @click="decide(a, 'accepted')"
+            >
+              Accept
+            </button>
+            <button
+              type="button"
+              class="btn"
+              :disabled="deciding.has(a.id)"
+              @click="decide(a, 'rejected')"
+            >
+              Reject
+            </button>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <div role="tablist" aria-label="Mosaic sections" class="tabs">
       <button
@@ -1276,117 +1264,6 @@ const tabs = computed<[Tab, string][]>(() => [
       </section>
     </div>
 
-    <section v-if="tab === 'adopt'" class="card" aria-labelledby="adopt-h">
-      <div class="spread" style="align-items: flex-start">
-        <div style="max-width: 72ch">
-          <h2 id="adopt-h">Adoption review</h2>
-          <p class="small muted" style="margin: 0.25rem 0 0">
-            Mosaics and subs from before this page existed. Rows the evidence settles are decided
-            automatically and listed under Decided automatically; only the rows left here need you.
-            Accept or Reject saves that row at once; press it again to make the row undecided.
-            Adoption only writes the app's own tables; no scheduler row is changed or deleted, and
-            every decision can be undone from the toast or History.
-          </p>
-        </div>
-        <div class="row">
-          <span class="badge" :class="openAdoptions ? 'warn' : 'ok'">{{
-            openLabel(openAdoptions)
-          }}</span>
-          <button
-            v-if="cleanOpen.length"
-            type="button"
-            class="btn sm primary"
-            :disabled="cleanOpen.some((a) => deciding.has(a.id))"
-            @click="acceptAllClean"
-          >
-            Accept all clean · {{ cleanOpen.length }}
-          </button>
-          <button type="button" class="btn sm" :disabled="adoptRunning" @click="rerunAdoption">
-            {{ adoptRunning ? 'Checking…' : 'Check again' }}
-          </button>
-        </div>
-      </div>
-      <p v-if="adoptions.length && !openAdoptions" class="small" style="margin: 0.75rem 0 0">
-        No decisions open. Nothing here needs you.
-      </p>
-      <ul class="adopt">
-        <li v-for="a in adoptions.filter((x) => x.status !== 'auto')" :key="a.id">
-          <div
-            style="min-width: 0; display: flex; flex-direction: column; gap: 0.125rem"
-            class="small"
-          >
-            <div class="row" style="align-items: baseline">
-              <span style="font-weight: 600; font-size: 0.875rem">{{ adoptionTitle(a) }}</span>
-              <span class="xsmall muted">confidence {{ a.confidence }}</span>
-              <span v-if="statusBadge(a)" class="badge" :class="statusBadge(a)?.cls">{{
-                statusBadge(a)?.text
-              }}</span>
-            </div>
-            <span v-if="a.issue">{{ a.issue }}</span>
-            <span class="muted">Suggested: {{ a.suggestion }}</span>
-            <span v-if="a.panels?.length" class="xsmall muted"
-              >Panels: {{ a.panels.map((p) => p.target).join(', ') }}</span
-            >
-            <span v-if="a.rule" class="xsmall muted">Why: {{ a.rule }}</span>
-            <span v-if="adoptionTimes(a)" class="xsmall muted">{{ adoptionTimes(a) }}</span>
-          </div>
-          <div role="group" :aria-label="'Decision for ' + a.project" class="row">
-            <button
-              type="button"
-              class="btn"
-              :class="{ on: a.status === 'accepted' }"
-              :aria-pressed="a.status === 'accepted'"
-              :disabled="deciding.has(a.id)"
-              :title="a.status === 'accepted' ? 'Press again to make it undecided' : undefined"
-              @click="decide(a, 'accepted')"
-            >
-              {{ a.status === 'accepted' ? 'Accepted' : 'Accept' }}
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="{ on: a.status === 'rejected' }"
-              :aria-pressed="a.status === 'rejected'"
-              :disabled="deciding.has(a.id)"
-              :title="a.status === 'rejected' ? 'Press again to make it undecided' : undefined"
-              @click="decide(a, 'rejected')"
-            >
-              {{ a.status === 'rejected' ? 'Rejected' : 'Reject' }}
-            </button>
-          </div>
-        </li>
-      </ul>
-      <details v-if="adoptionGroups.auto.length" class="auto-decided">
-        <summary class="small">Decided automatically ({{ adoptionGroups.auto.length }})</summary>
-        <p class="xsmall muted" style="margin: 0.5rem 0 0">
-          Undo moves a row back to the open decisions and removes the links or panels it made.
-        </p>
-        <ul class="adopt">
-          <li v-for="a in adoptionGroups.auto" :key="a.id">
-            <div
-              style="min-width: 0; display: flex; flex-direction: column; gap: 0.125rem"
-              class="small"
-            >
-              <span style="font-weight: 600; font-size: 0.875rem">{{ adoptionTitle(a) }}</span>
-              <span>{{ autoOutcome(a) }}</span>
-              <span class="muted">Why: {{ autoReason(a) }}</span>
-              <span v-if="adoptionTimes(a)" class="xsmall muted">{{ adoptionTimes(a) }}</span>
-            </div>
-            <button
-              type="button"
-              class="btn"
-              :disabled="deciding.has(a.id)"
-              @click="sendAdoption([undoAuto(a)])"
-            >
-              Undo
-            </button>
-          </li>
-        </ul>
-      </details>
-      <p v-if="!adoptions.length" class="empty">
-        Nothing to review. Press Check again to look for mosaics and unmatched subs.
-      </p>
-    </section>
   </main>
 </template>
 
@@ -1572,38 +1449,25 @@ const tabs = computed<[Tab, string][]>(() => [
 .month > span:last-child {
   padding: 0.375rem 0;
 }
-.adopt {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
+.decisions {
+  border-color: var(--warn, var(--border));
 }
-.adopt li {
+.decide {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+}
+.decide li {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.375rem 1rem;
   align-items: center;
-  padding: 0.875rem 0;
+  padding: 0.75rem 0;
   border-top: 1px solid var(--border);
 }
 @media (max-width: 640px) {
-  .adopt li {
+  .decide li {
     grid-template-columns: minmax(0, 1fr);
   }
-}
-.auto-decided {
-  margin-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
-}
-.auto-decided summary {
-  cursor: pointer;
-  font-weight: 600;
-}
-.adopt .btn.on {
-  border-color: var(--foreground);
-  background: var(--secondary);
-  font-weight: 600;
 }
 </style>
