@@ -92,6 +92,9 @@ describe('dark backlog null handling', () => {
     expect(sessionText(s)).toBe(
       'not measured yet to not measured yet: 12 frames, 11 clean, 1 rejected, not measured yet not checked yet.',
     )
+    expect(
+      sessionText({ from: null, to: null, frames: 2, clean: 1, leak: 0, flagged: 1, unchecked: 0 }),
+    ).toBe('not measured yet to not measured yet: 2 frames, 1 clean, 0 rejected, 1 found lit or off temperature but kept, 0 not checked yet.')
     expect(uncheckedText({ unchecked: null })).toBe('Darks not checked yet: not measured yet.')
     expect(uncheckedText({ unchecked: 0 })).toBe('Darks not checked yet: 0.')
   })

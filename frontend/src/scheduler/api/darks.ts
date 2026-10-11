@@ -34,6 +34,7 @@ export interface DarkBacklogSession {
   frames: number | null
   clean: number | null
   leak: number | null
+  flagged?: number | null
   unchecked: number | null
 }
 

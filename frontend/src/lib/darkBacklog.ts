@@ -108,9 +108,10 @@ export function setupText(r: Pick<DarkBacklogRejected, 'exposure' | 'gain' | 'of
 
 export function sessionText(s: DarkBacklogSession | null | undefined): string {
   if (!s) return 'No darks session seen yet.'
+  const flagged = s.flagged ? `, ${fmt(s.flagged)} found lit or off temperature but kept` : ''
   return (
     `${when(s.from)} to ${when(s.to)}: ${num(s.frames)} frames, ${num(s.clean)} clean, ` +
-    `${num(s.leak)} rejected, ${num(s.unchecked)} not checked yet.`
+    `${num(s.leak)} rejected${flagged}, ${num(s.unchecked)} not checked yet.`
   )
 }
 
