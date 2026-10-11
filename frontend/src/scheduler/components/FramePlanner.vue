@@ -38,6 +38,7 @@ const props = defineProps<{
 const emit = defineEmits<{ 'update:plan': [plan: FramePlan] }>()
 
 const W = 640
+const MAX_SIDE = 40
 const H = 400
 
 const rotation = ref<number | null>(props.rotation ?? null)
@@ -137,8 +138,8 @@ const custom = ref({ cols: props.cols ?? 2, rows: props.rows ?? 1 })
 
 function useCustom() {
   wantGrid.value = {
-    rows: Math.min(8, Math.max(1, custom.value.rows)),
-    cols: Math.min(8, Math.max(1, custom.value.cols)),
+    rows: Math.min(MAX_SIDE, Math.max(1, custom.value.rows)),
+    cols: Math.min(MAX_SIDE, Math.max(1, custom.value.cols)),
   }
   load()
 }
@@ -457,7 +458,7 @@ function useSuggested() {
           class="input num"
           type="number"
           min="1"
-          max="8"
+          :max="MAX_SIDE"
           aria-label="Columns"
           style="width: 4.5rem"
         />
@@ -467,7 +468,7 @@ function useSuggested() {
           class="input num"
           type="number"
           min="1"
-          max="8"
+          :max="MAX_SIDE"
           aria-label="Rows"
           style="width: 4.5rem"
         />
