@@ -14,6 +14,7 @@ import {
   hfrLimitFor,
   latestImage,
   subTimes,
+  timelineScrollLeft,
   rejectLineText,
   moonLine,
   moonPhaseText,
@@ -452,5 +453,17 @@ describe('subTimes', () => {
 
   it('falls back to the start when the exposure length is unknown', () => {
     expect(subTimes({ ...base, indexed: true })).toBe('exposure started 04:13 CDT')
+  })
+})
+
+describe('timelineScrollLeft', () => {
+  it('puts the focus a quarter of the way into a narrow view', () => {
+    expect(timelineScrollLeft(600, 1200, 896, 318)).toBe(369)
+  })
+  it('stays in range and does nothing when the chart fits', () => {
+    expect(timelineScrollLeft(1190, 1200, 896, 318)).toBe(578)
+    expect(timelineScrollLeft(100, 1200, 896, 318)).toBe(0)
+    expect(timelineScrollLeft(600, 1200, 1198, 1198)).toBe(0)
+    expect(timelineScrollLeft(null, 1200, 896, 318)).toBe(0)
   })
 })

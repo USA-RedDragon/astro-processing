@@ -552,3 +552,14 @@ export function subTimes(sub: TonightSub): string {
   if (sub.processed_at) parts.push(`graded ${clock(sub.processed_at)}`)
   return parts.join(' · ')
 }
+
+export function timelineScrollLeft(
+  focusX: number | null | undefined,
+  viewW: number,
+  svgPx: number,
+  clientPx: number,
+): number {
+  if (focusX === null || focusX === undefined || !isFinite(focusX) || svgPx <= clientPx) return 0
+  const px = (focusX / viewW) * svgPx
+  return Math.round(Math.max(0, Math.min(svgPx - clientPx, px - clientPx * 0.25)))
+}

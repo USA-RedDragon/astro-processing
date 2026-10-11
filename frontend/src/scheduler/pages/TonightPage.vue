@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { editEntity } from '../api/commands'
 import {
@@ -59,7 +59,13 @@ import {
   weightsFromQuery,
 } from '../ruleWeights'
 import { latestOnly } from '../latest'
-import { moonLine, moonPhaseText, mosaicBalance, nightSpan } from '../nowtonight'
+import {
+  moonLine,
+  moonPhaseText,
+  mosaicBalance,
+  nightSpan,
+  timelineScrollLeft,
+} from '../nowtonight'
 import { getPlanning, type Snapshot } from '../api/planning'
 import { flatsTile, moonTile, mosaicTile } from '../tonightTiles'
 
@@ -359,6 +365,27 @@ const filterBars = computed(() => {
     })
     .filter((b) => !isNaN(b.x) && !isNaN(b.w))
 })
+
+const timelineEl = ref<HTMLElement | null>(null)
+let scrolledFor = ''
+watch(
+  [timelineEl, filterBars],
+  async () => {
+    const el = timelineEl.value
+    const s = sc.value
+    if (!el || !s) return
+    const key = `${night.value}:${s.t0}`
+    if (key === scrolledFor) return
+    const focus = nowX.value ?? filterBars.value[0]?.x
+    if (focus === undefined) return
+    await nextTick()
+    const svg = el.querySelector('svg')
+    if (!svg) return
+    scrolledFor = key
+    el.scrollLeft = timelineScrollLeft(focus, W, svg.getBoundingClientRect().width, el.clientWidth)
+  },
+  { flush: 'post' },
+)
 
 const legend = computed(() =>
   summary.value.filters.map((f) => ({ label: f.name, fill: f.color })),
@@ -751,7 +778,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
           </div>
         </div>
         <p v-if="!preview" class="empty">{{ loading ? 'Simulating.' : 'No plan yet.' }}</p>
-        <div v-else-if="sc" class="scroll-x">
+        <div v-else-if="sc" ref="timelineEl" class="scroll-x">
           <svg
             :viewBox="`0 0 ${W} ${svgH}`"
             style="width: 100%; min-width: 56rem; display: block"
