@@ -324,6 +324,8 @@ type Subframe struct {
 	Photometry *string `json:"photometry,omitempty"`
 	// Presigned link to an auto-stretched JPEG of the sub, valid for an hour. Null until the worker has rendered it.
 	PreviewURL *string `json:"preview_url,omitempty"`
+	// Why there is no preview_url for a sub with a file name. Null when there is one.
+	PreviewMissing *string `json:"preview_missing,omitempty"`
 }
 
 type Target struct {

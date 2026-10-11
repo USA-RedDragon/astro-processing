@@ -251,6 +251,7 @@ type ComplexityRoot struct {
 		PedestalBasis       func(childComplexity int) int
 		PedestalSource      func(childComplexity int) int
 		Photometry          func(childComplexity int) int
+		PreviewMissing      func(childComplexity int) int
 		PreviewURL          func(childComplexity int) int
 		RejectReason        func(childComplexity int) int
 		Score               func(childComplexity int) int
@@ -1383,6 +1384,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.Photometry(childComplexity), true
+	case "Subframe.preview_missing":
+		if e.ComplexityRoot.Subframe.PreviewMissing == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.PreviewMissing(childComplexity), true
 	case "Subframe.preview_url":
 		if e.ComplexityRoot.Subframe.PreviewURL == nil {
 			break
@@ -2114,6 +2121,8 @@ type Subframe {
   photometry: String
   "Presigned link to an auto-stretched JPEG of the sub, valid for an hour. Null until the worker has rendered it."
   preview_url: String
+  "Why there is no preview_url for a sub with a file name. Null when there is one."
+  preview_missing: String
 }
 
 type FilterQuality {
@@ -2594,6 +2603,8 @@ func (ec *executionContext) childFields_Subframe(ctx context.Context, field grap
 		return ec.fieldContext_Subframe_photometry(ctx, field)
 	case "preview_url":
 		return ec.fieldContext_Subframe_preview_url(ctx, field)
+	case "preview_missing":
+		return ec.fieldContext_Subframe_preview_missing(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Subframe", field.Name)
 }

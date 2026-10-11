@@ -279,7 +279,13 @@
                   <div v-if="s.stack_reason" class="text-xs text-muted-foreground max-w-56">{{ s.stack_reason }}</div>
                 </TableCell>
                 <TableCell class="text-xs text-muted-foreground whitespace-nowrap">
-                  <PreviewLink v-if="s.file_name" :file-name="s.file_name" :url="s.preview_url ?? undefined" />
+                  <PreviewLink
+                    v-if="s.file_name"
+                    :file-name="s.file_name"
+                    :url="s.preview_url ?? undefined"
+                    :missing="s.preview_missing ?? undefined"
+                    @stale="refetch('subframes')"
+                  />
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -432,6 +438,7 @@ const GET_TARGET_SUBFRAMES_QUERY = `
         stack_reason
         photometry
         preview_url
+        preview_missing
       }
     }
   }

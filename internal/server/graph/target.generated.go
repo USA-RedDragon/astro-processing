@@ -1165,6 +1165,29 @@ func (ec *executionContext) fieldContext_Subframe_preview_url(_ context.Context,
 	return graphql.NewScalarFieldContext("Subframe", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _Subframe_preview_missing(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_preview_missing(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PreviewMissing, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_preview_missing(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Target_id(ctx context.Context, field graphql.CollectedField, obj *model.Target) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2157,6 +2180,11 @@ func (ec *executionContext) _Subframe(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "preview_url":
 			out.Values[i] = ec._Subframe_preview_url(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "preview_missing":
+			out.Values[i] = ec._Subframe_preview_missing(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

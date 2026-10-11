@@ -233,3 +233,23 @@ func TestSummarizeQualityGroupsSubsWithoutMetadata(t *testing.T) {
 		t.Errorf("exposure_time %v does not marshal: %v", q[0].ExposureTime, err)
 	}
 }
+
+func TestPreviewMissingSaysWhy(t *testing.T) {
+	t.Parallel()
+	known := subframe{stack: &workerclient.Sub{}}
+	for _, c := range []struct {
+		name       string
+		s          subframe
+		listFailed string
+		want       string
+	}{
+		{"list failed", known, "the stacker did not list previews: timeout", "the stacker did not list previews: timeout"},
+		{"stacker unreachable", subframe{unreachable: "refused"}, "", "the stacker did not answer: refused"},
+		{"unknown file", subframe{}, "", "the stacker has no record of this file yet"},
+		{"not rendered", known, "", "the stacker has not rendered a preview of it yet"},
+	} {
+		if got := previewMissing(c.s, c.listFailed); got != c.want {
+			t.Errorf("%s: %q, want %q", c.name, got, c.want)
+		}
+	}
+}

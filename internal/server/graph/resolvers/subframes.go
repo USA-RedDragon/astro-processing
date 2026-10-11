@@ -292,6 +292,22 @@ func matchStacker(subs []subframe, stacker map[string]*workerclient.Sub) {
 	}
 }
 
+// previewMissing says why a sub with a file name has no preview: the
+// previews could not be listed, or the stacker has no record of that file
+// or has not rendered it yet.
+func previewMissing(s subframe, listFailed string) string {
+	switch {
+	case listFailed != "":
+		return listFailed
+	case s.unreachable != "":
+		return "the stacker did not answer: " + s.unreachable
+	case s.stack == nil:
+		return "the stacker has no record of this file yet"
+	default:
+		return "the stacker has not rendered a preview of it yet"
+	}
+}
+
 func finite(v float64) *float64 {
 	if math.IsNaN(v) || math.IsInf(v, 0) {
 		return nil

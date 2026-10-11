@@ -112,9 +112,12 @@ func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*m
 	}
 	// Previews are optional: a worker outage shouldn't hide the subframes.
 	var previews map[string]string
+	listFailed := "no stacker is configured"
 	if r.worker != nil {
+		listFailed = ""
 		if previews, err = r.worker.Previews(ctx, obj.Name); err != nil {
 			slog.Warn("Could not load subframe previews", "target", obj.Name, "error", err)
+			listFailed = "the stacker did not list previews: " + err.Error()
 		}
 	}
 	out := make([]*model.Subframe, 0, len(subs))
@@ -123,6 +126,8 @@ func (r *targetResolver) Subframes(ctx context.Context, obj *model.Target) ([]*m
 		if m.FileName != nil {
 			if u, ok := previews[*m.FileName]; ok {
 				m.PreviewURL = &u
+			} else {
+				m.PreviewMissing = optional(previewMissing(s, listFailed))
 			}
 		}
 		out = append(out, m)

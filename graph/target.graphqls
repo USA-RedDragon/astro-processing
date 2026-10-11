@@ -136,6 +136,8 @@ type Subframe {
   photometry: String
   "Presigned link to an auto-stretched JPEG of the sub, valid for an hour. Null until the worker has rendered it."
   preview_url: String
+  "Why there is no preview_url for a sub with a file name. Null when there is one."
+  preview_missing: String
 }
 
 type FilterQuality {
