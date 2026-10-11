@@ -1224,7 +1224,7 @@ async function goStep(i: number) {
               type="number"
               step="0.1"
               placeholder="per filter"
-              style="width: 5.5rem; height: 2rem"
+              style="width: 6.5rem; height: 2rem"
             />
             <span class="muted"
               >mag/arcsec² at SNR {{ goalDefaults?.depthSnr ?? '?' }} ·
