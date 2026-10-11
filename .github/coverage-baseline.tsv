@@ -9,7 +9,7 @@ internal/server/graph/resolvers/least.go	23	20
 internal/server/graph/resolvers/other.resolvers.go	30	15
 internal/server/graph/resolvers/plans.go	8	0
 internal/server/graph/resolvers/project.resolvers.go	104	27
-internal/server/graph/resolvers/resolver.go	45	30
+internal/server/graph/resolvers/resolver.go	45	37
 internal/server/graph/resolvers/subframes.go	225	167
 internal/server/graph/resolvers/target.resolvers.go	134	12
 internal/server/middleware/di.go	3	3
@@ -29,5 +29,5 @@ internal/store/models/targetscheduler/target.go	18	1
 internal/store/utils/utils.go	10	6
 internal/submeta/submeta.go	18	14
 internal/utils/graphql.go	7	0
-internal/workerclient/client.go	59	43
+internal/workerclient/client.go	59	46
 main.go	7	0
