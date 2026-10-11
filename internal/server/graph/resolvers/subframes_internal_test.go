@@ -1,9 +1,12 @@
 package resolvers
 
 import (
+	"bytes"
+	"context"
 	"math"
 	"testing"
 
+	"github.com/99designs/gqlgen/graphql"
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 	"github.com/USA-RedDragon/astro-processing/internal/submeta"
 	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
@@ -206,4 +209,27 @@ func derefS(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+func TestSummarizeQualityGroupsSubsWithoutMetadata(t *testing.T) {
+	t.Parallel()
+	nan := submeta.Float(math.NaN())
+	subs := make([]subframe, 0, 3)
+	for i := range 3 {
+		subs = append(subs, subframe{
+			row:  subframeRow{ID: i, FilterName: "L", GradingStatus: gradingAccepted},
+			meta: submeta.Metadata{ExposureDuration: nan, HFR: nan, ADUMedian: nan},
+		})
+	}
+	q := summarizeQuality(subs)
+	if len(q) != 1 {
+		t.Fatalf("got %d groups, want 1", len(q))
+	}
+	if q[0].Subframes != 3 {
+		t.Errorf("subframes %d, want 3", q[0].Subframes)
+	}
+	var buf bytes.Buffer
+	if err := graphql.MarshalFloatContext(q[0].ExposureTime).MarshalGQLContext(context.Background(), &buf); err != nil {
+		t.Errorf("exposure_time %v does not marshal: %v", q[0].ExposureTime, err)
+	}
 }

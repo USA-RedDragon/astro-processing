@@ -88,7 +88,11 @@ func (s subframe) group() qualityGroup {
 	if filter == "" {
 		filter = s.row.FilterName
 	}
-	return qualityGroup{filter: filter, exposure: math.Round(float64(s.meta.ExposureDuration))}
+	exposure := math.Round(float64(s.meta.ExposureDuration))
+	if math.IsNaN(exposure) || math.IsInf(exposure, 0) {
+		exposure = 0
+	}
+	return qualityGroup{filter: filter, exposure: exposure}
 }
 
 func (s subframe) fileName() string {
