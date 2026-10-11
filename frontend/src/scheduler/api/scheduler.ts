@@ -154,6 +154,7 @@ export interface Preview {
   stop_reason?: string
   error?: string
   assumptions?: PreviewAssumption[] | null
+  override_kinds?: string[] | null
 }
 
 export type OverrideField = 'priority' | 'state' | 'minimumtime'
@@ -417,8 +418,11 @@ export const getSchedulerStatus = () => api.get<SchedulerStatus>('/scheduler/sta
 export const getPreview = (night: Night = 'tonight', fresh = false) =>
   api.get<Preview>('/scheduler/preview' + query({ night, fresh: fresh ? 1 : undefined }))
 
-export const postPreview = (night: Night, overrides: Override[]) =>
-  api.post<Preview>('/scheduler/preview', { night, overrides })
+export const postPreview = (
+  night: Night,
+  overrides: Override[],
+  weights: Record<string, number> = {},
+) => api.post<Preview>('/scheduler/preview', { night, overrides, weights })
 
 export const getProjects = () => api.get<SchedProject[]>('/scheduler/projects')
 

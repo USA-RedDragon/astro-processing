@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { editEntity } from '../api/commands'
 import {
   getMoon,
@@ -40,8 +40,24 @@ import {
   type Run,
   type WhatIfChange,
 } from '../plan'
-import { errorToast, notifyCommand, shell, showToast } from '../shell'
+import { errorToast, notifyCommand, shell, showToast, upsertWaiting } from '../shell'
 import PageHead from '../components/PageHead.vue'
+import RuleWeightsConfirm from '../components/RuleWeightsConfirm.vue'
+import {
+  applyRuleWeights,
+  getRuleWeights,
+  previewRuleWeights,
+  type GlobalWeights,
+  type ProjectWeights,
+} from '../api/ruleweights'
+import {
+  applyOutcome,
+  ruleFor,
+  supportsWeightOverrides,
+  weightChanges,
+  weightValue,
+  weightsFromQuery,
+} from '../ruleWeights'
 import { latestOnly } from '../latest'
 import { moonLine, moonPhaseText, mosaicBalance, nightSpan } from '../nowtonight'
 import { getPlanning, type Snapshot } from '../api/planning'
@@ -122,10 +138,30 @@ async function loadPlanning() {
   }
 }
 
+const route = useRoute()
+const gw = ref<GlobalWeights | null>(null)
+const gwError = ref('')
+
+async function loadWeights() {
+  try {
+    gw.value = await getRuleWeights()
+    gwError.value = ''
+    const fromQuery = weightsFromQuery(route.query.w, gw.value.rules)
+    if (Object.keys(fromQuery).length) {
+      weightDraft.value = { ...weightDraft.value, ...fromQuery }
+      runWhatIf()
+    }
+  } catch (e) {
+    gw.value = null
+    gwError.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
 onMounted(() => {
   load()
   loadProjects()
   loadPlanning()
+  loadWeights()
 })
 
 watch(night, () => {
@@ -133,7 +169,7 @@ watch(night, () => {
   moonNight.value = null
   whatIf.value = null
   load()
-  if (changes.value.length) runWhatIf()
+  if (hasChanges.value) runWhatIf()
 })
 
 const nightDate = computed(() => {
@@ -352,10 +388,33 @@ const leftOutLegend = computed(() => {
 const targetRoute = (id: number) => ({ name: 'TargetDetails', params: { id: String(id) } })
 
 const fields: OverrideField[] = ['priority', 'state', 'minimumtime']
+const WEIGHT = 'weight'
 const wiProject = ref<number | null>(null)
-const wiField = ref<OverrideField>('priority')
+const wiField = ref<OverrideField | typeof WEIGHT>('priority')
 const wiValue = ref<number | null>(null)
+const wiRule = ref('')
+const wiWeight = ref<number | null>(null)
 const changes = ref<WhatIfChange[]>([])
+const weightDraft = ref<Record<string, number>>({})
+const weighting = computed(() => wiField.value === WEIGHT)
+const projectField = computed<OverrideField>(() =>
+  wiField.value === WEIGHT ? 'priority' : wiField.value,
+)
+const wiRuleInfo = computed(() => (gw.value ? ruleFor(gw.value.rules, wiRule.value) : undefined))
+const wiRuleNow = computed(() => gw.value?.weights[wiRule.value] ?? null)
+const weightPicks = computed(() => (gw.value ? weightChanges(gw.value, weightDraft.value) : []))
+const hasChanges = computed(() => changes.value.length > 0 || weightPicks.value.length > 0)
+const weightsIgnored = computed(
+  () => weightPicks.value.length > 0 && !!whatIf.value && !supportsWeightOverrides(whatIf.value),
+)
+const weightNote = computed(() => {
+  const g = gw.value
+  let t = 'A rule weight change runs with the new value on every project that takes it.'
+  if (g?.differing.length)
+    t += ` ${g.differing.length} of ${g.projects} projects differ from the global weights now; the simulation keeps their other weights as they are.`
+  return t
+})
+const pluginVersion = computed(() => shell.scheduler.version || 'unknown')
 const whatIf = ref<Preview | null>(null)
 const whatIfError = ref('')
 const whatIfBusy = ref(false)
@@ -368,9 +427,25 @@ const projectOpts = computed(() =>
   ),
 )
 const wiProj = computed(() => projects.value.find((p) => p.id === wiProject.value) ?? null)
-const currentValue = computed(() => (wiProj.value ? fieldValue(wiProj.value, wiField.value) : null))
+const currentValue = computed(() =>
+  wiProj.value && wiField.value !== WEIGHT ? fieldValue(wiProj.value, wiField.value) : null,
+)
 const choices = computed(() =>
-  wiProj.value ? valueChoices(wiField.value, currentValue.value) : [],
+  wiProj.value && wiField.value !== WEIGHT ? valueChoices(wiField.value, currentValue.value) : [],
+)
+
+watch(
+  () => gw.value?.rules,
+  (rules) => {
+    if (rules?.length && !rules.some((r) => r.key === wiRule.value)) wiRule.value = rules[0]!.key
+  },
+)
+watch(
+  wiRule,
+  () => {
+    const now = wiRuleNow.value
+    wiWeight.value = wiRuleInfo.value?.switch ? (now && now > 0 ? 0 : 100) : now
+  },
 )
 
 watch(
@@ -390,6 +465,15 @@ watch(
 )
 
 const chips = computed(() =>
+  weightChips.value.concat(projectChips.value),
+)
+const weightChips = computed(() =>
+  weightPicks.value.map((c) => ({
+    key: 'w:' + c.key,
+    label: `Every project · ${c.label} ${c.from} → ${c.to}`,
+  })),
+)
+const projectChips = computed(() =>
   changes.value.map((c) => {
     const p = projects.value.find((x) => x.id === c.projectId)
     const from = p
@@ -403,7 +487,7 @@ const chips = computed(() =>
 )
 
 async function runWhatIf() {
-  if (!changes.value.length) {
+  if (!hasChanges.value) {
     whatIfReq.cancel()
     whatIf.value = null
     whatIfError.value = ''
@@ -413,7 +497,9 @@ async function runWhatIf() {
   const current = whatIfReq.next()
   whatIfBusy.value = true
   try {
-    const p = await postPreview(night.value, overrides(changes.value))
+    const weights: Record<string, number> = {}
+    for (const c of weightPicks.value) weights[c.key] = weightDraft.value[c.key]!
+    const p = await postPreview(night.value, overrides(changes.value), weights)
     if (!current()) return
     whatIf.value = p
     whatIfError.value = ''
@@ -426,18 +512,39 @@ async function runWhatIf() {
   }
 }
 
+const canAdd = computed(() =>
+  weighting.value
+    ? !!wiRule.value &&
+      wiWeight.value !== null &&
+      Number.isFinite(wiWeight.value) &&
+      wiWeight.value >= 0 &&
+      wiWeight.value <= 100 &&
+      wiWeight.value !== wiRuleNow.value
+    : wiValue.value !== null,
+)
+
 function add() {
+  if (weighting.value) {
+    if (!canAdd.value) return
+    weightDraft.value = { ...weightDraft.value, [wiRule.value]: wiWeight.value! }
+    runWhatIf()
+    return
+  }
   if (wiProject.value === null || wiValue.value === null) return
   changes.value = addChange(changes.value, {
     projectId: wiProject.value,
-    field: wiField.value,
+    field: projectField.value,
     value: wiValue.value,
   })
   runWhatIf()
 }
 
 function remove(key: string) {
-  changes.value = changes.value.filter((c) => `${c.projectId}:${c.field}` !== key)
+  if (key.startsWith('w:')) {
+    const rest = { ...weightDraft.value }
+    delete rest[key.slice(2)]
+    weightDraft.value = rest
+  } else changes.value = changes.value.filter((c) => `${c.projectId}:${c.field}` !== key)
   runWhatIf()
 }
 
@@ -445,15 +552,49 @@ function discard() {
   whatIfReq.cancel()
   whatIfBusy.value = false
   changes.value = []
+  weightDraft.value = {}
   whatIf.value = null
   whatIfError.value = ''
 }
 
+const confirmOpen = ref(false)
+const confirmProjects = ref<ProjectWeights[] | null>(null)
+const confirmLoading = ref(false)
+const confirmError = ref('')
+
+function pickedWeights(): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const c of weightPicks.value) out[c.key] = weightDraft.value[c.key]!
+  return out
+}
+
 async function apply() {
+  if (!weightPicks.value.length) return applyEdits()
+  confirmOpen.value = true
+  confirmProjects.value = null
+  confirmError.value = ''
+  confirmLoading.value = true
+  try {
+    confirmProjects.value = (await previewRuleWeights(pickedWeights())).differing
+  } catch (e) {
+    confirmError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    confirmLoading.value = false
+  }
+}
+
+async function applyEdits() {
   const edits = editsFor(changes.value, projects.value)
-  if (!edits.length) return
+  const weights = pickedWeights()
+  if (!edits.length && !Object.keys(weights).length) return
   applying.value = true
   try {
+    if (Object.keys(weights).length) {
+      const r = await applyRuleWeights({ weights })
+      r.projects.forEach(upsertWaiting)
+      showToast(applyOutcome(r))
+      gw.value = r.weights
+    }
     for (const e of edits) {
       const r = await editEntity('project.edit', e)
       notifyCommand(r)
@@ -466,6 +607,7 @@ async function apply() {
         }
       }
     }
+    confirmOpen.value = false
     discard()
   } catch (e) {
     errorToast(e)
@@ -977,25 +1119,56 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
         </p>
         <template v-else>
           <div class="wi-grid">
-            <label for="wi-project" class="field">
+            <label v-if="!weighting" for="wi-project" class="field">
               <span>Project</span>
               <select id="wi-project" v-model="wiProject" class="input">
                 <option v-for="p in projectOpts" :key="p.id" :value="p.id">{{ p.name }}</option>
+              </select>
+            </label>
+            <label v-else for="wi-rule" class="field">
+              <span>Rule, for every project</span>
+              <select id="wi-rule" v-model="wiRule" class="input" :disabled="!gw">
+                <option v-for="r in gw?.rules ?? []" :key="r.key" :value="r.key">
+                  {{ r.label }}
+                </option>
               </select>
             </label>
             <label for="wi-field" class="field">
               <span>Change</span>
               <select id="wi-field" v-model="wiField" class="input">
                 <option v-for="f in fields" :key="f" :value="f">{{ FIELD_LABELS[f] }}</option>
+                <option :value="WEIGHT">Rule weight</option>
               </select>
             </label>
-            <label for="wi-value" class="field">
+            <label v-if="weighting" for="wi-weight" class="field">
+              <span>From {{ gw ? weightValue(wiRuleInfo, wiRuleNow) : 'unknown' }} to</span>
+              <select
+                v-if="wiRuleInfo?.switch"
+                id="wi-weight"
+                v-model.number="wiWeight"
+                class="input"
+              >
+                <option :value="100">on</option>
+                <option :value="0">off</option>
+              </select>
+              <input
+                v-else
+                id="wi-weight"
+                v-model.number="wiWeight"
+                type="number"
+                min="0"
+                max="100"
+                class="input num"
+                :disabled="!gw"
+              />
+            </label>
+            <label v-else for="wi-value" class="field">
               <span
-                >From {{ wiProj ? valueLabel(wiField, currentValue) : 'no project picked' }} to</span
+                >From {{ wiProj ? valueLabel(projectField, currentValue) : 'no project picked' }} to</span
               >
               <select id="wi-value" v-model="wiValue" class="input">
                 <option v-for="v in choices" :key="v" :value="v">
-                  {{ valueLabel(wiField, v) }}
+                  {{ valueLabel(projectField, v) }}
                 </option>
               </select>
             </label>
@@ -1029,7 +1202,7 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             <button
               type="button"
               class="add-chip"
-              :disabled="wiValue === null || unreachable"
+              :disabled="!canAdd || unreachable"
               @click="add"
             >
               Add this change
@@ -1038,6 +1211,21 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
           <p v-if="unreachable" class="xsmall muted" style="margin: 0">
             What if needs the planner on the observatory PC, which is not answering.
           </p>
+          <p v-if="weighting && gwError" class="xsmall" style="margin: 0; color: var(--bad)">
+            The global rule weights are not available: {{ gwError }}
+          </p>
+          <p v-else-if="weighting && gw" class="xsmall muted" style="margin: 0">
+            {{ weightNote }}
+            <RouterLink :to="{ name: 'rule-weights' }" class="underline">Rule weights</RouterLink>
+          </p>
+          <div v-if="weightsIgnored" role="status" class="balance">
+            <span
+              >The plugin on the observatory PC (version {{ pluginVersion }}) does not simulate rule
+              weight changes, so the what-if plan below leaves them out and shows only the other
+              changes. Rule weights in What if need the first plugin release after
+              5.8.2.212.</span
+            >
+          </div>
           <p v-if="whatIfError" class="empty" style="padding: 0">
             The what-if plan failed: {{ whatIfError }}
           </p>
@@ -1166,18 +1354,31 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             >
           </div>
           <div class="actions">
-            <button type="button" class="btn" :disabled="!changes.length" @click="discard">
+            <button type="button" class="btn" :disabled="!hasChanges" @click="discard">
               Discard
             </button>
             <button
               type="button"
               class="btn primary"
-              :disabled="!changes.length || applying"
+              :disabled="!hasChanges || applying"
               @click="apply"
             >
               Apply after this exposure
             </button>
           </div>
+          <RuleWeightsConfirm
+            v-if="confirmOpen && gw"
+            title="Apply these what-if changes for real?"
+            action="Apply for real"
+            :changes="weightPicks"
+            :extra="projectChips.map((c) => c.label)"
+            :projects="confirmProjects"
+            :loading="confirmLoading"
+            :error="confirmError"
+            :busy="applying"
+            @cancel="confirmOpen = false"
+            @confirm="applyEdits"
+          />
         </template>
       </section>
     </div>
