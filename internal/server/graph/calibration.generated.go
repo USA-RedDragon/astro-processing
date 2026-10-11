@@ -1978,6 +1978,29 @@ func (ec *executionContext) fieldContext_Mosaic_crop(_ context.Context, field gr
 	return fc, nil
 }
 
+func (ec *executionContext) _Mosaic_xisf_url(ctx context.Context, field graphql.CollectedField, obj *model.Mosaic) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Mosaic_xisf_url(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.XisfURL, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Mosaic_xisf_url(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Mosaic", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _Query_darkLibrary(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -3026,6 +3049,11 @@ func (ec *executionContext) _Mosaic(ctx context.Context, sel ast.SelectionSet, o
 			}
 		case "crop":
 			out.Values[i] = ec._Mosaic_crop(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "xisf_url":
+			out.Values[i] = ec._Mosaic_xisf_url(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

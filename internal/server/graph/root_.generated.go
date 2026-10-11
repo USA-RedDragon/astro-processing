@@ -163,6 +163,7 @@ type ComplexityRoot struct {
 		PreviewURL  func(childComplexity int) int
 		UpdatedAt   func(childComplexity int) int
 		Width       func(childComplexity int) int
+		XisfURL     func(childComplexity int) int
 	}
 
 	OtherTarget struct {
@@ -932,6 +933,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Mosaic.Width(childComplexity), true
+	case "Mosaic.xisf_url":
+		if e.ComplexityRoot.Mosaic.XisfURL == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Mosaic.XisfURL(childComplexity), true
 
 	case "OtherTarget.cover":
 		if e.ComplexityRoot.OtherTarget.Cover == nil {
@@ -1817,6 +1824,8 @@ type Mosaic {
   linear_url: String!
   "Where the preview is cropped to; the linear preview and FITS are whole."
   crop: Crop
+  "Presigned link to the mosaic as XISF, which PixInsight opens upright and plate solved."
+  xisf_url: String
 }
 
 "One filter's stacked master for a target: only subs that scored well, added as they arrive."
@@ -2423,6 +2432,8 @@ func (ec *executionContext) childFields_Mosaic(ctx context.Context, field graphq
 		return ec.fieldContext_Mosaic_linear_url(ctx, field)
 	case "crop":
 		return ec.fieldContext_Mosaic_crop(ctx, field)
+	case "xisf_url":
+		return ec.fieldContext_Mosaic_xisf_url(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type Mosaic", field.Name)
 }

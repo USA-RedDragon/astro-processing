@@ -189,6 +189,8 @@ type Mosaic struct {
 	LinearURL string `json:"linear_url"`
 	// Where the preview is cropped to; the linear preview and FITS are whole.
 	Crop *Crop `json:"crop,omitempty"`
+	// Presigned link to the mosaic as XISF, which PixInsight opens upright and plate solved.
+	XisfURL *string `json:"xisf_url,omitempty"`
 }
 
 // An object with no Target Scheduler target, known from its files.

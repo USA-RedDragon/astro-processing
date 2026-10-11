@@ -208,6 +208,7 @@ type Mosaic struct {
 	MasterURL   string    `json:"master_url"`
 	PreviewURL  string    `json:"preview_url"`
 	LinearURL   string    `json:"linear_url"`
+	XISFURL     string    `json:"xisf_url"`
 	Crop        *Crop     `json:"crop"`
 }
 

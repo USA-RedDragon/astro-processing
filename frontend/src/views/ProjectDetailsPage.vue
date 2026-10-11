@@ -73,6 +73,7 @@ const GET_PROJECT_MOSAICS_QUERY = `
         master_url
         preview_url
         linear_url
+        xisf_url
         crop { x y w h }
       }
     }

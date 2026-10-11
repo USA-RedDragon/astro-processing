@@ -204,7 +204,7 @@ func (r *projectResolver) Mosaics(ctx context.Context, obj *model.Project) ([]*m
 			Filter: m.Filter, Panels: m.Panels, PanelsTotal: m.PanelsTotal,
 			Width: m.Width, Height: m.Height, UpdatedAt: m.UpdatedAt.UTC().Format(time.RFC3339),
 			MasterURL: m.MasterURL, PreviewURL: m.PreviewURL, LinearURL: m.LinearURL,
-			Crop: graphCrop(m.Crop),
+			XisfURL: optional(m.XISFURL), Crop: graphCrop(m.Crop),
 		})
 	}
 	return out, nil

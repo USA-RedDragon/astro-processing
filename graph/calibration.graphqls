@@ -117,6 +117,8 @@ type Mosaic {
   linear_url: String!
   "Where the preview is cropped to; the linear preview and FITS are whole."
   crop: Crop
+  "Presigned link to the mosaic as XISF, which PixInsight opens upright and plate solved."
+  xisf_url: String
 }
 
 "One filter's stacked master for a target: only subs that scored well, added as they arrive."
