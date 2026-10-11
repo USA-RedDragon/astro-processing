@@ -1,4 +1,4 @@
-import { api } from './client'
+import { api, query } from './client'
 
 export type GoalKind = 'snr' | 'depth'
 
@@ -462,6 +462,7 @@ export interface ExposurePick {
   set: { id: string; name: string; projects: number } | null
   missing: string[]
   goalSnr: number
+  goal?: PickGoal
   skyBrightness: number | null
   skyBrightnessBasis: { source: string; band: string; nights: number; reason: string | null }
 }
@@ -484,8 +485,27 @@ export const draftApplySet = (body: {
   targetIds: number[]
   desired?: number
 }) => api.post<ApplySetDraft>('/planning/applyset/draft', body)
-export const getPick = (objectId: string) =>
-  api.get<ExposurePick>('/catalog/objects/' + encodeURIComponent(objectId) + '/pick')
+export interface PickGoal {
+  kind: GoalKind
+  snr: number
+  depth: number
+}
+
+export const getPick = (objectId: string, goal?: Partial<PickGoal>, signal?: AbortSignal) =>
+  api.get<ExposurePick>(
+    '/catalog/objects/' +
+      encodeURIComponent(objectId) +
+      '/pick' +
+      query({ goal: goal?.kind, snr: goal?.snr || undefined, depth: goal?.depth || undefined }),
+    signal,
+  )
+
+export function pickGoalText(g: PickGoal | undefined): string {
+  if (!g) return 'goal'
+  if (g.kind === 'depth')
+    return g.depth > 0 ? `depth ${g.depth} mag/arcsec²` : 'the default depth per filter'
+  return `faint-signal SNR ${g.snr}`
+}
 export const draftProject = (d: ProjectDraft) => api.post<unknown>('/planning/projects/draft', d)
 export const getStacks = (object: string) =>
   api.get<StackMaster[]>('/stacks?object=' + encodeURIComponent(object))
@@ -559,7 +579,8 @@ export function decText(d: number | null): string {
 export function seasonLabel(s?: Season): { label: string; cls: string } {
   if (!s) return { label: 'Season unknown', cls: '' }
   if (s.outOfSeason) return { label: 'Out of season', cls: 'muted' }
-  if (s.nightsLeft >= 365) return { label: 'In season · usable on every night scanned (365)', cls: 'muted' }
+  if (s.nightsLeft >= 365)
+    return { label: 'In season · usable on every night scanned (365)', cls: 'muted' }
   if (s.nightsLeft <= 60) return { label: `Closing · ${s.nightsLeft} usable nights`, cls: 'violet' }
   return { label: `In season · ${s.nightsLeft} usable nights`, cls: 'muted' }
 }
@@ -687,7 +708,8 @@ export function planCountText(fg: FilterGoal | undefined, version?: string): str
   if (!fg?.goalSet || !goalDrivenPlugin(version)) return ''
   const ready = readinessText(fg, version)
   if (ready) return 'goal-driven · ' + ready
-  if (fg.progress?.done) return 'goal-driven · ' + (fg.progress.progress >= 1 ? 'goal met' : 'plateau reached')
+  if (fg.progress?.done)
+    return 'goal-driven · ' + (fg.progress.progress >= 1 ? 'goal met' : 'plateau reached')
   if (fg.progress) return `goal-driven · ${floorPct(fg.progress.progress)} of its goal`
   return 'goal-driven'
 }

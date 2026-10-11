@@ -15,6 +15,7 @@ import {
   type ProjectSettingValues,
   type Snapshot,
   goalDrivenPlugin,
+  pickGoalText,
   legacyGoalNote,
 } from '../api/planning'
 import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
@@ -319,19 +320,40 @@ async function choose(id: string) {
   loadPick(o.id)
 }
 
+const pickGoal = computed(() => ({
+  kind: form.goalKind,
+  snr: form.snr ?? 0,
+  depth: form.goalKind === 'depth' ? (form.depth ?? 0) : 0,
+}))
+
+let pickSeq = 0
+
 async function loadPick(id: string) {
+  const seq = ++pickSeq
   pickLoading.value = true
   try {
-    const p = await getPick(id)
-    if (pick.value?.object.id !== id) return
+    const p = await getPick(id, pickGoal.value)
+    if (seq !== pickSeq || pick.value?.object.id !== id) return
     exposurePick.value = p
     if (!p.noPick && p.filters.length && !exposureTouched.value) form.usePick = true
   } catch (e) {
-    if (pick.value?.object.id === id) pickError.value = e instanceof Error ? e.message : String(e)
+    if (seq === pickSeq && pick.value?.object.id === id)
+      pickError.value = e instanceof Error ? e.message : String(e)
   } finally {
-    if (pick.value?.object.id === id) pickLoading.value = false
+    if (seq === pickSeq) pickLoading.value = false
   }
 }
+
+let pickTimer: ReturnType<typeof setTimeout> | undefined
+watch(
+  () => JSON.stringify(pickGoal.value),
+  () => {
+    const id = pick.value?.object.id
+    if (!id) return
+    if (pickTimer) clearTimeout(pickTimer)
+    pickTimer = setTimeout(() => loadPick(id), 300)
+  },
+)
 
 const pickRows = computed(() =>
   (exposurePick.value?.filters ?? []).map((f) => ({
@@ -1106,7 +1128,7 @@ async function goStep(i: number) {
                 <th>Filter</th>
                 <th>Template</th>
                 <th>Sub length (s)</th>
-                <th>Hours to goal</th>
+                <th>Hours to {{ pickGoalText(exposurePick.goal) }}</th>
               </tr>
             </thead>
             <tbody>
