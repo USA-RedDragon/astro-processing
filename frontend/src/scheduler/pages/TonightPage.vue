@@ -44,6 +44,8 @@ import { errorToast, notifyCommand, shell, showToast } from '../shell'
 import PageHead from '../components/PageHead.vue'
 import { latestOnly } from '../latest'
 import { moonLine, moonPhaseText, mosaicBalance, nightSpan } from '../nowtonight'
+import { getPlanning, type Snapshot } from '../api/planning'
+import { flatsTile, moonTile, mosaicTile } from '../tonightTiles'
 
 const night = ref<Night>('tonight')
 const preview = ref<Preview | null>(null)
@@ -107,9 +109,23 @@ async function loadProjects() {
   }
 }
 
+const planning = ref<Snapshot | null>(null)
+const planningError = ref('')
+
+async function loadPlanning() {
+  try {
+    planning.value = await getPlanning()
+    planningError.value = ''
+  } catch (e) {
+    planning.value = null
+    planningError.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
 onMounted(() => {
   load()
   loadProjects()
+  loadPlanning()
 })
 
 watch(night, () => {
@@ -148,6 +164,9 @@ const tiles = computed(() => {
       value: duration(s.imagingSeconds),
       note: `${s.targets} ${s.targets === 1 ? 'target' : 'targets'}, ${s.projects} ${s.projects === 1 ? 'project' : 'projects'}`,
     },
+    moonTile(moonNight.value, preview.value, range.value, moonError.value),
+    mosaicTile(preview.value, projects.value, projectsError.value),
+    flatsTile(preview.value, planning.value, planningError.value),
     {
       label: 'Subs planned',
       value: String(s.subs),
@@ -558,8 +577,18 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
           <div class="xsmall muted">{{ t.label }}</div>
           <div class="num tile-value">{{ preview ? t.value : '…' }}</div>
           <div class="xsmall muted">{{ preview ? t.note : '' }}</div>
+          <ul v-if="preview && 'lines' in t && t.lines?.length" class="tile-lines xsmall muted">
+            <li v-for="(l, i) in t.lines" :key="i">{{ l }}</li>
+          </ul>
         </div>
       </div>
+      <p v-if="preview" class="xsmall muted" style="margin: 0">
+        Moon rise, set and altitude are computed for the observatory site. Mosaic time and the
+        moon-up hours count the imaging blocks of this simulated plan. Flats follow each project's
+        Target Scheduler flats handling: daily projects get one set per filter, rotation and gain
+        at dawn; longer cadences wait for a later dawn. Target Scheduler matches flats on the
+        rotator's mechanical angle at capture; the angles shown are each target's rotation.
+      </p>
 
       <section aria-labelledby="tl-h" class="card">
         <div class="spread">
@@ -1165,6 +1194,11 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
   border: 1px solid var(--border);
   border-radius: 0.625rem;
   padding: 0.75rem 1rem;
+}
+.tile-lines {
+  margin: 0.125rem 0 0;
+  padding: 0;
+  list-style: none;
 }
 .tile-value {
   font-size: 1.125rem;
