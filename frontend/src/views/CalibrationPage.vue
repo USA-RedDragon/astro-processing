@@ -47,12 +47,21 @@
                 <TableHead class="text-right">Nights</TableHead>
                 <TableHead>Latest night</TableHead>
                 <TableHead>Newest dark</TableHead>
+                <TableHead>Requests</TableHead>
                 <TableHead>Basis</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow v-for="c in shownCombos" :key="c.combo_key" :title="basisText(c.basis)">
-                <TableCell class="text-right tabular-nums">{{ c.priority }}</TableCell>
+              <TableRow
+                v-for="c in shownCombos"
+                :key="c.combo_key"
+                :title="basisText(c.basis)"
+                :data-combo="c.combo_key"
+              >
+                <TableCell class="text-right tabular-nums">
+                  {{ c.priority }}
+                  <Badge v-if="(c.requests ?? []).length > 0" variant="secondary" class="ml-1">requested</Badge>
+                </TableCell>
                 <TableCell class="tabular-nums">
                   <div>{{ setpointText(c) }}</div>
                   <div v-if="coveredText(c)" class="text-xs text-muted-foreground">{{ coveredText(c) }}</div>
@@ -70,6 +79,10 @@
                 <TableCell class="text-right tabular-nums">{{ num(c.nights) }}</TableCell>
                 <TableCell>{{ text(c.latest_night, NOT_RECORDED) }}</TableCell>
                 <TableCell>{{ newestDarkText(c) }}</TableCell>
+                <TableCell class="whitespace-normal min-w-40">
+                  <div v-for="r in refsText(c.requests)" :key="r">{{ r }}</div>
+                  <span v-if="(c.requests ?? []).length === 0" class="text-muted-foreground">none</span>
+                </TableCell>
                 <TableCell class="text-xs text-muted-foreground whitespace-normal min-w-64">
                   {{ text(c.basis, NOT_RECORDED) }}
                 </TableCell>
@@ -163,11 +176,18 @@
         </CardContent>
       </Card>
     </template>
+
+    <BiasBacklogCard />
+
+    <OpenRequestsCard />
   </div>
 </template>
 
 <script lang="ts">
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import BiasBacklogCard from '@/components/BiasBacklogCard.vue';
+import OpenRequestsCard from '@/components/OpenRequestsCard.vue';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -178,6 +198,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { onChange } from '@/lib/events';
+import { refsText } from '@/lib/calibrationRequests';
 import {
   COMBO_LIMIT,
   NOT_RECORDED,
@@ -219,6 +240,9 @@ import {
 export default {
   name: 'CalibrationPage',
   components: {
+    Badge,
+    BiasBacklogCard,
+    OpenRequestsCard,
     UiButton: Button,
     Card,
     CardContent,
@@ -281,6 +305,7 @@ export default {
     openSetTitle,
     publishText,
     readoutText,
+    refsText,
     rejectedHead,
     sessionGapText,
     sessionText,
