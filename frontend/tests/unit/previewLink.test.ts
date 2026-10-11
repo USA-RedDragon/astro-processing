@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createApp, h, nextTick, reactive } from 'vue';
-import PreviewLink, { clearPreviewCache, signedUntil } from '@/components/PreviewLink.vue';
+import PreviewLink, { clearPreviewCache } from '@/components/PreviewLink.vue';
+import { signedUntil } from '@/lib/signedUrls';
 
 const link = (sig: string, date = '20261011T120000Z') =>
   `https://s3.example/p/sub.jpg?X-Amz-Date=${date}&X-Amz-Expires=3600&X-Amz-Signature=${sig}`;

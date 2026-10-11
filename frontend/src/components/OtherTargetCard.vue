@@ -2,7 +2,7 @@
   <Card class="relative overflow-hidden">
     <router-link v-if="target.cover" :to="link" class="block relative -mt-6 mb-2 bg-black">
       <img
-        :src="target.cover.preview_url"
+        :src="shownCover ?? target.cover.preview_url"
         :alt="`${target.name} preview`"
         loading="lazy"
         class="w-full h-auto max-h-[36rem] object-cover"
@@ -45,6 +45,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { status } from '@/lib/events';
 import { unrecordedLights } from '@/lib/otherTargets';
+import { samePicture } from '@/lib/signedUrls';
 import type { OtherTarget } from '../graphql/graphql';
 
 export default {
@@ -55,6 +56,14 @@ export default {
       type: Object as PropType<OtherTarget>,
       required: true,
     },
+  },
+  data() {
+    return {
+      // The cover shown; a changed one replaces it once it has loaded, and
+      // a new link to the same picture does not replace it at all.
+      shownCover: undefined as string | undefined,
+      shownStamp: undefined as string | undefined,
+    };
   },
   computed: {
     link(): string {
@@ -69,6 +78,28 @@ export default {
     },
     processing(): boolean {
       return status.workers.some((w) => w.object === this.target.name);
+    },
+  },
+  watch: {
+    'target.cover': {
+      immediate: true,
+      handler(cover: OtherTarget['cover']) {
+        if (!cover || cover.preview_url === this.shownCover) return;
+        if (samePicture(this.shownCover, this.shownStamp, cover.preview_url, cover.updated_at)) return;
+        if (!this.shownCover) {
+          this.shownCover = cover.preview_url;
+          this.shownStamp = cover.updated_at;
+          return;
+        }
+        const img = new Image();
+        img.onload = () => {
+          if (this.target.cover?.preview_url === cover.preview_url) {
+            this.shownCover = cover.preview_url;
+            this.shownStamp = cover.updated_at;
+          }
+        };
+        img.src = cover.preview_url;
+      },
     },
   },
 };

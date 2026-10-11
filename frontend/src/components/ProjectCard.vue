@@ -125,6 +125,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 import { status } from '@/lib/events';
 import StatsDisplay from './StatsDisplay.vue';
 import { formatDate } from '@/lib/formatters';
+import { samePicture } from '@/lib/signedUrls';
 import type { Project as PlanningProject } from '@/scheduler/api/planning';
 import { cardCircle, hasEnoughData, plateauCaption, type CardCircle, type PlanningState } from '@/scheduler/leastCards';
 import type {
@@ -172,6 +173,7 @@ export default {
       // The cover shown; a changed one replaces it once it has loaded, so
       // the picture never blanks while it updates.
       shownCover: undefined as string | undefined,
+      shownStamp: undefined as string | undefined,
     };
   },
   computed: {
@@ -219,13 +221,18 @@ export default {
       immediate: true,
       handler(cover: Project['cover']) {
         if (!cover || cover.preview_url === this.shownCover) return;
+        if (samePicture(this.shownCover, this.shownStamp, cover.preview_url, cover.updated_at)) return;
         if (!this.shownCover) {
           this.shownCover = cover.preview_url;
+          this.shownStamp = cover.updated_at;
           return;
         }
         const img = new Image();
         img.onload = () => {
-          if (this.project.cover?.preview_url === cover.preview_url) this.shownCover = cover.preview_url;
+          if (this.project.cover?.preview_url === cover.preview_url) {
+            this.shownCover = cover.preview_url;
+            this.shownStamp = cover.updated_at;
+          }
         };
         img.src = cover.preview_url;
       },

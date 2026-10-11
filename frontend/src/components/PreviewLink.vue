@@ -58,6 +58,8 @@
 </template>
 
 <script lang="ts">
+import { signedUntil } from '@/lib/signedUrls';
+
 // Preview size on screen, used to keep the floating image inside the window.
 const FLOAT_W = 490;
 const FLOAT_H = 370;
@@ -72,21 +74,6 @@ const loaded = new Map<string, string>();
 
 export function clearPreviewCache() {
   loaded.clear();
-}
-
-// signedUntil reads when a presigned S3 link expires from its X-Amz-Date and
-// X-Amz-Expires parameters; 0 when it has neither.
-export function signedUntil(link: string): number {
-  try {
-    const q = new URL(link).searchParams;
-    const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(q.get('X-Amz-Date') ?? '');
-    const ttl = Number(q.get('X-Amz-Expires'));
-    if (!m || !ttl) return 0;
-    const [, y, mo, d, h, mi, se] = m.map(Number);
-    return Date.UTC(y!, mo! - 1, d!, h!, mi!, se!) + ttl * 1000;
-  } catch {
-    return 0;
-  }
 }
 
 export default {

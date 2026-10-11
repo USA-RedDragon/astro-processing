@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { submitCommand, type CommandRecord } from '../api/commands'
 import { onEvent, onReconnect } from '../api/events'
 import { onChange } from '@/lib/events'
-import { onReconnectOrUrlsAging } from '@/lib/signedUrls'
+import { onReconnectOrUrlsAging, samePicture } from '@/lib/signedUrls'
 import {
   getConditions,
   getMoon,
@@ -439,6 +439,21 @@ const latestHours = computed(
   () => latestTargetSubs.value.reduce((a, s) => a + (s.exposure ?? 0), 0) / 3600,
 )
 const latestShown = computed(() => latestImage(subs.value))
+
+// A reload signs the latest sub's preview again; keeping the link it was
+// first shown with lets the browser reuse its copy.
+const latestKept = ref<{ id: number; url: string } | null>(null)
+const latestSrc = computed(() => {
+  const sub = latestShown.value?.sub
+  if (!sub?.preview_url) return ''
+  const kept = latestKept.value
+  if (kept && samePicture(kept.url, String(kept.id), sub.preview_url, String(sub.id))) return kept.url
+  return sub.preview_url
+})
+watch(latestSrc, (url) => {
+  const sub = latestShown.value?.sub
+  if (url && sub) latestKept.value = { id: sub.id, url }
+})
 const latestVerdict = computed(() => verdictBadge(latest.value?.verdict))
 
 const chartRange = computed<[number, number]>(() => {
@@ -947,7 +962,7 @@ const cross = (x: number, y: number, r: number) =>
         <template v-if="latest || latestShown">
           <img
             v-if="latestShown"
-            :src="latestShown.sub.preview_url"
+            :src="latestSrc"
             :alt="
               'Stretched preview of the ' +
               clock(latestShown.sub.time) +

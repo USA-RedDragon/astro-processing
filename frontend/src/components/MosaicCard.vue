@@ -55,6 +55,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 import { status } from '@/lib/events';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/formatters';
+import { samePicture } from '@/lib/signedUrls';
 import type { Mosaic } from '../graphql/graphql';
 
 export default {
@@ -80,6 +81,7 @@ export default {
     return {
       // A new preview replaces the shown one only once it has loaded.
       shown: {} as Record<string, string>,
+      shownStamp: {} as Record<string, string>,
     };
   },
   watch: {
@@ -89,14 +91,17 @@ export default {
         for (const m of mosaics) {
           const url = this.shown[m.filter];
           if (url === m.preview_url) continue;
+          if (samePicture(url, this.shownStamp[m.filter], m.preview_url, m.updated_at)) continue;
           if (!url) {
             this.shown[m.filter] = m.preview_url;
+            this.shownStamp[m.filter] = m.updated_at;
             continue;
           }
           const img = new Image();
           img.onload = () => {
             if (this.mosaics.some((x) => x.filter === m.filter && x.preview_url === m.preview_url)) {
               this.shown[m.filter] = m.preview_url;
+              this.shownStamp[m.filter] = m.updated_at;
             }
           };
           img.src = m.preview_url;

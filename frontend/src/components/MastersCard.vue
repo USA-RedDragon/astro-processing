@@ -120,6 +120,7 @@ import { LoaderCircle } from 'lucide-vue-next';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDate } from '@/lib/formatters';
 import { formatExposure } from '@/lib/exposure';
+import { samePicture } from '@/lib/signedUrls';
 import type { FilterMaster } from '../graphql/graphql';
 
 export default {
@@ -144,6 +145,7 @@ export default {
       // The preview each card shows. A new one replaces it only once it
       // has loaded, so the image never goes blank while a master updates.
       shown: {} as Record<string, string>,
+      shownStamp: {} as Record<string, string>,
     };
   },
   watch: {
@@ -153,14 +155,17 @@ export default {
         for (const m of masters) {
           const url = this.shown[m.filter];
           if (url === m.preview_url) continue;
+          if (samePicture(url, this.shownStamp[m.filter], m.preview_url, m.updated_at)) continue;
           if (!url) {
             this.shown[m.filter] = m.preview_url;
+            this.shownStamp[m.filter] = m.updated_at;
             continue;
           }
           const img = new Image();
           img.onload = () => {
             if (this.masters.some((x) => x.filter === m.filter && x.preview_url === m.preview_url)) {
               this.shown[m.filter] = m.preview_url;
+              this.shownStamp[m.filter] = m.updated_at;
             }
           };
           img.src = m.preview_url;
