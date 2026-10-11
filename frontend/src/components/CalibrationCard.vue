@@ -17,6 +17,7 @@
               <TableHead>Night</TableHead>
               <TableHead>Filter</TableHead>
               <TableHead class="text-right">Gain</TableHead>
+              <TableHead class="text-right">Offset</TableHead>
               <TableHead class="text-right">Setpoint</TableHead>
               <TableHead class="text-right">Lights</TableHead>
               <TableHead>Flat</TableHead>
@@ -25,11 +26,12 @@
             </TableRow>
           </TableHeader>
           <TableBody>
-            <SkeletonRows v-if="loading" :rows="5" :cols="8" />
+            <SkeletonRows v-if="loading" :rows="5" :cols="9" />
             <TableRow v-for="r in rows" :key="rowKey(r)">
               <TableCell class="whitespace-nowrap">{{ r.night }}</TableCell>
               <TableCell class="whitespace-nowrap">{{ r.filter }} {{ r.exposure }}s</TableCell>
               <TableCell class="text-right tabular-nums">{{ r.gain ?? '' }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ r.offset ?? '' }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ r.set_temp != null ? `${r.set_temp} °C` : '' }}</TableCell>
               <TableCell class="text-right tabular-nums">{{ r.lights }}</TableCell>
               <TableCell><Badge :variant="variant(r.flat)">{{ flatText(r.flat) }}</Badge></TableCell>
@@ -74,7 +76,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import SkeletonRows from '@/components/SkeletonRows.vue';
-import { darkText, importedText, importedTitle } from '@/lib/calibration';
+import { darkText, importedText, importedTitle, rowKey } from '@/lib/calibration';
 import type { CalibrationMatch, CalibrationRow } from '../graphql/graphql';
 
 export default {
@@ -118,9 +120,6 @@ export default {
     },
   },
   methods: {
-    rowKey(r: CalibrationRow): string {
-      return `${r.night}-${r.filter}-${r.exposure}-${r.gain}-${r.set_temp}-${r.rotator}`;
-    },
     variant(m: CalibrationMatch): 'default' | 'secondary' | 'destructive' | 'outline' {
       if (m.quality === 'EXACT') return 'default';
       if (m.quality === 'MISSING') return 'destructive';
@@ -138,6 +137,7 @@ export default {
     darkText,
     importedText,
     importedTitle,
+    rowKey,
   },
 };
 </script>

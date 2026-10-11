@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CalibrationQuality, CalibrationSource } from '@/graphql/graphql'
-import { darkText, fmt, importedText, importedTitle } from '@/lib/calibration'
+import { darkText, fmt, importedText, importedTitle, rowKey } from '@/lib/calibration'
 
 describe('fmt', () => {
   it('uses a true minus sign and two decimals at most', () => {
@@ -39,5 +39,13 @@ describe('calibration card', () => {
     )
     expect(importedText({ source: CalibrationSource.Frames })).toBe('')
     expect(importedText({ source: CalibrationSource.Imported, basis: { gain: 'header' } })).toBe('imported master')
+  })
+})
+
+describe('calibration row key', () => {
+  it('tells apart rows that differ only in offset', () => {
+    const row = { night: '2024-12-21', filter: 'Blue', exposure: 300, gain: 0, set_temp: -20, rotator: 156 }
+    expect(rowKey({ ...row, offset: 50 })).not.toBe(rowKey({ ...row, offset: 240 }))
+    expect(rowKey({ ...row, offset: 50 })).toBe(rowKey({ ...row, offset: 50 }))
   })
 })

@@ -7,6 +7,12 @@ import {
 
 export const fmt = (v: number): string => String(Math.round(v * 100) / 100).replace('-', '−');
 
+export function rowKey(
+  r: Pick<CalibrationRow, 'night' | 'filter' | 'exposure' | 'gain' | 'offset' | 'set_temp' | 'rotator'>,
+): string {
+  return [r.night, r.filter, r.exposure, r.gain, r.offset, r.set_temp, r.rotator].join('|');
+}
+
 export function darkText(
   r: Pick<CalibrationRow, 'exposure' | 'set_temp'>,
   m: Pick<CalibrationMatch, 'quality' | 'scaled' | 'temp_off' | 'set_temp' | 'exposure'>,
