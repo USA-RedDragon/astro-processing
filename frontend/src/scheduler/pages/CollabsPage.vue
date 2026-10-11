@@ -131,7 +131,7 @@ function coverageText(c: Collab) {
 
 function goalsText(c: Collab) {
   const e = Object.entries(c.goals)
-  return e.length ? e.map(([k, v]) => `${k} ${v} h`).join(' · ') : 'No goals set'
+  return e.length ? e.map(([k, v]) => `${k}\u00a0${v}\u00a0h`).join(' · ') : 'No goals set'
 }
 function tone(c: Criterion) {
   return c.result === 'pass'
@@ -518,11 +518,11 @@ function bestMonths(c: Collab) {
               >
                 <path :d="icon(x)" />
               </svg>
-              <span
+              <span class="what"
                 ><span style="font-weight: 500">{{ x.name }}</span>
                 <span class="muted">{{ ' ' + x.rule }}</span></span
               >
-              <span class="num" :style="{ color: tone(x), textAlign: 'right' }"
+              <span class="val num" :style="{ color: tone(x) }"
                 >{{ x.you }}<span class="sr-only"> ({{ resultText(x) }})</span></span
               >
             </li>
@@ -699,17 +699,17 @@ function bestMonths(c: Collab) {
                 </div>
               </td>
               <td style="white-space: nowrap">{{ kindText(c) }}</td>
-              <td style="white-space: nowrap">
+              <td style="min-width: 9rem">
                 {{ c.region.width.toFixed(1) }}° × {{ c.region.height.toFixed(1) }}°<template
                   v-if="c.near"
                 >
                   around {{ c.near }}</template
                 >
               </td>
-              <td style="white-space: nowrap">
+              <td style="min-width: 9rem">
                 {{ goalsText(c) }}
               </td>
-              <td>
+              <td style="min-width: 16rem">
                 <span :class="['badge', verdictClass(c)]">{{ verdictText(c, true) }}</span>
                 <div class="xsmall muted">{{ why(c) }}</div>
                 <ul v-if="expanded[c.id]" class="crit xsmall" style="margin-top: 0.375rem">
@@ -727,11 +727,13 @@ function bestMonths(c: Collab) {
                     >
                       <path :d="icon(x)" />
                     </svg>
-                    <span
+                    <span class="what"
                       ><span style="font-weight: 500">{{ x.name }}</span>
                       <span class="muted">{{ ' ' + x.rule }}</span></span
                     >
-                    <span :style="{ color: tone(x), whiteSpace: 'nowrap' }">{{ x.you }}</span>
+                    <span class="val" :style="{ color: tone(x) }"
+                      >{{ x.you }}<span class="sr-only"> ({{ resultText(x) }})</span></span
+                    >
                   </li>
                 </ul>
               </td>
@@ -856,12 +858,26 @@ function bestMonths(c: Collab) {
 }
 .crit li {
   display: grid;
-  grid-template-columns: 1.25rem minmax(0, 1fr) auto;
-  gap: 0.5rem;
+  grid-template-columns: 1.25rem auto;
+  gap: 0.125rem 0.5rem;
   align-items: baseline;
   padding: 0.3125rem 0;
   border-top: 1px solid var(--border);
   font-size: 0.8125rem;
+}
+.crit.xsmall li {
+  font-size: inherit;
+  grid-template-columns: 1rem auto;
+}
+.crit .what,
+.crit .val {
+  grid-column: 2;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.crit svg {
+  grid-row: 1;
+  align-self: center;
 }
 .mgrid {
   display: grid;
