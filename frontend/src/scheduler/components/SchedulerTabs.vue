@@ -834,7 +834,7 @@ function numInput(e: Event): number {
                 }}</span
               >
               <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
-                <div class="bar tall" :title="filterHeadline(fg)">
+                <div class="bar tall" style="flex: none" :title="filterHeadline(fg)">
                   <div
                     :style="{
                       width: fgFill(fg),
