@@ -1693,6 +1693,98 @@ func (ec *executionContext) fieldContext_FilterMaster_lowest_score(_ context.Con
 	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Float does not have child fields"))
 }
 
+func (ec *executionContext) _FilterMaster_local_norm(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_local_norm(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LocalNorm, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *bool) graphql.Marshaler {
+			return ec.marshalOBoolean2ᚖbool(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_local_norm(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_local_norm_subs(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_local_norm_subs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LocalNormSubs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_local_norm_subs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_local_norm_uneven(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_local_norm_uneven(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LocalNormUneven, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_local_norm_uneven(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _FilterMaster_local_norm_threshold(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterMaster_local_norm_threshold(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LocalNormThreshold, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterMaster_local_norm_threshold(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterMaster", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
 func (ec *executionContext) _FilterMaster_object_lights(ctx context.Context, field graphql.CollectedField, obj *model.FilterMaster) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -2956,6 +3048,26 @@ func (ec *executionContext) _FilterMaster(ctx context.Context, sel ast.Selection
 			}
 		case "lowest_score":
 			out.Values[i] = ec._FilterMaster_lowest_score(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "local_norm":
+			out.Values[i] = ec._FilterMaster_local_norm(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "local_norm_subs":
+			out.Values[i] = ec._FilterMaster_local_norm_subs(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "local_norm_uneven":
+			out.Values[i] = ec._FilterMaster_local_norm_uneven(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "local_norm_threshold":
+			out.Values[i] = ec._FilterMaster_local_norm_threshold(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

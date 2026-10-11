@@ -122,6 +122,7 @@ func (r *Resolver) masters(ctx context.Context, object string) ([]*model.FilterM
 			FittedURL: optional(m.FittedURL), FitReference: optional(m.FitReference),
 			CometPreviewURL: optional(m.CometPreviewURL), CometURL: optional(m.CometURL), CometXisfURL: optional(m.CometXISFURL),
 			MinScore: m.MinScore, LowestScore: m.LowestScore,
+			LocalNorm: m.LocalNorm, LocalNormSubs: m.LocalNormSubs, LocalNormUneven: m.LocalNormUneven, LocalNormThreshold: m.LocalNormThreshold,
 		})
 	}
 	return out, nil

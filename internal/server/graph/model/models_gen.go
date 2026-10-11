@@ -126,6 +126,14 @@ type FilterMaster struct {
 	MinScore *float64 `json:"min_score,omitempty"`
 	// The lowest score of the subs in the master.
 	LowestScore *float64 `json:"lowest_score,omitempty"`
+	// Whether local normalization matched any sub's sky to the master. Null while the stacker doesn't know, for a master stacked before it counted.
+	LocalNorm *bool `json:"local_norm,omitempty"`
+	// How many subs were stacked with local normalization. Null while unknown.
+	LocalNormSubs *int32 `json:"local_norm_subs,omitempty"`
+	// The share of the frame fewer than 90% of the subs cover, as the stacker's last local normalization decision measured it. Null before one.
+	LocalNormUneven *float64 `json:"local_norm_uneven,omitempty"`
+	// The share of the frame under 90% coverage above which local normalization runs.
+	LocalNormThreshold *float64 `json:"local_norm_threshold,omitempty"`
 	// Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page.
 	ObjectLights *int32 `json:"object_lights,omitempty"`
 	// Subs in the master that are this Target Scheduler target's. Null outside a target page.

@@ -107,6 +107,14 @@ type Master struct {
 	CometXISFURL     string    `json:"comet_xisf_url"`
 	MinScore         *float64  `json:"min_score"`
 	LowestScore      *float64  `json:"lowest_score"`
+	// LocalNorm is whether local normalization matched any sub's sky to
+	// the master, LocalNormSubs how many; null while the stacker doesn't
+	// know. LocalNormUneven is the coverage share that decided it, and
+	// LocalNormThreshold the share above which it runs.
+	LocalNorm          *bool    `json:"local_norm"`
+	LocalNormSubs      *int32   `json:"local_norm_subs"`
+	LocalNormUneven    *float64 `json:"local_norm_uneven"`
+	LocalNormThreshold *float64 `json:"local_norm_threshold"`
 }
 
 type Client struct {

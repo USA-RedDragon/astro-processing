@@ -100,27 +100,31 @@ type ComplexityRoot struct {
 	}
 
 	FilterMaster struct {
-		CometPreviewURL func(childComplexity int) int
-		CometURL        func(childComplexity int) int
-		CometXisfURL    func(childComplexity int) int
-		Crop            func(childComplexity int) int
-		EffectiveHours  func(childComplexity int) int
-		ExposureHours   func(childComplexity int) int
-		Filter          func(childComplexity int) int
-		FitReference    func(childComplexity int) int
-		FittedURL       func(childComplexity int) int
-		Height          func(childComplexity int) int
-		LinearURL       func(childComplexity int) int
-		LowestScore     func(childComplexity int) int
-		MasterURL       func(childComplexity int) int
-		MinScore        func(childComplexity int) int
-		ObjectLights    func(childComplexity int) int
-		PreviewURL      func(childComplexity int) int
-		Subs            func(childComplexity int) int
-		TargetSubs      func(childComplexity int) int
-		UpdatedAt       func(childComplexity int) int
-		Width           func(childComplexity int) int
-		XisfURL         func(childComplexity int) int
+		CometPreviewURL    func(childComplexity int) int
+		CometURL           func(childComplexity int) int
+		CometXisfURL       func(childComplexity int) int
+		Crop               func(childComplexity int) int
+		EffectiveHours     func(childComplexity int) int
+		ExposureHours      func(childComplexity int) int
+		Filter             func(childComplexity int) int
+		FitReference       func(childComplexity int) int
+		FittedURL          func(childComplexity int) int
+		Height             func(childComplexity int) int
+		LinearURL          func(childComplexity int) int
+		LocalNorm          func(childComplexity int) int
+		LocalNormSubs      func(childComplexity int) int
+		LocalNormThreshold func(childComplexity int) int
+		LocalNormUneven    func(childComplexity int) int
+		LowestScore        func(childComplexity int) int
+		MasterURL          func(childComplexity int) int
+		MinScore           func(childComplexity int) int
+		ObjectLights       func(childComplexity int) int
+		PreviewURL         func(childComplexity int) int
+		Subs               func(childComplexity int) int
+		TargetSubs         func(childComplexity int) int
+		UpdatedAt          func(childComplexity int) int
+		Width              func(childComplexity int) int
+		XisfURL            func(childComplexity int) int
 	}
 
 	FilterQuality struct {
@@ -672,6 +676,30 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterMaster.LinearURL(childComplexity), true
+	case "FilterMaster.local_norm":
+		if e.ComplexityRoot.FilterMaster.LocalNorm == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.LocalNorm(childComplexity), true
+	case "FilterMaster.local_norm_subs":
+		if e.ComplexityRoot.FilterMaster.LocalNormSubs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.LocalNormSubs(childComplexity), true
+	case "FilterMaster.local_norm_threshold":
+		if e.ComplexityRoot.FilterMaster.LocalNormThreshold == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.LocalNormThreshold(childComplexity), true
+	case "FilterMaster.local_norm_uneven":
+		if e.ComplexityRoot.FilterMaster.LocalNormUneven == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterMaster.LocalNormUneven(childComplexity), true
 	case "FilterMaster.lowest_score":
 		if e.ComplexityRoot.FilterMaster.LowestScore == nil {
 			break
@@ -1860,6 +1888,14 @@ type FilterMaster {
   min_score: Float
   "The lowest score of the subs in the master."
   lowest_score: Float
+  "Whether local normalization matched any sub's sky to the master. Null while the stacker doesn't know, for a master stacked before it counted."
+  local_norm: Boolean
+  "How many subs were stacked with local normalization. Null while unknown."
+  local_norm_subs: Int
+  "The share of the frame fewer than 90% of the subs cover, as the stacker's last local normalization decision measured it. Null before one."
+  local_norm_uneven: Float
+  "The share of the frame under 90% coverage above which local normalization runs."
+  local_norm_threshold: Float
   "Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page."
   object_lights: Int
   "Subs in the master that are this Target Scheduler target's. Null outside a target page."
@@ -2344,6 +2380,14 @@ func (ec *executionContext) childFields_FilterMaster(ctx context.Context, field 
 		return ec.fieldContext_FilterMaster_min_score(ctx, field)
 	case "lowest_score":
 		return ec.fieldContext_FilterMaster_lowest_score(ctx, field)
+	case "local_norm":
+		return ec.fieldContext_FilterMaster_local_norm(ctx, field)
+	case "local_norm_subs":
+		return ec.fieldContext_FilterMaster_local_norm_subs(ctx, field)
+	case "local_norm_uneven":
+		return ec.fieldContext_FilterMaster_local_norm_uneven(ctx, field)
+	case "local_norm_threshold":
+		return ec.fieldContext_FilterMaster_local_norm_threshold(ctx, field)
 	case "object_lights":
 		return ec.fieldContext_FilterMaster_object_lights(ctx, field)
 	case "target_subs":

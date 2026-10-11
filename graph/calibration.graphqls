@@ -153,6 +153,14 @@ type FilterMaster {
   min_score: Float
   "The lowest score of the subs in the master."
   lowest_score: Float
+  "Whether local normalization matched any sub's sky to the master. Null while the stacker doesn't know, for a master stacked before it counted."
+  local_norm: Boolean
+  "How many subs were stacked with local normalization. Null while unknown."
+  local_norm_subs: Int
+  "The share of the frame fewer than 90% of the subs cover, as the stacker's last local normalization decision measured it. Null before one."
+  local_norm_uneven: Float
+  "The share of the frame under 90% coverage above which local normalization runs."
+  local_norm_threshold: Float
   "Lights in this filter the stacker has under the master's object name, of any Target Scheduler target or none. Null outside a target page."
   object_lights: Int
   "Subs in the master that are this Target Scheduler target's. Null outside a target page."
