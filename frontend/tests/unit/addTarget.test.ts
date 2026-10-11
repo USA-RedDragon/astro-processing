@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { landingStep, matchSummary } from '@/scheduler/addTarget'
+import { chooseLayout, landingStep, matchSummary } from '@/scheduler/addTarget'
 
 describe('add target landing step', () => {
   it('opens the requested step when nothing needs deciding', () => {
@@ -30,5 +30,23 @@ describe('add target name match summary', () => {
     )
     expect(matchSummary(m, '')).toBe('Not decided for Andromeda')
     expect(matchSummary(null, '')).toBe('No project, target or stacker object of yours matches.')
+  })
+})
+
+describe('mosaic layout choice', () => {
+  const options = [
+    { id: 'grid-6x6', recommended: true },
+    { id: 'grid-4x5', recommended: false },
+  ]
+  it('keeps an asked-for grid while it is still wanted', () => {
+    expect(chooseLayout({ options, chosen: { id: 'grid-11x7' } }, true, 'grid-11x7')).toBe(
+      'grid-11x7',
+    )
+  })
+
+  it('keeps a listed choice and falls back to the recommended layout', () => {
+    expect(chooseLayout({ options }, false, 'grid-4x5')).toBe('grid-4x5')
+    expect(chooseLayout({ options }, false, 'grid-11x7')).toBe('grid-6x6')
+    expect(chooseLayout({ options: [] }, false, '')).toBe('')
   })
 })

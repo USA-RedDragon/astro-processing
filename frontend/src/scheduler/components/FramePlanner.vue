@@ -2,6 +2,7 @@
 import { rigSource } from '../api/discover'
 import { API_BASE, query } from '../api/client'
 import { computed, onUnmounted, ref, watch } from 'vue'
+import { chooseLayout } from '../addTarget'
 import { frame, project, type Framing, type FramingOption, type SkyPoint } from '../api/mosaics'
 
 interface PlannerObject {
@@ -88,14 +89,10 @@ async function load() {
     )
     framing.value = f
     error.value = ''
-    if (rotation.value === null) rotation.value = Math.round(f.rotation)
-    const ids = f.options.map((x) => x.id)
-    if (f.chosen && wantGrid.value) {
-      layoutId.value = f.chosen.id
-      wantGrid.value = null
-    } else if (!ids.includes(layoutId.value)) {
-      layoutId.value = f.options.find((x) => x.recommended)?.id ?? ids[0] ?? ''
-    }
+    const settingRotation = rotation.value === null
+    if (settingRotation) rotation.value = Math.round(f.rotation)
+    layoutId.value = chooseLayout(f, !!wantGrid.value, layoutId.value)
+    if (!settingRotation) wantGrid.value = null
   } catch (e) {
     if ((e as Error).name !== 'AbortError') {
       error.value = e instanceof Error ? e.message : String(e)

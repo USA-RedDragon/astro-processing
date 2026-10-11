@@ -22,3 +22,14 @@ export function matchSummary(
     ? `Same object as ${match.subjectName}, confirmed before`
     : `Not decided for ${match.subjectName}`
 }
+
+export function chooseLayout(
+  f: { options: { id: string; recommended: boolean }[]; chosen?: { id: string } | null },
+  fixedGrid: boolean,
+  current: string,
+): string {
+  if (fixedGrid && f.chosen) return f.chosen.id
+  const ids = f.options.map((x) => x.id)
+  if (ids.includes(current)) return current
+  return f.options.find((x) => x.recommended)?.id ?? ids[0] ?? ''
+}
