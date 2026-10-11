@@ -31,7 +31,7 @@ import {
   type SettingKey,
 } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
-import { landingStep } from '../addTarget'
+import { landingStep, matchSummary } from '../addTarget'
 
 interface CatalogObject {
   id: string
@@ -765,11 +765,7 @@ const review = computed(() => {
       : []),
     {
       k: 'Name match',
-      v: !topMatch.value
-        ? 'No project, target or stacker object of yours matches.'
-        : matchChoice.value === 'different'
-          ? `Not the same as ${topMatch.value.subjectName}`
-          : `Same object as ${topMatch.value.subjectName}, kept separate`,
+      v: matchSummary(topMatch.value, matchChoice.value),
     },
     {
       k: 'Scheduler rows',
