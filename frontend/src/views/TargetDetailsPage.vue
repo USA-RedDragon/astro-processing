@@ -152,6 +152,12 @@
       :rows="calibration"
       :loading="!done.calibration"
     />
+    <CalibrationRequestsCard
+      v-if="target && done.calibration && calibration.length > 0"
+      :object="target.name"
+      :target-id="target.id"
+      :nights="calibrationNights"
+    />
 
     <Card v-if="subframes.length > 0 || !done.subframes">
       <CardHeader>
@@ -326,6 +332,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import CalibrationCard from '@/components/CalibrationCard.vue';
+import CalibrationRequestsCard from '@/components/CalibrationRequestsCard.vue';
 import PreviewLink from '@/components/PreviewLink.vue';
 import MastersCard from '@/components/MastersCard.vue';
 import PaletteMixer from '@/components/PaletteMixer.vue';
@@ -336,6 +343,7 @@ import { onChange, onEvent, status, type LiveEvent } from '@/lib/events';
 import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { formatDate } from '@/lib/formatters';
 import { isCulled } from '@/lib/cull';
+import { nightsOf } from '@/lib/calibrationRequests';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
 type Totals = {
@@ -483,6 +491,7 @@ export default {
   components: {
     Badge,
     CalibrationCard,
+    CalibrationRequestsCard,
     PreviewLink,
     MastersCard,
     PaletteMixer,
@@ -563,6 +572,9 @@ export default {
     },
     scoringRows(): FilterQuality[] {
       return this.quality.filter((q) => q.min_score != null);
+    },
+    calibrationNights(): string[] {
+      return nightsOf(this.calibration);
     },
     calibrationLights(): number {
       return this.calibration.reduce((t, r) => t + r.lights, 0);
