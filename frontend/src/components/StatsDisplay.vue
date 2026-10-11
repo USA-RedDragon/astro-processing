@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="text-sm mb-3" v-if="total">
-      <div class="flex gap-3 text-xs">
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs whitespace-nowrap">
         <span>
           <span>Acquired:</span>
           <span :class="acquiredClass + ' ml-1'">{{ stats.acquired_images }}</span>
