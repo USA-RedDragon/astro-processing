@@ -11,24 +11,13 @@ import {
   type ExposurePick,
   type GoalKind,
   type PanelDraft,
-  type ProjectSettingValues,
   type Snapshot,
   goalDrivenPlugin,
   legacyGoalNote,
 } from '../api/planning'
 import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
 import { rigSource, typeLabel } from '../api/discover'
-import {
-  SETTINGS,
-  defaultValues,
-  defaultsBasisText,
-  flatsLabel,
-  flatsOptions,
-  settingErrors,
-  settingText,
-  settingsSummary,
-  type SettingKey,
-} from '../projectSettings'
+import { HARD_MIN_ALTITUDE } from '../projectSettings'
 import FramePlanner, { type FramePlan } from '../components/FramePlanner.vue'
 import {
   framingOverride,
@@ -174,8 +163,6 @@ const form = reactive({
   plateauStop: null as boolean | null,
   name: '',
   priority: null as string | null,
-  minAlt: null as number | null,
-  minTime: null as number | null,
   desired: null as number | null,
 })
 const pluginGoalDriven = computed(() => goalDrivenPlugin(shell.scheduler.version))
@@ -542,54 +529,15 @@ function usual<T>(vals: T[]): Usual<T> | null {
   return best
 }
 
-function usedValues<T extends number>(vals: T[]): T[] {
-  return [...new Set(vals)].sort((a, b) => a - b)
-}
-
 const projects = computed(() => snap.value?.projects ?? [])
-const usualAlt = computed(() => usual(projects.value.map((p) => p.minimumAltitude)))
-const usualTime = computed(() => usual(projects.value.map((p) => p.minimumTime)))
 const usualPriority = computed(() => usual(projects.value.map((p) => p.priority)))
-const altOptions = computed(() => usedValues(projects.value.map((p) => p.minimumAltitude)))
-const timeOptions = computed(() => usedValues(projects.value.map((p) => p.minimumTime)))
-
 function usualText(u: Usual<number | string> | null, unit: string): string {
   if (!u) return 'no projects to take a usual value from'
   return `your usual: ${u.value}${unit}, on ${u.count} of ${u.total} projects`
 }
 
-const minAlt = computed(() => form.minAlt ?? usualAlt.value?.value ?? null)
-const minTime = computed(() => form.minTime ?? usualTime.value?.value ?? null)
 const priority = computed(() => form.priority ?? usualPriority.value?.value ?? null)
 const goalDefaults = computed(() => snap.value?.defaults?.goal ?? null)
-const schedDefaults = computed(() => snap.value?.defaults?.projectSettings ?? null)
-const schedForm = reactive<Partial<ProjectSettingValues>>({})
-const schedValues = computed<ProjectSettingValues | null>(() =>
-  schedDefaults.value ? { ...defaultValues(schedDefaults.value), ...schedForm } : null,
-)
-const schedErrors = computed<Partial<Record<SettingKey, string>>>(() =>
-  schedValues.value ? settingErrors(schedValues.value, minAlt.value) : {},
-)
-const schedInvalid = computed(() => Object.keys(schedErrors.value).length > 0)
-
-function setSched(key: SettingKey, v: number | boolean) {
-  ;(schedForm as Record<SettingKey, number | boolean>)[key] = v
-}
-
-function schedNum(e: Event): number {
-  const v = (e.target as HTMLInputElement).value.trim()
-  return v === '' ? NaN : Number(v)
-}
-
-function schedNote(key: SettingKey): string {
-  const d = schedDefaults.value
-  if (!d) return ''
-  const spec = SETTINGS.find((x) => x.key === key)
-  if (!spec) return ''
-  if (schedForm[key] !== undefined && schedForm[key] !== d[key])
-    return `Set by you; default ${settingText(spec, d[key])}.`
-  return spec.kind === 'bool' || spec.kind === 'flats' ? 'Default.' : `Default: ${settingText(spec, d[key])}.`
-}
 const snr = computed(() => form.snr ?? goalDefaults.value?.snr ?? null)
 const plateauStop = computed(() => form.plateauStop ?? goalDefaults.value?.plateauStop ?? null)
 
@@ -677,8 +625,8 @@ async function makeDraft() {
       match: matchChoice.value || undefined,
       matchWith: topMatch.value?.subjectName,
       priority: priority.value ?? '',
-      minimumAltitude: minAlt.value ?? -1,
-      minimumTime: minTime.value ?? 0,
+      minimumAltitude: -1,
+      minimumTime: 0,
       filters: chosen.value,
       goalDriven: pluginGoalDriven.value,
       desired: pluginGoalDriven.value ? 0 : (form.desired ?? 0),
@@ -689,7 +637,6 @@ async function makeDraft() {
         plateauStop: plateauStop.value ?? undefined,
       },
       panels: panels.value,
-      ...(schedValues.value ?? {}),
       mosaic:
         panels.value.length > 1
           ? {
@@ -706,11 +653,6 @@ async function makeDraft() {
   }
 }
 
-function numOrNull(e: Event): number | null {
-  const v = (e.target as HTMLInputElement).value.trim()
-  return v === '' || isNaN(Number(v)) ? null : Number(v)
-}
-
 const review = computed(() => {
   const o = pick.value?.object
   if (!o) return []
@@ -718,7 +660,7 @@ const review = computed(() => {
     { k: 'Object', v: label(o) + ' · ' + typeLabel(o.type) },
     {
       k: 'Project',
-      v: `${form.name} · ${priority.value ?? 'no'} priority · minimum altitude ${minAlt.value ?? 'not set'}° · minimum time ${minTime.value ?? 'not set'} min`,
+      v: `${form.name} · ${priority.value ?? 'no'} priority`,
     },
     {
       k: 'Framing',
@@ -746,18 +688,6 @@ const review = computed(() => {
             ? `Default depth per filter (${depthDefaultText.value.replace('default per filter: ', '')} mag/arcsec²) at SNR ${goalDefaults.value?.depthSnr ?? '?'}`
             : `${form.depth} mag/arcsec² at SNR ${goalDefaults.value?.depthSnr ?? '?'} per filter`,
     },
-    ...(schedValues.value && schedDefaults.value
-      ? [
-        {
-          k: 'Scheduling',
-          v:
-            settingsSummary(schedValues.value) +
-            (Object.keys(schedForm).length
-              ? ''
-              : ` (defaults: ${defaultsBasisText(schedDefaults.value).toLowerCase()})`),
-        },
-      ]
-      : []),
     {
       k: 'Name match',
       v: matchSummary(topMatch.value, matchChoice.value),
@@ -815,10 +745,7 @@ const canNext = computed(() => {
       !!form.name.trim() &&
       !pickLoading.value &&
       chosen.value.length > 0 &&
-      minAlt.value !== null &&
-      minTime.value !== null &&
-      !!priority.value &&
-      !schedInvalid.value
+      !!priority.value
     )
   return true
 })
@@ -1027,16 +954,15 @@ async function goStep(i: number) {
         :cols="plan.cols"
         :rows="plan.rows"
         :brick="plan.brick"
-        :min-altitude="minAlt ?? undefined"
+        :min-altitude="HARD_MIN_ALTITUDE"
         @update:plan="onPlan"
       />
       <p v-if="step === 3" class="xsmall muted" style="margin: 0">
         Every panel gets the same goal, measured per panel, and the weakest one sets completion. New
         mosaics get the global rule weights, with Panel Deficit at
         {{ snap?.defaults?.panelDeficitWeight ?? 'its global value' }}, and are adopted as planned
-        mosaics straight away. Dark hours use minimum altitude {{ minAlt ?? 'not set' }}°{{
-          form.minAlt === null && usualAlt ? ' (your usual)' : ''
-        }}; change it on the Filters and goal step.
+        mosaics straight away. Dark hours count from {{ HARD_MIN_ALTITUDE }}° up, the lowest the scheduler
+        images until the observatory horizon is set.
       </p>
     </section>
 
@@ -1195,37 +1121,6 @@ async function goStep(i: number) {
             </select>
             <span class="xsmall muted">{{ usualText(usualPriority, '') }}</span></label
           >
-          <label class="field"
-            ><span>Minimum altitude (°)</span
-            ><input
-              class="input num"
-              type="number"
-              min="0"
-              max="89"
-              list="alt-used"
-              :value="minAlt ?? ''"
-              @change="form.minAlt = numOrNull($event)"
-            />
-            <datalist id="alt-used">
-              <option v-for="v in altOptions" :key="v" :value="v" />
-            </datalist>
-            <span class="xsmall muted">{{ usualText(usualAlt, '°') }}</span></label
-          >
-          <label class="field"
-            ><span>Minimum time (min)</span
-            ><input
-              class="input num"
-              type="number"
-              min="1"
-              list="time-used"
-              :value="minTime ?? ''"
-              @change="form.minTime = numOrNull($event)"
-            />
-            <datalist id="time-used">
-              <option v-for="v in timeOptions" :key="v" :value="v" />
-            </datalist>
-            <span class="xsmall muted">{{ usualText(usualTime, ' min') }}</span></label
-          >
           <label v-if="!pluginGoalDriven" class="field" style="grid-column: 1 / -1"
             ><span>Desired per plan</span
             ><input
@@ -1246,59 +1141,6 @@ async function goStep(i: number) {
           >
         </fieldset>
       </div>
-      <fieldset v-if="schedDefaults && schedValues" class="box">
-        <legend>Scheduling</legend>
-        <p class="xsmall muted" style="margin: 0">
-          Target Scheduler's acquisition settings for the new project. Defaults:
-          {{ defaultsBasisText(schedDefaults) }}. You can change them later on the project's
-          Options tab.
-        </p>
-        <div class="schedgrid">
-          <div v-for="s in SETTINGS" :key="s.key" class="field">
-            <label v-if="s.kind === 'bool'" class="field">
-              <span>{{ s.label }}</span>
-              <span class="row small" style="height: 2.25rem; flex-wrap: nowrap">
-                <input
-                  type="checkbox"
-                  class="size-4 accent-primary"
-                  :checked="!!schedValues[s.key]"
-                  @change="setSched(s.key, ($event.target as HTMLInputElement).checked)"
-                />
-                {{ schedValues[s.key] ? 'On' : 'Off' }}
-              </span>
-            </label>
-            <label v-else-if="s.kind === 'flats'" class="field">
-              <span>{{ s.label }}</span>
-              <select
-                class="input"
-                :value="schedValues.flatsHandling"
-                @change="setSched(s.key, Number(($event.target as HTMLSelectElement).value))"
-              >
-                <option v-for="v in flatsOptions(schedDefaults.flatsHandling)" :key="v" :value="v">
-                  {{ flatsLabel(v) }}
-                </option>
-              </select>
-            </label>
-            <label v-else class="field">
-              <span>{{ s.label }}{{ s.unit ? ', ' + s.unit : '' }}</span>
-              <input
-                class="input num"
-                type="number"
-                :min="s.min"
-                :max="s.max"
-                :step="s.kind === 'int' ? 1 : 0.1"
-                :value="Number.isNaN(schedValues[s.key]) ? '' : schedValues[s.key]"
-                :aria-invalid="!!schedErrors[s.key]"
-                @change="setSched(s.key, schedNum($event))"
-              />
-            </label>
-            <span v-if="schedErrors[s.key]" class="xsmall" style="color: var(--bad)">{{
-              schedErrors[s.key]
-            }}</span>
-            <span v-else class="xsmall muted">{{ schedNote(s.key) }} {{ s.help }}</span>
-          </div>
-        </div>
-      </fieldset>
     </section>
 
     <section v-if="step === 5" class="card" aria-labelledby="rev-h">
@@ -1469,11 +1311,6 @@ async function goStep(i: number) {
 .grid2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.schedgrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-  gap: 0.75rem;
 }
 .review {
   margin: 0;

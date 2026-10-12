@@ -6,6 +6,8 @@ export type ProjectSettingCurrent = { [K in SettingKey]: ProjectSettingValues[K]
 
 export const NOT_SET = 'Not set'
 
+export const HARD_MIN_ALTITUDE = 15
+
 export interface SettingSpec {
   key: SettingKey
   field: string

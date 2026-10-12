@@ -229,38 +229,3 @@ export function missingText(missing: readonly string[]): string {
   const n = missing.length === 1 ? 'filter' : 'filters'
   return `The observatory has no ${list} ${n}, so it can't image this in LRGB.`
 }
-
-export const MIN_BODY_MINUTES = 20
-
-export interface BodyMinimumTime {
-  minutes: number
-  basis: string
-}
-
-function shortWindowText(h: number): string {
-  return h < 2 ? `${Math.round(h * 60)} min` : `${Math.round(h * 10) / 10} h`
-}
-
-export function bodyMinimumTime(
-  usual: number,
-  tonightHours: number | null | undefined,
-  typicalHours: number | null | undefined,
-  minAlt: number,
-): BodyMinimumTime {
-  const windows: [string, number][] = []
-  if (tonightHours && tonightHours > 0)
-    windows.push([`tonight's ${shortWindowText(tonightHours)} window`, tonightHours])
-  if (typicalHours && typicalHours > 0)
-    windows.push([
-      `the typical ${shortWindowText(typicalHours)} window of the next 90 nights`,
-      typicalHours,
-    ])
-  if (!windows.length) return { minutes: usual, basis: 'the usual minimum time of your projects' }
-  const [label, hours] = windows.reduce((a, b) => (b[1] < a[1] ? b : a))
-  const half = Math.max(MIN_BODY_MINUTES, Math.floor((hours * 60) / 2 / 5) * 5)
-  if (half >= usual) return { minutes: usual, basis: 'the usual minimum time of your projects' }
-  return {
-    minutes: half,
-    basis: `half of ${label}, above ${minAlt}° in full darkness, at least ${MIN_BODY_MINUTES} min, instead of your projects' usual ${usual} min`,
-  }
-}

@@ -3,7 +3,6 @@ import { ApiError } from '@/scheduler/api/client'
 import type { Comet, CometView } from '@/scheduler/api/comets'
 import type { CommandRecord } from '@/scheduler/api/commands'
 import {
-  bodyMinimumTime,
   addStates,
   brightest,
   canonicalFilter,
@@ -286,33 +285,5 @@ describe('withDesignation', () => {
       designation: '1',
       kind: 'asteroid',
     })
-  })
-})
-
-describe('bodyMinimumTime', () => {
-  it('keeps the usual minimum time when the windows are long or unknown', () => {
-    expect(bodyMinimumTime(90, null, null, 30)).toEqual({
-      minutes: 90,
-      basis: 'the usual minimum time of your projects',
-    })
-    expect(bodyMinimumTime(90, 4.8, 3.2, 30).minutes).toBe(90)
-    expect(bodyMinimumTime(90, 0, 0, 30).minutes).toBe(90)
-  })
-
-  it("takes half of the shorter of tonight's and the typical window, in 5 min steps", () => {
-    const tonight = bodyMinimumTime(90, 1.2, 3.1, 30)
-    expect(tonight.minutes).toBe(35)
-    expect(tonight.basis).toContain("half of tonight's 72 min window, above 30°")
-    const typical = bodyMinimumTime(90, 4.8, 2.17, 25)
-    expect(typical.minutes).toBe(65)
-    expect(typical.basis).toContain(
-      'half of the typical 2.2 h window of the next 90 nights, above 25°',
-    )
-    expect(bodyMinimumTime(90, null, 1.0, 30).minutes).toBe(30)
-  })
-
-  it('never goes below 20 min or above the usual time', () => {
-    expect(bodyMinimumTime(90, 0.4, null, 30).minutes).toBe(20)
-    expect(bodyMinimumTime(15, 0.4, null, 30).minutes).toBe(15)
   })
 })

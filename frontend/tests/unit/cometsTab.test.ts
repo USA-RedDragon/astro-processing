@@ -206,7 +206,7 @@ describe('CometsTab', () => {
     expect(panel.querySelector('select')).toBeNull()
     expect(panel.textContent).toContain('Luminance, Red, Green, Blue')
     expect(panel.textContent).toContain('Subs: up to 21 s so the comet stays sharp')
-    expect(panel.textContent).toContain('Priority High, minimum altitude 30°, minimum time 45 min.')
+    expect(panel.textContent).toContain('Priority High.')
     expect(panel.textContent).not.toContain('capped')
     const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
     expect(draft.body).toMatchObject({
@@ -232,47 +232,22 @@ describe('CometsTab', () => {
     app.unmount()
   })
 
-  it('says it is working out the window and drafts nothing until it knows', async () => {
+  it('leaves minimum time and altitude to the stacker', async () => {
     const { el, app } = await render({
       '/comets': () => json(tonight),
       '/commands': () => json([]),
       'POST /planning/projects/draft': () => json(drafted),
-      '/bodies/nights': () => new Promise<Response>(() => {}) as unknown as Response,
       '/planning': () => json(planning(all)),
     })
     ;(el.querySelector('tbody button') as HTMLButtonElement).click()
     await settle()
     const panel = el.querySelector('.addpanel')!
-    expect(panel.textContent).toContain('Working out its window above 30° over the next 90 nights…')
-    expect(calls.some((c) => c.url.includes('/planning/projects/draft'))).toBe(false)
-    app.unmount()
-  })
-
-  it('shortens the minimum time to half of a short window and says why', async () => {
-    const short = {
-      ...comet('332P/Ikeya-Murakami', 12.4, 12.2, 0.4),
-      window: { ...win, hours: 1.2 },
-    }
-    const { el, app } = await render({
-      '/comets': () => json({ ...tonight, comets: [short] }),
-      '/commands': () => json([]),
-      'POST /planning/projects/draft': () => json(drafted),
-      '/bodies/nights': () => json({ typical_window_hours: 3.1, nights: [] }),
-      '/planning': () => json(planning(all)),
-    })
-    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
-    await settle()
-    const panel = el.querySelector('.addpanel')!
-    expect(panel.textContent).toContain('Priority High, minimum altitude 30°, minimum time 35 min.')
-    expect(panel.querySelector('[data-test="min-time-basis"]')?.textContent).toContain(
-      "half of tonight's 72 min window, above 30° in full darkness, at least 20 min, instead of your projects' usual 45 min",
-    )
-    const preview = calls.find((c) => c.url.includes('/bodies/nights'))!
-    expect(preview.url).toContain('designation=332P')
-    expect(preview.url).toContain('kind=comet')
-    expect(preview.url).toContain('min_alt=30')
+    expect(panel.textContent).toContain('Priority High.')
+    expect(panel.textContent).not.toContain('minimum time')
+    expect(calls.some((c) => c.url.includes('/bodies/nights'))).toBe(false)
     const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
-    expect(draft.body).toMatchObject({ minimumTime: 35, minimumAltitude: 30 })
+    expect(draft.body).toMatchObject({ minimumTime: 0, minimumAltitude: -1 })
+    expect(draft.body).not.toHaveProperty('ditherEvery')
     app.unmount()
   })
 

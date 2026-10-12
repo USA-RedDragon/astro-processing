@@ -173,7 +173,6 @@ const pick = (c: Comet) => (picked.value = { ...c })
 
     <AddBodyPanel
       :body="picked"
-      :min-alt="minAlt"
       noun="comet"
       @cancel="picked = null"
       @added="added.upsert"

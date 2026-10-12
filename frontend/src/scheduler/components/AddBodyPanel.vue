@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { submitCommand, type CommandRecord } from '../api/commands'
-import { getBodyNightsPreview, type BodyFraming } from '../api/comets'
+import type { BodyFraming } from '../api/comets'
 import { withFraming } from '../framing'
 import FramingEditor from './FramingEditor.vue'
 import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../api/planning'
 import { DEFAULT_ASTEROID_SNR } from '../bodyGoals'
-import { defaultValues } from '../projectSettings'
 import { errorToast, notifyCommand, shell } from '../shell'
 import { filterChoices } from '../filters'
 import {
   LRGB,
-  bodyMinimumTime,
   longestSub,
   lrgbFilters,
   missingText,
@@ -31,7 +29,6 @@ export interface AddBody {
 
 const props = defineProps<{
   body: AddBody | null
-  minAlt: number
   noun: BodyKind
   kind?: BodyKind
 }>()
@@ -48,8 +45,6 @@ const draftError = ref('')
 const drafting = ref(false)
 const busy = ref(false)
 const framing = ref<BodyFraming | null>(null)
-const typicalHours = ref<number | null>(null)
-const loadingWindow = ref(false)
 
 function usual<T>(vals: T[]): T | null {
   const counts = new Map<T, number>()
@@ -68,25 +63,6 @@ function usual<T>(vals: T[]): T | null {
 
 const projects = computed(() => snap.value?.projects ?? [])
 const priority = computed(() => usual(projects.value.map((p) => p.priority)) ?? 'Normal')
-const usualMinTime = computed(() => usual(projects.value.map((p) => p.minimumTime)) ?? 30)
-const minTimeChoice = computed(() =>
-  bodyMinimumTime(usualMinTime.value, props.body?.window?.hours, typicalHours.value, props.minAlt),
-)
-const minTime = computed(() => minTimeChoice.value.minutes)
-
-async function loadTypical(b: AddBody): Promise<number | null> {
-  try {
-    const v = await getBodyNightsPreview(
-      b.designation,
-      props.kind ?? props.noun,
-      props.minAlt,
-      AbortSignal.timeout(20000),
-    )
-    return v.typical_window_hours
-  } catch {
-    return null
-  }
-}
 const lrgb = computed(() =>
   snap.value
     ? lrgbFilters(
@@ -107,14 +83,11 @@ watch(
   async (b) => {
     draft.value = null
     draftError.value = ''
-    typicalHours.value = null
-    loadingWindow.value = false
     if (!b) {
       draftSeq++
       drafting.value = false
       return
     }
-    const typical = loadTypical(b)
     if (!snap.value) {
       try {
         snap.value = await getPlanning()
@@ -124,11 +97,7 @@ watch(
         return
       }
     }
-    loadingWindow.value = true
-    const hours = await typical
     if (props.body !== b) return
-    loadingWindow.value = false
-    typicalHours.value = hours
     makeDraft()
   },
   { immediate: true },
@@ -142,19 +111,17 @@ async function makeDraft() {
   drafting.value = true
   draftError.value = ''
   try {
-    const ps = snap.value?.defaults?.projectSettings
     const goalDriven = goalDrivenPlugin(shell.scheduler.version)
     const raw = (await draftProject({
       name: b.name,
       priority: priority.value,
-      minimumAltitude: props.minAlt,
-      minimumTime: minTime.value,
+      minimumAltitude: -1,
+      minimumTime: 0,
       filters: lrgbPick.filters,
       goalDriven,
       desired: 0,
       goal: { kind: 'snr', snr: props.kind === 'asteroid' ? DEFAULT_ASTEROID_SNR : 0, depth: 0 },
       panels: [{ name: b.name, raHours: b.ra / 15, dec: b.dec, rotation: 0 }],
-      ...(ps ? defaultValues(ps) : {}),
     })) as CometDraft
     if (my !== draftSeq) return
     draft.value = withDesignation(raw, b.designation, props.kind)
@@ -218,24 +185,11 @@ async function add() {
     <p v-else class="small" style="margin: 0; color: var(--bad)">
       It moves more than one pixel per second, so no sub length keeps it sharp.
     </p>
-    <p class="small muted" style="margin: 0">
-      Priority {{ priority }}, minimum altitude {{ minAlt }}°, minimum time {{ minTime }} min.
-    </p>
-    <p
-      v-if="minTimeChoice.minutes !== usualMinTime"
-      class="xsmall muted"
-      style="margin: 0"
-      data-test="min-time-basis"
-    >
-      Minimum time: {{ minTimeChoice.basis }}.
-    </p>
+    <p class="small muted" style="margin: 0">Priority {{ priority }}.</p>
     <p v-if="snapError" class="small" style="margin: 0; color: var(--bad)">
       Could not load the observatory's filters: {{ snapError }}
     </p>
     <p v-else-if="!snap" class="small muted" style="margin: 0">Loading the observatory's filters…</p>
-    <p v-else-if="loadingWindow" class="small muted" style="margin: 0">
-      Working out its window above {{ minAlt }}° over the next 90 nights…
-    </p>
     <p v-else-if="missing" class="small" style="margin: 0; color: var(--bad)">{{ missing }}</p>
     <p v-else-if="draftError" class="small" style="margin: 0; color: var(--bad)">
       Not drafted: {{ draftError }}

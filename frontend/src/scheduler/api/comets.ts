@@ -158,11 +158,3 @@ export interface BodyNightsView {
 
 export const getBodyNights = (guid: string) =>
   api.get<BodyNightsView>('/bodies/nights' + query({ target_guid: guid }))
-
-export const getBodyNightsPreview = (
-  designation: string,
-  kind: string,
-  minAlt: number,
-  signal?: AbortSignal,
-) =>
-  api.get<BodyNightsView>('/bodies/nights' + query({ designation, kind, min_alt: minAlt }), signal)

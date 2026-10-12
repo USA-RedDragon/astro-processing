@@ -263,12 +263,13 @@ describe('AsteroidsTab', () => {
     expect(panel.textContent).toContain('Add 1 Ceres to the scheduler')
     expect(panel.textContent).toContain('Luminance, Red, Green, Blue')
     expect(panel.textContent).toContain('Subs: up to 197 s so the asteroid stays sharp')
-    expect(panel.textContent).toContain('Priority High, minimum altitude 30°, minimum time 45 min.')
+    expect(panel.textContent).toContain('Priority High.')
     const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
     expect(draft.body).toMatchObject({
       name: '1 Ceres',
       desired: 0,
-      minimumAltitude: 30,
+      minimumAltitude: -1,
+      minimumTime: 0,
       filters: ['L', 'R', 'G', 'B'],
       goal: { kind: 'snr', snr: 50, depth: 0 },
       panels: [{ name: '1 Ceres', dec: 23.4 }],
