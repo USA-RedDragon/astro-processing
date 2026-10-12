@@ -160,7 +160,13 @@ export interface DraftPlan {
 
 export interface CometDraft {
   project: { guid: string; name: string }
-  targets: { guid: string; name: string; designation?: string; plans: DraftPlan[] }[]
+  targets: {
+    guid: string
+    name: string
+    designation?: string
+    kind?: BodyKind
+    plans: DraftPlan[]
+  }[]
   goals: unknown[]
 }
 
@@ -242,8 +248,17 @@ export function lrgbPlans(
   return { plans, missing }
 }
 
-export function withDesignation(draft: CometDraft, designation: string): CometDraft {
-  return { ...draft, targets: draft.targets.map((t) => ({ ...t, designation })) }
+export type BodyKind = 'comet' | 'asteroid'
+
+export function withDesignation(
+  draft: CometDraft,
+  designation: string,
+  kind?: BodyKind,
+): CometDraft {
+  return {
+    ...draft,
+    targets: draft.targets.map((t) => (kind ? { ...t, designation, kind } : { ...t, designation })),
+  }
 }
 
 export function missingText(missing: readonly string[]): string {

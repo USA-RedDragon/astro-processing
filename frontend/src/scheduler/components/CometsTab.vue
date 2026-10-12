@@ -1,38 +1,26 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Orbit } from 'lucide-vue-next'
-import { getBodies, getComets, type BodyTable, type Comet, type CometView } from '../api/comets'
-import { listCommands, submitCommand, type CommandRecord } from '../api/commands'
-import { onEvent } from '../api/events'
-import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../api/planning'
-import { defaultValues } from '../projectSettings'
+import { getComets, type Comet, type CometView } from '../api/comets'
 import { clock, shortDate } from '../format'
-import { errorToast, notifyCommand, shell } from '../shell'
+import { useAddedBodies } from '../addedBodies'
+import AddBodyPanel from './AddBodyPanel.vue'
 import {
-  LRGB,
   PIXEL_SCALE_ARCSEC,
-  addStates,
   brightest,
-  designationKey,
   emptyState,
   longestSub,
-  lrgbPlans,
   magText,
-  missingText,
   peakText,
   rateText,
   shortSubs,
   sortComets,
   windowText,
-  withDesignation,
-  type CometDraft,
 } from '../comets'
 
 const view = ref<CometView | null>(null)
 const loadError = ref<unknown>(null)
 const loading = ref(true)
-const records = ref<CommandRecord[]>([])
-const tables = ref<BodyTable[]>([])
 
 async function load() {
   loading.value = true
@@ -47,41 +35,15 @@ async function load() {
   }
 }
 
-async function loadAdded() {
-  const [cmds, bodies] = await Promise.allSettled([
-    listCommands({ category: 'created', limit: 500 }),
-    getBodies(),
-  ])
-  if (cmds.status === 'fulfilled') records.value = cmds.value
-  if (bodies.status === 'fulfilled') tables.value = bodies.value.tables ?? []
-}
+onMounted(load)
 
-let off: (() => void) | undefined
-onMounted(() => {
-  load()
-  loadAdded()
-  off = onEvent('command', (e: { data?: CommandRecord }) => {
-    const r = e.data
-    if (r && (r.kind === 'project.create' || r.kind === 'project.delete')) upsert(r)
-  })
-})
-onUnmounted(() => off?.())
-
-function upsert(r: CommandRecord) {
-  const i = records.value.findIndex((x) => x.id === r.id)
-  if (i >= 0) records.value[i] = r
-  else records.value = [r, ...records.value]
-}
+const added = useAddedBodies()
+const stateOf = (c: Comet) => added.stateOf(c.designation)
+const failure = (c: Comet) => added.failure(c.designation)
 
 const comets = computed(() => sortComets(view.value?.comets ?? []))
 const empty = computed(() => (loading.value ? null : emptyState(loadError.value, view.value)))
 const minAlt = computed(() => view.value?.min_altitude ?? 0)
-const states = computed(() => addStates(records.value, tables.value))
-const stateOf = (c: Comet) => states.value.get(designationKey(c.designation))
-function failure(c: Comet): string {
-  const st = stateOf(c)
-  return st?.state === 'failed' ? st.message : ''
-}
 
 const heading = computed(() => {
   if (loading.value) return 'Loading…'
@@ -118,125 +80,7 @@ const sourceText = computed(() => {
 })
 
 const picked = ref<Comet | null>(null)
-const snap = ref<Snapshot | null>(null)
-const snapError = ref('')
-const draft = ref<CometDraft | null>(null)
-const draftError = ref('')
-const drafting = ref(false)
-const busy = ref(false)
-
-function usual<T>(vals: T[]): T | null {
-  const counts = new Map<T, number>()
-  let best: T | null = null
-  let n = 0
-  for (const v of vals) {
-    const c = (counts.get(v) ?? 0) + 1
-    counts.set(v, c)
-    if (c > n) {
-      n = c
-      best = v
-    }
-  }
-  return best
-}
-
-const projects = computed(() => snap.value?.projects ?? [])
-const priority = computed(() => usual(projects.value.map((p) => p.priority)) ?? 'Normal')
-const minTime = computed(() => usual(projects.value.map((p) => p.minimumTime)) ?? 30)
-const lrgb = computed(() =>
-  snap.value ? lrgbPlans(snap.value.templates ?? [], snap.value.sets ?? []) : null,
-)
-const missing = computed(() => missingText(lrgb.value?.missing ?? []))
-const filterNames = LRGB.map((f) => f.label).join(', ')
-
-async function pick(c: Comet) {
-  picked.value = c
-  draft.value = null
-  draftError.value = ''
-  if (!snap.value) {
-    try {
-      snap.value = await getPlanning()
-      snapError.value = ''
-    } catch (e) {
-      snapError.value = e instanceof Error ? e.message : String(e)
-      return
-    }
-  }
-  makeDraft()
-}
-
-let draftSeq = 0
-async function makeDraft() {
-  const c = picked.value
-  const plans = lrgb.value
-  if (!c || !plans || plans.missing.length) return
-  const my = ++draftSeq
-  drafting.value = true
-  draftError.value = ''
-  try {
-    const ps = snap.value?.defaults?.projectSettings
-    const goalDriven = goalDrivenPlugin(shell.scheduler.version)
-    const raw = (await draftProject({
-      name: c.name,
-      priority: priority.value,
-      minimumAltitude: minAlt.value,
-      minimumTime: minTime.value,
-      setId: '',
-      plans: plans.plans,
-      goalDriven,
-      desired: 0,
-      goal: { kind: 'snr', snr: 0, depth: 0 },
-      panels: [{ name: c.name, raHours: c.ra / 15, dec: c.dec, rotation: 0 }],
-      ...(ps ? defaultValues(ps) : {}),
-    })) as CometDraft
-    if (my !== draftSeq) return
-    draft.value = withDesignation(raw, c.designation)
-  } catch (e) {
-    if (my !== draftSeq) return
-    draft.value = null
-    draftError.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    if (my === draftSeq) drafting.value = false
-  }
-}
-
-function cancel() {
-  picked.value = null
-  draft.value = null
-  draftError.value = ''
-}
-
-const tooFast = computed(() => {
-  const c = picked.value
-  if (!c) return false
-  const s = longestSub(c.rate_arcsec_per_min)
-  return s !== null && s < 1
-})
-
-const subsText = computed(() => {
-  const c = picked.value
-  if (!c) return ''
-  const s = longestSub(c.rate_arcsec_per_min)
-  if (s === null) return "Subs: the system length. The comet's motion is not known."
-  return `Subs: up to ${s} s so the comet stays sharp`
-})
-
-async function add() {
-  const c = picked.value
-  if (!c || !draft.value || busy.value || tooFast.value) return
-  busy.value = true
-  try {
-    const r = await submitCommand('project.create', draft.value)
-    upsert(r)
-    const failed = ['rejected', 'failed', 'conflict', 'cancelled'].includes(r.status)
-    notifyCommand(r, failed ? `${c.name} was not added` : 'Added ' + c.name)
-    cancel()
-  } catch (e) {
-    errorToast(e, `Could not add ${c.name}`)
-  } finally {
-    busy.value = false
-  }
-}
+const pick = (c: Comet) => (picked.value = { ...c })
 </script>
 
 <template>
@@ -327,40 +171,13 @@ async function add() {
       </table>
     </div>
 
-    <div v-if="picked" class="addpanel" role="region" aria-labelledby="add-h">
-      <div class="spread">
-        <h3 id="add-h">Add {{ picked.name }} to the scheduler</h3>
-        <button type="button" class="btn link xsmall" @click="cancel">Cancel</button>
-      </div>
-      <p class="small" style="margin: 0">{{ filterNames }}</p>
-      <p v-if="!tooFast" class="small" style="margin: 0">{{ subsText }}</p>
-      <p v-else class="small" style="margin: 0; color: var(--bad)">
-        It moves more than one pixel per second, so no sub length keeps it sharp.
-      </p>
-      <p class="small muted" style="margin: 0">
-        Priority {{ priority }}, minimum altitude {{ minAlt }}°, minimum time {{ minTime }} min.
-      </p>
-      <p v-if="snapError" class="small" style="margin: 0; color: var(--bad)">
-        Could not load your exposure templates: {{ snapError }}
-      </p>
-      <p v-else-if="!snap" class="small muted" style="margin: 0">
-        Loading your exposure templates…
-      </p>
-      <p v-else-if="missing" class="small" style="margin: 0; color: var(--bad)">{{ missing }}</p>
-      <p v-else-if="draftError" class="small" style="margin: 0; color: var(--bad)">
-        Not drafted: {{ draftError }}
-      </p>
-      <div class="row">
-        <button
-          type="button"
-          class="btn primary"
-          :disabled="!draft || busy || drafting || tooFast"
-          @click="add"
-        >
-          {{ busy ? 'Adding…' : `Add ${picked.name}` }}
-        </button>
-      </div>
-    </div>
+    <AddBodyPanel
+      :body="picked"
+      :min-alt="minAlt"
+      noun="comet"
+      @cancel="picked = null"
+      @added="added.upsert"
+    />
 
     <div v-if="view" class="xsmall muted" style="display: grid; gap: 0.25rem">
       <p style="margin: 0">
@@ -402,19 +219,6 @@ async function add() {
 }
 .blank-title {
   margin: 0 0 0.25rem;
-  font-weight: 600;
-}
-.addpanel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 1rem;
-}
-.addpanel h3 {
-  margin: 0;
-  font-size: 0.9375rem;
   font-weight: 600;
 }
 </style>

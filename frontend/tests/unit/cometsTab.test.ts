@@ -227,6 +227,8 @@ describe('CometsTab', () => {
       kind: 'project.create',
       payload: { targets: [{ designation: '161P' }] },
     })
+    const target = (sent.body as { payload: { targets: object[] } }).payload.targets[0]
+    expect(target).not.toHaveProperty('kind')
     app.unmount()
   })
 

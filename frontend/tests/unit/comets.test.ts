@@ -318,5 +318,18 @@ describe('withDesignation', () => {
     expect(out.targets[0].designation).toBe('161P')
     expect(out.targets[0].plans[0].exposure).toBe(-1)
     expect(draft.targets[0]).not.toHaveProperty('designation')
+    expect(out.targets[0]).not.toHaveProperty('kind')
+  })
+
+  it('adds the body kind only when one is given', () => {
+    const draft = {
+      project: { guid: 'p', name: '1 Ceres' },
+      targets: [{ guid: 't', name: '1 Ceres', plans: [] }],
+      goals: [],
+    }
+    expect(withDesignation(draft, '1', 'asteroid').targets[0]).toMatchObject({
+      designation: '1',
+      kind: 'asteroid',
+    })
   })
 })
