@@ -10,12 +10,10 @@ import {
   getPlanning,
   type ExposurePick,
   type GoalKind,
-  type PickHours,
   type PanelDraft,
   type ProjectSettingValues,
   type Snapshot,
   goalDrivenPlugin,
-  pickGoalText,
   legacyGoalNote,
 } from '../api/planning'
 import { errorToast, notifyCommand, queuedText, shell, undo, whenApplies } from '../shell'
@@ -39,13 +37,21 @@ import {
   matchSummary,
   type FramingOverride,
   pickDefaultGoal,
-  pickPlans,
   pickRequestGoal,
-  templateLength,
 } from '../addTarget'
-import { getSubLengths, type SubLengthState } from '../api/sublength'
-import { lengthsNote, pickLengthView, reviewLengths, siteLengthView } from '../subLength'
-import SubLengthLine from '../components/SubLengthLine.vue'
+import FilterChips from '../components/FilterChips.vue'
+import {
+  QUICK_PICKS,
+  chosenText,
+  filterChoices,
+  groupFilters,
+  hasFilter,
+  pickFilters,
+  selectedFilters,
+  sortFilters,
+  withFilter,
+  type QuickPick,
+} from '../filters'
 
 interface CatalogObject {
   id: string
@@ -111,7 +117,7 @@ interface Hit {
 const route = useRoute()
 const router = useRouter()
 
-const steps = ['Find', 'Frame', 'Mosaic', 'Exposures and goal', 'Review and add']
+const steps = ['Find', 'Frame', 'Mosaic', 'Filters and goal', 'Review and add']
 const step = ref(1)
 const q = ref('')
 const hits = ref<Hit[]>([])
@@ -156,14 +162,12 @@ function onPlan(p: FramePlan) {
 const exposurePick = ref<ExposurePick | null>(null)
 const pickError = ref('')
 const pickLoading = ref(false)
-const subLen = ref<SubLengthState | null>(null)
-const exposureTouched = ref(false)
+const filtersTouched = ref(false)
+const chosen = ref<string[]>([])
 const goalTouched = ref(false)
 const pickDefault = ref<{ kind: GoalKind; basis: string } | null>(null)
 
 const form = reactive({
-  usePick: false,
-  setId: '',
   goalKind: 'snr' as GoalKind,
   snr: null as number | null,
   depth: null as number | null,
@@ -185,7 +189,6 @@ const draftError = ref('')
 const busy = ref(false)
 
 onMounted(async () => {
-  getSubLengths().then((s) => (subLen.value = s))
   try {
     snap.value = await getPlanning()
   } catch {
@@ -347,9 +350,8 @@ async function choose(id: string) {
   plan.rotation = null
   override.value = {}
   planned.value = null
-  form.setId = presetSet.value?.set.id ?? ''
-  form.usePick = false
-  exposureTouched.value = false
+  filtersTouched.value = false
+  chosen.value = matchedFilters.value
   goalTouched.value = false
   form.goalKind = 'snr'
   pickDefault.value = null
@@ -386,7 +388,10 @@ async function loadPick(id: string) {
       pickDefault.value = pickDefaultGoal(p)
       if (pickDefault.value) form.goalKind = pickDefault.value.kind
     }
-    if (!p.noPick && p.filters.length && !exposureTouched.value) form.usePick = true
+    if (!p.noPick && p.filters.length && !filtersTouched.value) {
+      const picked = pickedFilters(p)
+      if (picked.length) chosen.value = picked
+    }
   } catch (e) {
     if (seq === pickSeq) pickKey = ''
     if (seq === pickSeq && pick.value?.object.id === id)
@@ -407,72 +412,6 @@ watch(
     pickTimer = setTimeout(() => loadPick(id), 300)
   },
 )
-
-const pickRows = computed(() =>
-  (exposurePick.value?.filters ?? []).map((f) => {
-    const fallback = templateLength(snap.value?.templates, f.template?.id)
-    return { ...f, fallback, length: pickLengthView(subLen.value, f, fallback) }
-  }),
-)
-
-const pickPlanItems = computed(() => pickPlans(pickRows.value, snap.value?.templates))
-
-const pickReady = computed(() => pickPlanItems.value !== null)
-
-const noFallback = computed(() =>
-  pickRows.value.filter((r) => r.template && r.fallback === null).map((r) => r.template!.name),
-)
-
-function hoursNum(v: number): string {
-  if (v >= 10) return String(Math.round(v))
-  if (v >= 0.1) return v.toFixed(1)
-  return String(Number(v.toPrecision(2)))
-}
-
-function hoursText(h: PickHours, filter: string): string {
-  const goal = h.goal ? `Goal ${h.goal}: ` : ''
-  if (h.hours === null) return goal + (h.unknown ?? 'unknown')
-  const what = filter === 'H-α' ? 'targets' : h.points === 1 ? 'master' : 'masters'
-  const range =
-    h.low !== null && h.high !== null && hoursNum(h.low) !== hoursNum(h.high)
-      ? ` (${hoursNum(h.low)} to ${hoursNum(h.high)} h)`
-      : ''
-  return `${goal}≈ ${hoursNum(h.hours)} h${range}, from ${h.points} ${what}`
-}
-
-function rText(r: number): string {
-  return r >= 10 ? `${Math.round(r)} R` : `${r.toFixed(1)} R`
-}
-
-function choosePick() {
-  form.usePick = true
-  exposureTouched.value = true
-}
-
-const unusedTemplates = computed(() => {
-  const used = new Set(
-    projects.value.flatMap((p) =>
-      p.targets.flatMap((t) => t.plans.filter((pl) => pl.desired > 0).map((pl) => pl.templateId)),
-    ),
-  )
-  return pickRows.value
-    .filter((r) => r.template && !used.has(r.template.id))
-    .map((r) => r.template?.name ?? r.filter)
-})
-
-const needsDesired = computed(
-  () =>
-    form.usePick &&
-    !pluginGoalDriven.value &&
-    form.desired === null &&
-    unusedTemplates.value.length > 0,
-)
-
-function ruleValue(measured: number | null): string {
-  if (measured !== null) return rText(measured)
-  const st = exposurePick.value?.halphaMap.state
-  return st && st !== 'ready' ? `unknown, the H-α map is ${st}` : 'not on the H-α map'
-}
 
 const topMatch = computed<Link | null>(() => {
   const ls = (pick.value?.links ?? []).filter((l) => l.status !== 'rejected')
@@ -654,38 +593,49 @@ function schedNote(key: SettingKey): string {
 const snr = computed(() => form.snr ?? goalDefaults.value?.snr ?? null)
 const plateauStop = computed(() => form.plateauStop ?? goalDefaults.value?.plateauStop ?? null)
 
-const presetSet = computed(() => {
+const choices = computed(() =>
+  filterChoices({
+    filters: snap.value?.filters,
+    templates: snap.value?.templates,
+    plans: projects.value.flatMap((p) => p.targets.flatMap((t) => t.plans)),
+  }),
+)
+const filterGroups = computed(() => groupFilters(choices.value))
+
+function inChoices(names: string[]): string[] {
+  const out: string[] = []
+  for (const n of names) {
+    const c = choices.value.find((x) => hasFilter([x.name], n))
+    if (c && !hasFilter(out, c.name)) out.push(c.name)
+  }
+  return sortFilters(out.map((name) => ({ name }))).map((x) => x.name)
+}
+
+function pickedFilters(p: ExposurePick): string[] {
+  return inChoices(p.filters.map((f) => f.template?.filter ?? f.filter))
+}
+
+const matchedFilters = computed(() => {
   const pid = topProject.value
-  if (!pid || matchChoice.value === 'different') return null
-  const set = sets.value.find((x) => x.projectIds.includes(pid))
+  if (!pid || matchChoice.value === 'different') return []
   const proj = projects.value.find((p) => p.id === pid)
-  return set && proj ? { set, reason: `the set on ${proj.name}, which matches this object` } : null
+  return proj ? inChoices(selectedFilters(proj.targets)) : []
 })
 
-const setNote = computed(() => {
-  if (form.usePick) return 'Or choose one of your sets instead of the suggestion.'
-  const what = 'Sets are the exposure plan combinations your projects use.'
-  if (!sets.value.length)
-    return 'None of your projects has enabled exposure plans, so there is no set to reuse.'
-  if (presetSet.value && form.setId === presetSet.value.set.id)
-    return `Preselected: ${presetSet.value.reason}. ${what}`
-  if (form.setId) return what
-  return `Nothing is preselected: no project of yours matches this object. ${what}`
-})
+function toggleFilter(name: string) {
+  filtersTouched.value = true
+  chosen.value = inChoices(withFilter(chosen.value, name, !hasFilter(chosen.value, name)))
+}
 
-const chosenSet = computed(() => sets.value.find((s) => s.id === form.setId) ?? null)
-
-const setFilters = computed(() => {
-  if (form.usePick) return [...new Set(pickRows.value.map((r) => r.template?.filter ?? r.filter))]
-  const set = chosenSet.value
-  const byName = new Map((snap.value?.templates ?? []).map((t) => [t.name.toLowerCase(), t.filter]))
-  return [...new Set((set?.items ?? []).map((i) => byName.get(i.template.toLowerCase()) ?? i.template))]
-})
+function quickPick(q: QuickPick) {
+  filtersTouched.value = true
+  chosen.value = pickFilters(q, choices.value)
+}
 
 const depthDefaults = computed(() => {
   const d = goalDefaults.value?.depths ?? []
   const norm = (f: string) => f.toLowerCase().replace(/[^a-z0-9]/g, '')
-  return setFilters.value.map((f) => {
+  return chosen.value.map((f) => {
     const m = d.find((x) => norm(x.filter) === norm(f))
     return { filter: f, depth: m?.depth ?? null }
   })
@@ -693,7 +643,7 @@ const depthDefaults = computed(() => {
 
 const depthDefaultText = computed(() => {
   const list = depthDefaults.value
-  if (!list.length) return 'pick an exposure set to see the per-filter defaults'
+  if (!list.length) return 'choose filters to see the per-filter defaults'
   return (
     'default per filter: ' +
     list.map((x) => `${x.filter} ${x.depth === null ? 'unknown' : x.depth.toFixed(1)}`).join(', ')
@@ -715,24 +665,6 @@ const panels = computed<PanelDraft[]>(() => {
 
 const panelCount = computed(() => panels.value.length)
 
-const sets = computed(() => snap.value?.sets ?? [])
-
-const setLengths = computed(() => {
-  const byName = new Map((snap.value?.templates ?? []).map((t) => [t.name.toLowerCase(), t]))
-  return (chosenSet.value?.items ?? []).flatMap((i) => {
-    const t = byName.get(i.template.toLowerCase())
-    if (!t) return []
-    return [{ name: t.name, view: siteLengthView(subLen.value, t.filter, t.gain, t.defaultExposure) }]
-  })
-})
-const missingTemplates = computed(() => {
-  const set = chosenSet.value
-  const names = new Set((snap.value?.templates ?? []).map((t) => t.name.toLowerCase()))
-  return (set?.items ?? [])
-    .filter((i) => !names.has(i.template.toLowerCase()))
-    .map((i) => i.template)
-})
-
 async function makeDraft() {
   const o = pick.value?.object
   if (!o) return
@@ -747,10 +679,7 @@ async function makeDraft() {
       priority: priority.value ?? '',
       minimumAltitude: minAlt.value ?? -1,
       minimumTime: minTime.value ?? 0,
-      setId: form.usePick ? '' : form.setId,
-      plans: form.usePick
-        ? (pickPlanItems.value ?? [])
-        : undefined,
+      filters: chosen.value,
       goalDriven: pluginGoalDriven.value,
       desired: pluginGoalDriven.value ? 0 : (form.desired ?? 0),
       goal: {
@@ -777,25 +706,13 @@ async function makeDraft() {
   }
 }
 
-function selectSet(id: string) {
-  form.setId = id
-  form.usePick = false
-  exposureTouched.value = true
-}
-
 function numOrNull(e: Event): number | null {
   const v = (e.target as HTMLInputElement).value.trim()
   return v === '' || isNaN(Number(v)) ? null : Number(v)
 }
 
-function itemText(i: { template: string; desired: number }): string {
-  if (pluginGoalDriven.value) return i.template
-  return `${i.template} × ${form.desired ?? i.desired}`
-}
-
 const review = computed(() => {
   const o = pick.value?.object
-  const set = chosenSet.value
   if (!o) return []
   return [
     { k: 'Object', v: label(o) + ' · ' + typeLabel(o.type) },
@@ -813,18 +730,12 @@ const review = computed(() => {
             : `One frame at ${plan.rotation}°`,
     },
     {
-      k: 'Exposures',
-      v:
-        form.usePick && exposurePick.value
-          ? `${exposurePick.value.palette}, suggested: ` +
-            reviewLengths(
-              pickRows.value.map((r) => ({ name: r.template?.name ?? r.filter, view: r.length })),
-            )
-          : set
-            ? [set.items.map(itemText).join(', '), lengthsNote(setLengths.value.map((l) => l.view))]
-              .filter(Boolean)
-              .join('. ')
-            : 'No exposure set chosen',
+      k: 'Filters',
+      v: chosen.value.length
+        ? chosen.value.join(', ') +
+          (!pluginGoalDriven.value && form.desired !== null ? `, ${form.desired} subs each` : '') +
+          '. Sub length, gain and sky darkness are chosen automatically.'
+        : 'No filters chosen',
     },
     {
       k: 'Goal',
@@ -903,9 +814,7 @@ const canNext = computed(() => {
     return (
       !!form.name.trim() &&
       !pickLoading.value &&
-      (form.usePick
-        ? pickReady.value && !needsDesired.value
-        : !!form.setId && !missingTemplates.value.length) &&
+      chosen.value.length > 0 &&
       minAlt.value !== null &&
       minTime.value !== null &&
       !!priority.value &&
@@ -934,7 +843,7 @@ async function goStep(i: number) {
   <main class="page wide">
     <PageHead context="Plan" title="Add target">
       Find an object, check it against what you already have, frame it for the rig, split it into
-      panels if it needs them, then pick exposures and a goal.
+      panels if it needs them, then choose filters and a goal.
     </PageHead>
 
     <ol aria-label="Steps" class="steps">
@@ -1127,152 +1036,62 @@ async function goStep(i: number) {
         {{ snap?.defaults?.panelDeficitWeight ?? 'its global value' }}, and are adopted as planned
         mosaics straight away. Dark hours use minimum altitude {{ minAlt ?? 'not set' }}°{{
           form.minAlt === null && usualAlt ? ' (your usual)' : ''
-        }}; change it on the Exposures and goal step.
+        }}; change it on the Filters and goal step.
       </p>
     </section>
 
-    <section v-if="step === 4" class="card" aria-labelledby="exp-h">
-      <h2 id="exp-h">Exposures and goal</h2>
-      <p v-if="pickLoading" class="small muted" style="margin: 0">
+    <section v-if="step === 4" class="card" aria-labelledby="filters-h">
+      <div>
+        <h2 id="filters-h">Filters</h2>
+        <p class="small muted" style="margin: 0.125rem 0 0">
+          Which filters should this target be imaged in?
+        </p>
+      </div>
+      <div>
+        <p class="group-label">Quick picks</p>
+        <div class="quick">
+          <button
+            v-for="qp in QUICK_PICKS"
+            :key="qp.label"
+            type="button"
+            class="btn sm2"
+            @click="quickPick(qp)"
+          >
+            {{ qp.label }}
+          </button>
+        </div>
+      </div>
+      <FilterChips :groups="filterGroups" :selected="chosen" @toggle="toggleFilter" />
+      <p class="small" style="margin: 0" data-test="chosen">{{ chosenText(chosen.length) }}</p>
+      <p v-if="pickLoading" class="xsmall muted" style="margin: 0">
         Picking filters for {{ pick ? label(pick.object) : 'this object' }}…
       </p>
-      <p v-else-if="pickError" class="small" style="margin: 0; color: var(--bad)">
-        No filter pick: {{ pickError }}
-      </p>
-      <p v-else-if="exposurePick?.noPick" class="small muted" style="margin: 0">
-        No filter pick: {{ exposurePick.noPick }}
-      </p>
-      <section
-        v-else-if="exposurePick"
-        class="pickcard"
-        :class="{ on: form.usePick }"
-        aria-labelledby="pick-h"
-      >
-        <div class="spread">
-          <label class="row" style="font-size: 0.9375rem; font-weight: 600"
-            ><input
-              type="radio"
-              name="exposure-choice"
-              :checked="form.usePick"
-              @change="choosePick"
-            />
-            <span id="pick-h">Suggested: {{ exposurePick.palette }}</span></label
-          >
-          <span v-if="exposurePick.set" class="xsmall muted"
-            >matches your set {{ exposurePick.set.name }}, used on
-            {{ exposurePick.set.projects }}
-            {{ exposurePick.set.projects === 1 ? 'project' : 'projects' }}</span
-          >
-        </div>
-        <p class="small" style="margin: 0">{{ exposurePick.reason }}</p>
-        <div v-for="r in exposurePick.rules" :key="r.key" class="xsmall muted">
-          {{ r.label }}: {{ r.strict ? 'above' : 'at or above' }}
-          {{ r.threshold === null ? 'no threshold' : rText(r.threshold)
-          }}{{ r.derived ? ', derived from your targets' : ', a named rule, not derived' }}
-          · this object
-          {{ ruleValue(r.measured) }}
-          <details>
-            <summary>Basis</summary>
-            {{ r.basis }}
-          </details>
-        </div>
-        <div class="scroll-x">
-          <table class="dgrid" style="min-width: 40rem">
-            <thead>
-              <tr>
-                <th>Filter</th>
-                <th>Template</th>
-                <th>Sub length</th>
-                <th>Hours to {{ pickGoalText(exposurePick.goal) }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in pickRows" :key="r.filter">
-                <td style="font-weight: 600; white-space: nowrap">{{ r.filter }}</td>
-                <td>
-                  <span v-if="r.template">{{ r.template.name }}</span>
-                  <span v-else style="color: var(--bad)">{{ r.templateBasis }}</span>
-                  <span v-if="r.template" class="xsmall muted" style="display: block">{{
-                    r.templateBasis
-                  }}</span>
-                </td>
-                <td class="muted" style="white-space: nowrap">
-                  {{ r.length.parts.length ? r.length.compact : 'not measured yet' }}
-                </td>
-                <td>
-                  <span :class="{ muted: r.hours.hours === null }">{{
-                    hoursText(r.hours, r.filter)
-                  }}</span>
-                  <span v-if="r.hours.basis" class="xsmall muted" style="display: block">{{
-                    r.hours.basis
-                  }}</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="sublens" aria-label="Sub lengths">
-          <SubLengthLine
-            v-for="r in pickRows"
-            :key="r.filter"
-            :view="r.length"
-            :label="r.template?.name ?? r.filter"
-          />
-        </div>
-        <p
-          v-if="form.usePick && exposurePick.missing.length"
-          class="small"
-          style="margin: 0; color: var(--bad)"
+      <div class="note">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--muted-foreground)"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
         >
-          The scheduler has no template for {{ exposurePick.missing.join(', ') }}. Add it on the PC
-          or clone one in Templates first, or choose a set.
-        </p>
-        <p v-if="form.usePick && noFallback.length" class="small" style="margin: 0; color: var(--bad)">
-          The template length for {{ noFallback.join(', ') }} is not known: the scheduler templates
-          did not load, so the plans can't be made yet.
-        </p>
-        <p v-if="needsDesired" class="small" style="margin: 0; color: var(--bad)">
-          No plan of yours has a desired count for {{ unusedTemplates.join(', ') }}, so set Desired
-          per plan below.
-        </p>
-      </section>
-      <p class="small muted" style="margin: 0">
-        {{ setNote }}
-      </p>
-      <div role="radiogroup" aria-label="Exposure set" class="sets">
-        <button
-          v-for="s in sets"
-          :key="s.id"
-          type="button"
-          role="radio"
-          :aria-checked="!form.usePick && form.setId === s.id"
-          class="setcard"
-          :class="{ on: !form.usePick && form.setId === s.id }"
-          @click="selectSet(s.id)"
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 11v5" />
+          <path d="M12 8h.01" />
+        </svg>
+        <span
+          >Sub length, number of subs, gain and how dark the sky must be are chosen automatically for
+          each filter. When the Moon is up, the scheduler prefers H-a, O-III and S-II and keeps away
+          from the Moon.</span
         >
-          <span style="font-weight: 600; font-size: 0.875rem">{{ s.name }}</span>
-          <span class="xsmall muted">{{ s.items.map(itemText).join(' · ') }}</span>
-          <span class="xsmall muted">{{ s.hint }}</span>
-        </button>
       </div>
-      <section
-        v-if="!form.usePick && setLengths.length"
-        class="box"
-        aria-labelledby="setlen-h"
-      >
-        <h3 id="setlen-h" class="small" style="margin: 0; font-weight: 600">
-          Sub lengths for {{ chosenSet?.name }}
-        </h3>
-        <SubLengthLine v-for="l in setLengths" :key="l.name" :view="l.view" :label="l.name" />
-      </section>
-      <p
-        v-if="!form.usePick && missingTemplates.length"
-        class="small"
-        style="margin: 0; color: var(--bad)"
-      >
-        The scheduler has no template called {{ missingTemplates.join(', ') }}. Add it on the PC or
-        clone one in Templates first.
-      </p>
+    </section>
+
+    <section v-if="step === 4" class="card" aria-labelledby="goal-h">
+      <h2 id="goal-h">Goal and project</h2>
       <div class="row" style="gap: 1.5rem; align-items: stretch">
         <fieldset class="box" style="flex: 1 1 24rem">
           <legend>Goal{{ panelCount > 1 ? ', per panel' : '' }}</legend>
@@ -1414,7 +1233,7 @@ async function goStep(i: number) {
               class="input num"
               type="number"
               min="1"
-              placeholder="from the set"
+              placeholder="from your projects"
             />
             <span class="xsmall muted"
               >{{
@@ -1604,35 +1423,33 @@ async function goStep(i: number) {
   flex-direction: column;
   gap: 0.75rem;
 }
-.sets {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
-  gap: 0.75rem;
+.group-label {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin: 0 0 0.375rem;
 }
-.setcard {
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: 0.625rem;
-  padding: 0.75rem;
-  background: transparent;
+.quick {
   display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-.pickcard {
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
-.pickcard.on {
-  border-color: var(--foreground);
+.btn.sm2 {
+  height: 1.875rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
 }
-.setcard.on {
-  border-color: var(--foreground);
-  background: var(--secondary);
+.note {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.8125rem;
+}
+.note svg {
+  flex: none;
+  margin-top: 2px;
 }
 .box {
   border: 1px solid var(--border);
@@ -1667,10 +1484,5 @@ async function goStep(i: number) {
 }
 .review dd {
   margin: 0;
-}
-.sublens {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
 }
 </style>

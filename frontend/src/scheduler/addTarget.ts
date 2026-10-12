@@ -1,4 +1,4 @@
-import type { ExposurePick, GoalKind, PickGoal, Template } from './api/planning'
+import type { ExposurePick, GoalKind, PickGoal } from './api/planning'
 
 export function landingStep(queryStep: unknown, matchNeeds: boolean): number {
   if (matchNeeds) return 1
@@ -52,26 +52,6 @@ export function pickDefaultGoal(
   const kind = p?.goal?.kind
   if (kind !== 'snr' && kind !== 'depth') return null
   return { kind, basis: p?.goalBasis && p.goalBasis !== 'chosen' ? p.goalBasis : '' }
-}
-
-export function templateLength(
-  templates: Pick<Template, 'id' | 'defaultExposure'>[] | null | undefined,
-  id: number | null | undefined,
-): number | null {
-  const t = (templates ?? []).find((x) => x.id === id)
-  return t && t.defaultExposure > 0 ? t.defaultExposure : null
-}
-
-export function pickPlans(
-  rows: { template: { id: number } | null }[],
-  templates: Pick<Template, 'id' | 'defaultExposure'>[] | null | undefined,
-): { templateId: number }[] | null {
-  const out: { templateId: number }[] = []
-  for (const r of rows) {
-    if (!r.template || templateLength(templates, r.template.id) === null) return null
-    out.push({ templateId: r.template.id })
-  }
-  return out.length ? out : null
 }
 
 export interface LayoutPick {
