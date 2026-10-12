@@ -33,7 +33,6 @@ import {
   objectLinkText,
   ON_COUNTS_TITLE,
   pct,
-  planCountText,
   plateauTitle,
   plateauWhere,
   r1,
@@ -43,7 +42,6 @@ import {
   STATE_INDEX,
   type FilterGoal,
   type GoalKind,
-  type Plan,
   type Point,
   type ProjectDetail,
   type ProjectSettingValues,
@@ -88,10 +86,26 @@ import RuleWeightsConfirm from './RuleWeightsConfirm.vue'
 import { onEvent } from '../api/events'
 import FaintSignalOverlay from './FaintSignalOverlay.vue'
 import PlateauLine from './PlateauLine.vue'
-import SubLengthLine from './SubLengthLine.vue'
-import { getSubLengths, type SubLengthState } from '../api/sublength'
-import { planLengthView } from '../subLength'
+import FilterChips from './FilterChips.vue'
 import { api, query } from '../api/client'
+import { draftFilters } from '../api/planning'
+import { canApplySet, submitApplySet } from '../applySet'
+import {
+  emptyHeadline,
+  filterChoices,
+  filterSubs,
+  goalFact,
+  groupFilters,
+  hasFilter,
+  keptFact,
+  plateauFact,
+  sameFilter,
+  selectedFilters,
+  stopText,
+  timeFact,
+  withFilter,
+  type SubCount,
+} from '../filters'
 
 interface GoalMaskInfo {
   measured?: boolean
@@ -153,7 +167,10 @@ let off: (() => void) | undefined
 onMounted(() => {
   load()
   off = onEvent('command', (e: { data?: { status?: string } }) => {
-    if (e.data?.status === 'applied') load()
+    const st = e.data?.status ?? ''
+    if (['rejected', 'failed', 'conflict', 'cancelled'].includes(st))
+      Object.keys(wantFilter).forEach((k) => delete wantFilter[k])
+    if (st === 'applied' || st === 'rejected' || st === 'failed') load()
   })
 })
 onUnmounted(() => off?.())
@@ -172,30 +189,89 @@ const p = computed(() => detail.value?.project)
 const target = computed<Target | undefined>(
   () => p.value?.targets[panelIdx.value] ?? p.value?.targets[0],
 )
-const subLen = ref<SubLengthState | null>(null)
-let subLenGuid = ''
-watch(
-  () => (tab.value === 'plans' ? target.value?.guid ?? '' : ''),
-  async (guid) => {
-    if (!guid || guid === subLenGuid) return
-    subLenGuid = guid
-    subLen.value = null
-    const s = await getSubLengths({ target_guid: guid })
-    if (subLenGuid === guid) subLen.value = s
-  },
-  { immediate: true },
+const projectTargets = computed(() => p.value?.targets ?? [])
+const filterGroups = computed(() =>
+  groupFilters(
+    filterChoices({
+      filters: detail.value?.filters,
+      templates: detail.value?.templates,
+      plans: projectTargets.value.flatMap((t) => t.plans),
+    }),
+  ),
 )
-const planLengths = computed(() =>
-  (target.value?.plans ?? []).map((pl) => ({
-    pl,
-    view: planLengthView(subLen.value, pl, target.value?.guid ?? ''),
-  })),
-)
-function planLengthCell(pl: Plan): string {
-  const v = planLengths.value.find((x) => x.pl.id === pl.id)?.view
-  if (subLen.value && v?.state === 'auto') return 'auto: ' + v.compact
-  return `${pl.exposure} s, ${pl.exposureRaw > 0 ? 'plan' : 'template'}`
+const savedFilters = computed(() => selectedFilters(projectTargets.value))
+const wantFilter = reactive<Record<string, boolean>>({})
+watch(savedFilters, (saved) => {
+  for (const k of Object.keys(wantFilter))
+    if (hasFilter(saved, k) === wantFilter[k]) delete wantFilter[k]
+})
+const shownFilters = computed(() => {
+  let out = savedFilters.value
+  for (const [k, on] of Object.entries(wantFilter)) out = withFilter(out, k, on)
+  return filterGroups.value
+    .flatMap((g) => g.filters.map((f) => f.name))
+    .filter((n) => hasFilter(out, n))
+    .concat(out.filter((n) => !filterGroups.value.some((g) => g.filters.some((f) => sameFilter(f.name, n)))))
+})
+const filterBusy = ref(false)
+const stopping = ref<{ name: string; subs: SubCount } | null>(null)
+
+function toggleFilter(name: string) {
+  const on = hasFilter(shownFilters.value, name)
+  if (on) {
+    const subs = filterSubs(projectTargets.value, name)
+    if (subs.taken > 0) {
+      stopping.value = { name, subs }
+      return
+    }
+  }
+  stopping.value = null
+  setFilter(name, !on)
 }
+
+function confirmStop() {
+  const s = stopping.value
+  stopping.value = null
+  if (s) setFilter(s.name, false)
+}
+
+async function setFilter(name: string, on: boolean) {
+  const ids = projectTargets.value.map((t) => t.id)
+  if (!ids.length || filterBusy.value) return
+  const next = withFilter(shownFilters.value, name, on)
+  wantFilter[name] = on
+  filterBusy.value = true
+  try {
+    const d = await draftFilters({ targetIds: ids, filters: next })
+    if (!canApplySet(d)) {
+      delete wantFilter[name]
+      return
+    }
+    if (!(await submitApplySet(d, submitCommand, (r) => notifyCommand(r)))) delete wantFilter[name]
+    await load()
+  } catch (e) {
+    delete wantFilter[name]
+    errorToast(e, on ? `Could not add ${name}` : `Could not stop imaging ${name}`)
+  } finally {
+    filterBusy.value = false
+  }
+}
+
+const filterRows = computed(() => {
+  const t = target.value
+  return shownFilters.value.map((name) => {
+    const fg = t?.goals.find((g) => sameFilter(g.filter, name))
+    const subs = filterSubs(t ? [t] : [], name)
+    return {
+      name,
+      fg,
+      subs,
+      facts: fg ? [goalFact(fg, mode.value), keptFact(subs), timeFact(fg), plateauFact(fg)] : [],
+      headline: fg ? filterHeadline(fg) : emptyHeadline(subs),
+      fill: fg ? fgFill(fg) : '0%',
+    }
+  })
+})
 const isMosaic = computed(() => !!p.value?.isMosaic && (p.value?.targets.length ?? 0) > 1)
 const activeLabel = computed(() => (isMosaic.value ? 'Panel active' : 'Target active'))
 const seasonClass = computed(() =>
@@ -522,29 +598,8 @@ function clearRegion() {
   sendGoals(changes)
 }
 
-const planDraft = reactive<Record<number, { enabled?: boolean; desired?: number }>>({})
-watch(panelIdx, () => Object.keys(planDraft).forEach((k) => delete planDraft[Number(k)]))
-const planDirty = computed(() => Object.keys(planDraft).length > 0)
-
-function planOn(id: number, base: boolean) {
-  return planDraft[id]?.enabled ?? base
-}
-
-function planDesired(id: number, base: number) {
-  return planDraft[id]?.desired ?? base
-}
-
 const pluginVersion = computed(() => shell.scheduler.version)
 const pluginGoalDriven = computed(() => goalDrivenPlugin(pluginVersion.value))
-
-function planOnCounts(pl: Plan): boolean {
-  return !!target.value?.goals.some((g) => g.filter === pl.filter && filterOnCounts(g))
-}
-
-function planGoal(pl: Plan): FilterGoal | undefined {
-  if (!pluginGoalDriven.value) return undefined
-  return target.value?.goals.find((g) => g.goalSet && g.filter === pl.filter)
-}
 
 function fgFill(fg: FilterGoal): string {
   if (fg.enough) return '100%'
@@ -558,31 +613,6 @@ function fgLine(fg: FilterGoal): string {
   if (fg.measurement) parts.push(r1(fg.measurement.effectiveHours) + ' h effective')
   if (!fg.enough && fg.goalProgress !== null) parts.push(goalTiming(fg, pluginVersion.value))
   return parts.join(' · ')
-}
-
-async function savePlans() {
-  const t = target.value
-  if (!t) return
-  const items = t.plans
-    .map((pl) => {
-      const d = planDraft[pl.id] ?? {}
-      const changes: { field: string; before: unknown; after: unknown }[] = []
-      if (d.enabled !== undefined && d.enabled !== pl.enabled)
-        changes.push({ field: 'enabled', before: pl.enabled, after: d.enabled })
-      if (d.desired !== undefined && d.desired !== pl.desired && d.desired >= 0)
-        changes.push({ field: 'desired', before: pl.desired, after: d.desired })
-      return { id: pl.id, guid: pl.guid, name: pl.template, parent: t.name, changes }
-    })
-    .filter((i) => i.changes.length)
-  Object.keys(planDraft).forEach((k) => delete planDraft[Number(k)])
-  if (!items.length) return
-  try {
-    const r = await submitCommand('exposureplan.batchedit', { items })
-    notifyCommand(r)
-    await load()
-  } catch (e) {
-    errorToast(e)
-  }
 }
 
 const weights = computed(() => {
@@ -1249,103 +1279,84 @@ function numInput(e: Event): number {
       </section>
 
       <section v-if="tab === 'plans'" class="card" aria-labelledby="plans-h">
-        <div class="spread" style="align-items: center">
-          <div>
-            <h2 id="plans-h">Exposure plans · {{ target?.exposureSet }}</h2>
-            <p class="small muted" style="margin: 0.125rem 0 0">
-              <template v-if="pluginGoalDriven"
-                >A plan whose filter has a goal is goal-driven: the goal decides when it is done and
-                its desired count is not used. Desired counts apply only to plans without a
-                goal.</template
-              ><template v-else>{{ legacyGoalNote(pluginVersion) }}</template>
-            </p>
-          </div>
-          <div v-if="planDirty" class="row">
-            <button
-              type="button"
-              class="btn"
-              @click="Object.keys(planDraft).forEach((k) => delete planDraft[Number(k)])"
-            >
-              Reset
+        <div>
+          <h2 id="plans-h">Filters</h2>
+          <p class="small muted" style="margin: 0.125rem 0 0">
+            Choose the filters this project images.
+          </p>
+        </div>
+
+        <FilterChips
+          :groups="filterGroups"
+          :selected="shownFilters"
+          :disabled="filterBusy"
+          @toggle="toggleFilter"
+        />
+
+        <div v-if="stopping" class="confirm" role="alert">
+          <p>
+            <b>Stop imaging {{ stopping.name }}?</b> {{ stopText(stopping.name, stopping.subs) }}
+          </p>
+          <div class="row">
+            <button type="button" class="btn sm2 danger" @click="confirmStop">
+              Stop imaging {{ stopping.name }}
             </button>
-            <button type="button" class="btn primary" @click="savePlans">Save plans</button>
+            <button type="button" class="btn sm2" @click="stopping = null">Keep it</button>
           </div>
         </div>
-        <div class="scroll-x" style="border: 1px solid var(--border); border-radius: 0.5rem">
-          <table class="dgrid num">
-            <thead>
-              <tr>
-                <th>On</th>
-                <th>Template</th>
-                <th>Sub length</th>
-                <th style="text-align: right">Desired or goal</th>
-                <th style="text-align: right">Acquired</th>
-                <th style="text-align: right">Accepted</th>
-                <th>Gain · moon</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="pl in target?.plans ?? []" :key="pl.id">
-                <td>
-                  <input
-                    type="checkbox"
-                    :checked="planOn(pl.id, pl.enabled)"
-                    :aria-label="pl.template + ' plan enabled'"
-                    @change="
-                      planDraft[pl.id] = {
-                        ...planDraft[pl.id],
-                        enabled: ($event.target as HTMLInputElement).checked,
-                      }
-                    "
-                  />
-                </td>
-                <td style="font-weight: 600; white-space: nowrap">{{ pl.template }}</td>
-                <td class="muted" style="white-space: nowrap">
-                  {{ planLengthCell(pl) }}
-                </td>
-                <td v-if="planGoal(pl)" class="muted" style="text-align: right; white-space: normal">
-                  {{ planCountText(planGoal(pl), pluginVersion) }}
-                </td>
-                <td v-else style="text-align: right">
-                  <input
-                    class="input num"
-                    type="number"
-                    min="0"
-                    :value="planDesired(pl.id, pl.desired)"
-                    :aria-label="pl.template + ' desired'"
-                    style="width: 5rem; height: 1.875rem; text-align: right"
-                    @change="planDraft[pl.id] = { ...planDraft[pl.id], desired: numInput($event) }"
-                  />
-                  <div v-if="planOnCounts(pl)" style="margin-top: 0.25rem">
-                    <span class="badge warn counts" :title="ON_COUNTS_TITLE"
-                      >Runs on counts: no goal set</span
-                    >
-                  </div>
-                </td>
-                <td style="text-align: right">{{ pl.acquired }}</td>
-                <td style="text-align: right">{{ pl.accepted }}</td>
-                <td class="muted" style="white-space: nowrap">
-                  gain {{ pl.gain ?? 'camera default' }} · moon {{ pl.moonSeparation }}° / {{ pl.moonWidth }} d
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="subLen" class="sublens" aria-label="Sub lengths">
-          <SubLengthLine
-            v-for="x in planLengths"
-            :key="x.pl.id"
-            :view="x.view"
-            :label="x.pl.template"
-          />
-        </div>
-        <p v-else class="small muted" style="margin: 0">Loading sub lengths…</p>
-        <p class="xsmall muted" style="margin: 0">
-          To swap the whole set, select the project in
-          <RouterLink to="/?view=list" class="lnk" style="text-decoration: underline"
-            >Projects</RouterLink
+
+        <div class="note">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--muted-foreground)"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+            style="flex: none; margin-top: 2px"
           >
-          and use Apply an exposure set.
+            <circle cx="12" cy="12" r="9" />
+            <path d="M12 11v5" />
+            <path d="M12 8h.01" />
+          </svg>
+          <span
+            >Sub length, number of subs, gain and how dark the sky must be are chosen automatically
+            for each filter. There is nothing to set per filter.</span
+          >
+        </div>
+
+        <div class="flist">
+          <div v-for="r in filterRows" :key="r.name" class="frow" :data-filter="r.name">
+            <div class="fname">
+              <span class="swatch" :style="{ background: filterColor(r.fg?.stackFilter ?? r.name) }" />{{
+                r.name
+              }}
+            </div>
+            <div class="fmain">
+              <div class="headline">
+                <span>{{ r.headline }}</span
+                ><span v-if="r.fg?.measurement?.lowConfidence" class="badge warn">low confidence</span>
+              </div>
+              <div class="bar"><div :style="{ width: r.fill }" /></div>
+              <dl v-if="r.facts.length" class="facts">
+                <div v-for="f in r.facts" :key="f.label">
+                  <dt>{{ f.label }}</dt>
+                  <dd :class="f.measured ? 'num' : 'nm'">{{ f.value }}</dd>
+                </div>
+              </dl>
+            </div>
+            <span />
+          </div>
+          <p v-if="!filterRows.length" class="empty small muted" style="margin: 0">
+            No filters chosen. This project images nothing until you choose one.
+          </p>
+        </div>
+        <p class="xsmall muted" style="margin: 0">
+          Progress and times come from the latest stack of each filter. "Low confidence" means the
+          stack is too small to measure well yet.
         </p>
       </section>
 
@@ -1711,11 +1722,57 @@ function numInput(e: Event): number {
   height: 100%;
   background: var(--foreground);
 }
+.flist {
+  display: flex;
+  flex-direction: column;
+}
+.frow {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) auto;
+  gap: 0.375rem 1rem;
+  align-items: start;
+  padding: 0.875rem 0;
+  border-top: 1px solid var(--border);
+}
+.frow:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.fname {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.fname .swatch {
+  margin-right: 0;
+}
+.fmain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.8125rem;
+}
+.fmain .bar {
+  flex: none;
+  min-width: 0;
+}
 .facts {
   margin: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.375rem 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  gap: 0.25rem 1rem;
+}
+.facts div {
+  min-width: 0;
 }
 .facts dt {
   color: var(--muted-foreground);
@@ -1724,6 +1781,29 @@ function numInput(e: Event): number {
 .facts dd {
   margin: 0;
   font-weight: 600;
+  font-size: 0.8125rem;
+}
+.facts dd.nm {
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+.confirm {
+  border: 1px solid var(--warn);
+  background: var(--warn-bg);
+  border-radius: 0.625rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+.confirm p {
+  margin: 0;
+}
+.btn.sm2 {
+  height: 1.875rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
 }
 .scorerow {
   display: grid;
@@ -1767,6 +1847,13 @@ function numInput(e: Event): number {
   color: var(--violet);
 }
 @media (max-width: 640px) {
+  .frow {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .frow .fmain {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
   .goalrow {
     grid-template-columns: 5.75rem minmax(0, 1fr);
   }
@@ -1776,10 +1863,5 @@ function numInput(e: Event): number {
   .scorerow {
     grid-template-columns: minmax(0, 1fr) 3rem;
   }
-}
-.sublens {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
 }
 </style>

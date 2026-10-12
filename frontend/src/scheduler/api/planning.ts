@@ -330,6 +330,14 @@ export interface Template {
   usedByTargets: number
 }
 
+export interface Filter {
+  name: string
+  narrowband: boolean
+  gain: number
+  templateId: number
+  managed: boolean
+}
+
 export interface SetItem {
   template: string
   exposure: number
@@ -413,6 +421,7 @@ export interface Snapshot {
   frame: PlanningFrame
   projects: Project[]
   templates: Template[]
+  filters?: Filter[] | null
   sets: ExposureSet[]
   rules: Rule[]
   defaults: PlanningDefaults
@@ -423,6 +432,7 @@ export interface ProjectDetail {
   rules: Rule[]
   sets: ExposureSet[]
   templates: Template[]
+  filters?: Filter[] | null
   defaults?: {
     goal: {
       snr: number
@@ -584,6 +594,8 @@ export const draftApplySet = (body: {
   targetIds: number[]
   desired?: number
 }) => api.post<ApplySetDraft>('/planning/applyset/draft', body)
+export const draftFilters = (body: { targetIds: number[]; filters: string[] }) =>
+  api.post<ApplySetDraft>('/planning/filters/draft', body)
 export interface PickGoal {
   kind: GoalKind
   snr: number
