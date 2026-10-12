@@ -500,6 +500,8 @@ describe('left out', () => {
   it('maps every planner reason to a kind', () => {
     expect(leftOutKind('lower score')).toBe('outscored')
     expect(leftOutKind('not yet visible')).toBe('later')
+    expect(leftOutKind('low in the sky')).toBe('conditions')
+    expect(leftOutKind('all exposure plans rejected low in the sky')).toBe('conditions')
     expect(leftOutKind('max altitude')).toBe('later')
     expect(leftOutKind('not visible')).toBe('hidden')
     expect(leftOutKind('never rises at location')).toBe('hidden')

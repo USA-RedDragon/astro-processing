@@ -88,7 +88,11 @@ async function save() {
       Could not load the scheduling settings: {{ loadError }}
     </p>
     <p v-else-if="!view" class="empty">Loading…</p>
-    <section v-else-if="values" class="card" aria-labelledby="sched-h">
+    <p v-if="view && view.mode !== 'on'" class="note small">
+      Projects are not changed yet: the stacker's automatic scheduling is
+      {{ view.mode === 'dry-run' ? 'only logging what it would change' : 'off' }}.
+    </p>
+    <section v-if="view && values" class="card" aria-labelledby="sched-h">
       <h2 id="sched-h">Settings</h2>
       <div class="sgrid">
         <div v-for="s in GLOBAL_SETTINGS" :key="s.key" class="field">
@@ -144,6 +148,12 @@ async function save() {
 </template>
 
 <style scoped>
+.note {
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  padding: 0.75rem 1rem;
+}
 .sgrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
