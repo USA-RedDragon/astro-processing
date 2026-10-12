@@ -42,20 +42,32 @@ function comet(name: string, mpc: number | null, jpl: number | null, rate: numbe
   }
 }
 
+const calls: { url: string; method: string; body: unknown }[] = []
+
+async function settle() {
+  for (let i = 0; i < 5; i++) await nextTick()
+  await new Promise((r) => setTimeout(r, 0))
+  await nextTick()
+}
+
 async function render(routes: Record<string, () => Response>) {
+  calls.length = 0
   vi.stubGlobal(
     'fetch',
-    vi.fn(async (url: string) => {
-      const key = Object.keys(routes).find((k) => url.includes(k))
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push({ url, method, body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      const key = Object.keys(routes).find((k) => {
+        const [m, path] = k.includes(' ') ? k.split(' ') : ['GET', k]
+        return m === method && url.includes(path)
+      })
       return key ? routes[key]() : json({ error: 'not found' }, 404)
     }),
   )
   const el = document.createElement('div')
   const app = createApp(CometsTab)
   app.mount(el)
-  for (let i = 0; i < 5; i++) await nextTick()
-  await new Promise((r) => setTimeout(r, 0))
-  await nextTick()
+  await settle()
   return { el, app }
 }
 
@@ -127,6 +139,114 @@ describe('CometsTab', () => {
     expect(rows[1].textContent).toContain('Added')
     expect(el.textContent).toContain('model predictions')
     expect(el.querySelector('.blank')).toBeNull()
+    app.unmount()
+  })
+
+  const tonight = {
+    computed_at: '2026-10-12T20:00:00Z',
+    night: { start: '2026-10-12T17:00:00Z' },
+    min_altitude: 30,
+    max_magnitude: 15,
+    elements: { source: 'MPC', fetched_at: '2026-10-12T12:00:00Z', comets: 900 },
+    jpl_magnitudes: { source: 'JPL', fetched_at: null, comets: 800 },
+    basis: '',
+    comets: [comet('161P/Hartley-IRAS', 9.6, 11.2, 5.21)],
+  }
+  const tmpl = (id: number, name: string, filter: string) => ({ id, name, filter, usedByPlans: 2 })
+  const planning = (templates: unknown[]) => ({
+    projects: [{ priority: 'High', minimumTime: 45 }],
+    templates,
+    sets: [
+      {
+        id: 's1',
+        name: 'R 600, G 600, B 600, H-a, O-III, Luminance',
+        items: ['R 600', 'G 600', 'B 600', 'H-a', 'O-III', 'Luminance'].map((t) => ({
+          template: t,
+          exposure: -1,
+          desired: 20,
+        })),
+        projects: 7,
+      },
+    ],
+    defaults: {},
+  })
+  const all = [
+    tmpl(1, 'Luminance', 'L'),
+    tmpl(2, 'R 600', 'R'),
+    tmpl(3, 'G 600', 'G'),
+    tmpl(4, 'B 600', 'B'),
+    tmpl(5, 'H-a', 'H-a'),
+    tmpl(6, 'O-III', 'O-III'),
+  ]
+  const drafted = {
+    project: { guid: 'p', name: '161P/Hartley-IRAS' },
+    targets: [{ guid: 't', name: '161P/Hartley-IRAS', plans: [] }],
+    goals: [],
+  }
+
+  it('adds LRGB at the system length with goal-driven counts and no choices to make', async () => {
+    const { el, app } = await render({
+      '/comets': () => json(tonight),
+      '/commands': () => json([]),
+      'POST /planning/projects/draft': () => json(drafted),
+      '/planning': () => json(planning(all)),
+      'POST /commands': () =>
+        json({
+          id: 'n',
+          kind: 'project.create',
+          status: 'queued',
+          payload: {},
+          created_at: '',
+          updated_at: '',
+        }),
+    })
+    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
+    await settle()
+    const panel = el.querySelector('.addpanel')!
+    expect(panel.querySelector('select')).toBeNull()
+    expect(panel.textContent).toContain('Luminance, Red, Green, Blue')
+    expect(panel.textContent).toContain('Subs: up to 21 s so the comet stays sharp')
+    expect(panel.textContent).toContain('Priority High, minimum altitude 30°, minimum time 45 min.')
+    expect(panel.textContent).not.toContain('capped')
+    const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
+    expect(draft.body).toMatchObject({
+      setId: '',
+      desired: 0,
+      plans: [{ templateId: 1 }, { templateId: 2 }, { templateId: 3 }, { templateId: 4 }],
+      goal: { kind: 'snr', snr: 0, depth: 0 },
+    })
+    expect((draft.body as { plans: object[] }).plans.every((p) => !('exposure' in p))).toBe(true)
+    const add = [...panel.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Add 161P'),
+    )!
+    expect(add.disabled).toBe(false)
+    add.click()
+    await settle()
+    const sent = calls.find((c) => c.method === 'POST' && c.url.endsWith('/commands'))!
+    expect(sent.body).toMatchObject({
+      kind: 'project.create',
+      payload: { targets: [{ designation: '161P' }] },
+    })
+    app.unmount()
+  })
+
+  it('names a missing filter template and does not draft', async () => {
+    const { el, app } = await render({
+      '/comets': () => json(tonight),
+      '/commands': () => json([]),
+      '/planning': () => json(planning(all.filter((t) => t.filter !== 'G'))),
+    })
+    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
+    await settle()
+    const panel = el.querySelector('.addpanel')!
+    expect(panel.textContent).toContain(
+      'No exposure template for Green. Make one in Templates first.',
+    )
+    expect(calls.some((c) => c.url.includes('/planning/projects/draft'))).toBe(false)
+    const add = [...panel.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Add 161P'),
+    )!
+    expect(add.disabled).toBe(true)
     app.unmount()
   })
 })

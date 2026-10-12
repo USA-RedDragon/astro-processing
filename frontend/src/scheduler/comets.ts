@@ -1,7 +1,7 @@
 import { ApiError } from './api/client'
 import type { BodyTable, Comet, CometView, CometWindow } from './api/comets'
 import type { CommandRecord } from './api/commands'
-import type { Template } from './api/planning'
+import type { ExposureSet, Template } from './api/planning'
 import { clock, hm } from './format'
 
 export const PIXEL_SCALE_ARCSEC = 1.91
@@ -164,36 +164,94 @@ export interface CometDraft {
   goals: unknown[]
 }
 
-export interface CappedPlan {
-  template: string
-  length: number | null
-  capped: boolean
+export const LRGB = [
+  { key: 'L', label: 'Luminance' },
+  { key: 'R', label: 'Red' },
+  { key: 'G', label: 'Green' },
+  { key: 'B', label: 'Blue' },
+] as const
+
+export function canonicalFilter(name: string | null | undefined): string {
+  const n = (name ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[-\s_]/g, '')
+  if (n.startsWith('HA') || n === 'H') return 'H'
+  if (n.startsWith('OIII') || n === 'O3' || n === 'O') return 'O'
+  if (n.startsWith('SII') || n === 'S2' || n === 'S') return 'S'
+  if (n === 'L' || n === 'LUM' || n === 'LUMINANCE') return 'L'
+  if (n === 'R' || n === 'RED') return 'R'
+  if (n === 'G' || n === 'GREEN') return 'G'
+  if (n === 'B' || n === 'BLUE') return 'B'
+  return n
 }
 
-export function planLength(
-  p: Pick<DraftPlan, 'exposure' | 'template_id'>,
-  templates: readonly Template[],
-) {
-  if (p.exposure > 0) return p.exposure
-  return templates.find((t) => t.id === p.template_id)?.defaultExposure ?? null
+type TemplateLite = Pick<Template, 'id' | 'name' | 'filter' | 'usedByPlans'>
+
+function lrgbSet(
+  templates: readonly TemplateLite[],
+  sets: readonly Pick<ExposureSet, 'items'>[],
+): Map<string, TemplateLite> | null {
+  const byName = new Map(templates.map((t) => [t.name.trim().toLowerCase(), t]))
+  const keys: string[] = LRGB.map((f) => f.key)
+  for (const set of sets) {
+    if (set.items.length !== keys.length) continue
+    const got = new Map<string, TemplateLite>()
+    for (const it of set.items) {
+      const t = byName.get(it.template.trim().toLowerCase())
+      const c = canonicalFilter(t?.filter)
+      if (!t || !keys.includes(c) || got.has(c)) break
+      got.set(c, t)
+    }
+    if (got.size === keys.length) return got
+  }
+  return null
 }
 
-export function cometDraft(
-  draft: CometDraft,
-  designation: string,
-  longest: number | null,
-  templates: readonly Template[],
-): { draft: CometDraft; plans: CappedPlan[] } {
-  const plans: CappedPlan[] = []
-  const targets = draft.targets.map((t) => ({
-    ...t,
-    designation,
-    plans: t.plans.map((p) => {
-      const len = planLength(p, templates)
-      const capped = longest !== null && longest > 0 && (len === null || len > longest)
-      plans.push({ template: p.template_name, length: capped ? longest : len, capped })
-      return capped ? { ...p, exposure: longest as number } : p
-    }),
-  }))
-  return { draft: { ...draft, targets }, plans }
+function mostUsed(templates: readonly TemplateLite[], key: string): TemplateLite | null {
+  let best: TemplateLite | null = null
+  for (const t of templates) {
+    if (canonicalFilter(t.filter) !== key) continue
+    if (
+      !best ||
+      t.usedByPlans > best.usedByPlans ||
+      (t.usedByPlans === best.usedByPlans && t.name < best.name)
+    )
+      best = t
+  }
+  return best
+}
+
+export interface LrgbPlans {
+  plans: { templateId: number }[]
+  missing: string[]
+}
+
+export function lrgbPlans(
+  templates: readonly TemplateLite[],
+  sets: readonly Pick<ExposureSet, 'items'>[],
+): LrgbPlans {
+  const set = lrgbSet(templates, sets)
+  const plans: { templateId: number }[] = []
+  const missing: string[] = []
+  for (const f of LRGB) {
+    const t = set ? set.get(f.key) : mostUsed(templates, f.key)
+    if (t) plans.push({ templateId: t.id })
+    else missing.push(f.label)
+  }
+  return { plans, missing }
+}
+
+export function withDesignation(draft: CometDraft, designation: string): CometDraft {
+  return { ...draft, targets: draft.targets.map((t) => ({ ...t, designation })) }
+}
+
+export function missingText(missing: readonly string[]): string {
+  if (!missing.length) return ''
+  const list =
+    missing.length === 1
+      ? missing[0]
+      : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`
+  const n = missing.length === 1 ? 'template' : 'templates'
+  return `No exposure ${n} for ${list}. Make one in Templates first.`
 }

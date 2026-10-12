@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/scheduler/api/client'
 import type { Comet, CometView } from '@/scheduler/api/comets'
 import type { CommandRecord } from '@/scheduler/api/commands'
-import type { Template } from '@/scheduler/api/planning'
+import type { ExposureSet, Template } from '@/scheduler/api/planning'
 import {
   addStates,
   brightest,
-  cometDraft,
+  canonicalFilter,
   emptyState,
   longestSub,
+  lrgbPlans,
+  missingText,
   peakText,
   rateText,
   shortSubs,
   sortComets,
   windowText,
+  withDesignation,
 } from '@/scheduler/comets'
 
 function comet(name: string, mpc: number | null, jpl: number | null, rate = 1): Comet {
@@ -225,42 +228,95 @@ describe('addStates', () => {
   })
 })
 
-describe('cometDraft', () => {
-  const templates = [
-    { id: 1, name: 'L', defaultExposure: 300 },
-    { id: 2, name: 'Ha', defaultExposure: 10 },
-  ] as Template[]
-  const draft = {
-    project: { guid: 'p', name: '161P/Hartley-IRAS' },
-    targets: [
-      {
-        guid: 't',
-        name: '161P/Hartley-IRAS',
-        plans: [
-          { guid: 'a', template_id: 1, template_name: 'L', exposure: -1, desired: 10 },
-          { guid: 'b', template_id: 2, template_name: 'Ha', exposure: -1, desired: 10 },
-          { guid: 'c', template_id: 1, template_name: 'L', exposure: 15, desired: 10 },
-        ],
-      },
-    ],
-    goals: [],
-  }
+describe('lrgbPlans', () => {
+  const t = (id: number, name: string, filter: string, usedByPlans = 0) =>
+    ({ id, name, filter, usedByPlans }) as Template
 
-  it('sets the designation and caps subs at the longest sub', () => {
-    const out = cometDraft(draft, '161P', 21, templates)
-    const t = out.draft.targets[0]
-    expect(t.designation).toBe('161P')
-    expect(t.plans.map((p) => p.exposure)).toEqual([21, -1, 15])
+  const templates = [
+    t(1, 'Luminance', 'Luminance', 5),
+    t(2, 'R 600', 'R', 3),
+    t(3, 'G 600', 'G', 3),
+    t(4, 'B 600', 'B', 3),
+    t(5, 'Red short', 'Red', 1),
+    t(6, 'H-a', 'H-a', 9),
+    t(7, 'Lum alt', 'L', 5),
+  ]
+
+  it('always gives Luminance, Red, Green and Blue, most-used template first', () => {
+    const out = lrgbPlans(templates, [])
+    expect(out.missing).toEqual([])
     expect(out.plans).toEqual([
-      { template: 'L', length: 21, capped: true },
-      { template: 'Ha', length: 10, capped: false },
-      { template: 'L', length: 15, capped: false },
+      { templateId: 7 },
+      { templateId: 2 },
+      { templateId: 3 },
+      { templateId: 4 },
     ])
-    expect(draft.targets[0].plans[0].exposure).toBe(-1)
+    expect(out.plans.every((p) => !('exposure' in p))).toBe(true)
   })
 
-  it('leaves lengths alone without a cap', () => {
-    const out = cometDraft(draft, '161P', null, templates)
-    expect(out.draft.targets[0].plans.map((p) => p.exposure)).toEqual([-1, -1, 15])
+  it('takes the templates from a set that is exactly LRGB, like the wizard', () => {
+    const sets = [
+      {
+        items: [
+          { template: 'R 600' },
+          { template: 'G 600' },
+          { template: 'B 600' },
+          { template: 'H-a' },
+        ],
+      },
+      {
+        items: [
+          { template: 'luminance' },
+          { template: 'Red short' },
+          { template: 'G 600' },
+          { template: 'B 600' },
+        ],
+      },
+    ] as unknown as ExposureSet[]
+    expect(lrgbPlans(templates, sets).plans).toEqual([
+      { templateId: 1 },
+      { templateId: 5 },
+      { templateId: 3 },
+      { templateId: 4 },
+    ])
+  })
+
+  it('names the missing filters instead of guessing', () => {
+    const out = lrgbPlans([t(1, 'L', 'L'), t(3, 'G', 'G'), t(6, 'H-a', 'H-a')], [])
+    expect(out.plans).toEqual([{ templateId: 1 }, { templateId: 3 }])
+    expect(out.missing).toEqual(['Red', 'Blue'])
+    expect(missingText(out.missing)).toBe(
+      'No exposure templates for Red and Blue. Make one in Templates first.',
+    )
+    expect(missingText(['Green'])).toBe(
+      'No exposure template for Green. Make one in Templates first.',
+    )
+    expect(missingText([])).toBe('')
+  })
+
+  it('reads filter names the way the stacker does', () => {
+    expect(
+      ['Lum', 'L', 'Luminance', 'red', 'G', 'Blue', 'H-alpha', 'OIII'].map(canonicalFilter),
+    ).toEqual(['L', 'L', 'L', 'R', 'G', 'B', 'H', 'O'])
+  })
+})
+
+describe('withDesignation', () => {
+  it('sets the designation on every target and keeps the plans as drafted', () => {
+    const draft = {
+      project: { guid: 'p', name: '161P/Hartley-IRAS' },
+      targets: [
+        {
+          guid: 't',
+          name: '161P/Hartley-IRAS',
+          plans: [{ guid: 'a', template_id: 1, template_name: 'L', exposure: -1, desired: 10 }],
+        },
+      ],
+      goals: [],
+    }
+    const out = withDesignation(draft, '161P')
+    expect(out.targets[0].designation).toBe('161P')
+    expect(out.targets[0].plans[0].exposure).toBe(-1)
+    expect(draft.targets[0]).not.toHaveProperty('designation')
   })
 })
