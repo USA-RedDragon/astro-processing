@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { submitCommand, type CommandRecord } from '../api/commands'
-import type { BodyFraming } from '../api/comets'
+import { getBodyNightsPreview, type BodyFraming } from '../api/comets'
 import { withFraming } from '../framing'
 import FramingEditor from './FramingEditor.vue'
 import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../api/planning'
@@ -9,6 +9,7 @@ import { defaultValues } from '../projectSettings'
 import { errorToast, notifyCommand, shell } from '../shell'
 import {
   LRGB,
+  bodyMinimumTime,
   longestSub,
   lrgbPlans,
   missingText,
@@ -23,6 +24,7 @@ export interface AddBody {
   ra: number
   dec: number
   rate_arcsec_per_min: number
+  window?: { hours: number } | null
 }
 
 const props = defineProps<{
@@ -44,6 +46,7 @@ const draftError = ref('')
 const drafting = ref(false)
 const busy = ref(false)
 const framing = ref<BodyFraming | null>(null)
+const typicalHours = ref<number | null>(null)
 
 function usual<T>(vals: T[]): T | null {
   const counts = new Map<T, number>()
@@ -62,7 +65,25 @@ function usual<T>(vals: T[]): T | null {
 
 const projects = computed(() => snap.value?.projects ?? [])
 const priority = computed(() => usual(projects.value.map((p) => p.priority)) ?? 'Normal')
-const minTime = computed(() => usual(projects.value.map((p) => p.minimumTime)) ?? 30)
+const usualMinTime = computed(() => usual(projects.value.map((p) => p.minimumTime)) ?? 30)
+const minTimeChoice = computed(() =>
+  bodyMinimumTime(usualMinTime.value, props.body?.window?.hours, typicalHours.value, props.minAlt),
+)
+const minTime = computed(() => minTimeChoice.value.minutes)
+
+async function loadTypical(b: AddBody): Promise<number | null> {
+  try {
+    const v = await getBodyNightsPreview(
+      b.designation,
+      props.kind ?? props.noun,
+      props.minAlt,
+      AbortSignal.timeout(20000),
+    )
+    return v.typical_window_hours
+  } catch {
+    return null
+  }
+}
 const lrgb = computed(() =>
   snap.value ? lrgbPlans(snap.value.templates ?? [], snap.value.sets ?? []) : null,
 )
@@ -75,11 +96,13 @@ watch(
   async (b) => {
     draft.value = null
     draftError.value = ''
+    typicalHours.value = null
     if (!b) {
       draftSeq++
       drafting.value = false
       return
     }
+    const typical = loadTypical(b)
     if (!snap.value) {
       try {
         snap.value = await getPlanning()
@@ -89,7 +112,10 @@ watch(
         return
       }
     }
-    if (props.body === b) makeDraft()
+    const hours = await typical
+    if (props.body !== b) return
+    typicalHours.value = hours
+    makeDraft()
   },
   { immediate: true },
 )
@@ -181,6 +207,14 @@ async function add() {
     </p>
     <p class="small muted" style="margin: 0">
       Priority {{ priority }}, minimum altitude {{ minAlt }}°, minimum time {{ minTime }} min.
+    </p>
+    <p
+      v-if="minTimeChoice.minutes !== usualMinTime"
+      class="xsmall muted"
+      style="margin: 0"
+      data-test="min-time-basis"
+    >
+      Minimum time: {{ minTimeChoice.basis }}.
     </p>
     <p v-if="snapError" class="small" style="margin: 0; color: var(--bad)">
       Could not load your exposure templates: {{ snapError }}

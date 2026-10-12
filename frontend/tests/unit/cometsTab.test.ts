@@ -232,6 +232,34 @@ describe('CometsTab', () => {
     app.unmount()
   })
 
+  it('shortens the minimum time to half of a short window and says why', async () => {
+    const short = {
+      ...comet('332P/Ikeya-Murakami', 12.4, 12.2, 0.4),
+      window: { ...win, hours: 1.2 },
+    }
+    const { el, app } = await render({
+      '/comets': () => json({ ...tonight, comets: [short] }),
+      '/commands': () => json([]),
+      'POST /planning/projects/draft': () => json(drafted),
+      '/bodies/nights': () => json({ typical_window_hours: 3.1, nights: [] }),
+      '/planning': () => json(planning(all)),
+    })
+    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
+    await settle()
+    const panel = el.querySelector('.addpanel')!
+    expect(panel.textContent).toContain('Priority High, minimum altitude 30°, minimum time 35 min.')
+    expect(panel.querySelector('[data-test="min-time-basis"]')?.textContent).toContain(
+      "half of tonight's 72 min window, above 30° in full darkness, at least 20 min, instead of your projects' usual 45 min",
+    )
+    const preview = calls.find((c) => c.url.includes('/bodies/nights'))!
+    expect(preview.url).toContain('designation=332P')
+    expect(preview.url).toContain('kind=comet')
+    expect(preview.url).toContain('min_alt=30')
+    const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
+    expect(draft.body).toMatchObject({ minimumTime: 35, minimumAltitude: 30 })
+    app.unmount()
+  })
+
   it("sends the tail framing from tonight's Horizons track with the new comet", async () => {
     const best = {
       at: '2026-10-13T03:00:00Z',
