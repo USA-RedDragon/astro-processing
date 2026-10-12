@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
+import BodyFramingCard from './BodyFramingCard.vue'
 import { formatDate } from '@/lib/formatters'
 import {
   countsBadge,
@@ -894,6 +895,14 @@ function numInput(e: Event): number {
         </svg>
         <span>{{ applyNote.text }}</span>
       </div>
+
+      <BodyFramingCard
+        v-if="target?.guid"
+        :key="target.guid"
+        :target-guid="target.guid"
+        :target-id="target.id"
+        :target-name="target.name"
+      />
 
       <div role="tablist" aria-label="Target sections" class="tabs">
         <button

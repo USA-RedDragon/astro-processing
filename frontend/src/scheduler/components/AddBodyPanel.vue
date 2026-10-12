@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { submitCommand, type CommandRecord } from '../api/commands'
+import type { BodyFraming } from '../api/comets'
+import { withFraming } from '../framing'
+import FramingEditor from './FramingEditor.vue'
 import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../api/planning'
 import { defaultValues } from '../projectSettings'
 import { errorToast, notifyCommand, shell } from '../shell'
@@ -40,6 +43,7 @@ const draft = ref<CometDraft | null>(null)
 const draftError = ref('')
 const drafting = ref(false)
 const busy = ref(false)
+const framing = ref<BodyFraming | null>(null)
 
 function usual<T>(vals: T[]): T | null {
   const counts = new Map<T, number>()
@@ -144,7 +148,7 @@ async function add() {
   if (!b || !draft.value || busy.value || tooFast.value) return
   busy.value = true
   try {
-    const r = await submitCommand('project.create', draft.value)
+    const r = await submitCommand('project.create', withFraming(draft.value, framing.value))
     emit('added', r)
     const failed = ['rejected', 'failed', 'conflict', 'cancelled'].includes(r.status)
     notifyCommand(r, failed ? `${b.name} was not added` : 'Added ' + b.name)
@@ -163,6 +167,13 @@ async function add() {
       <h3 id="add-h">Add {{ body.name }} to the scheduler</h3>
       <button type="button" class="btn link xsmall" @click="emit('cancel')">Cancel</button>
     </div>
+    <FramingEditor
+      :key="body.designation"
+      v-model="framing"
+      :designation="body.designation"
+      :name="body.name"
+      :kind="kind ?? 'comet'"
+    />
     <p class="small" style="margin: 0">{{ filterNames }}</p>
     <p v-if="!tooFast" class="small" style="margin: 0">{{ subsText }}</p>
     <p v-else class="small" style="margin: 0; color: var(--bad)">

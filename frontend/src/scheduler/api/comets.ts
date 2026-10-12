@@ -61,3 +61,65 @@ export const getComets = (maxMag = COMET_MAX_MAG, minAlt = COMET_MIN_ALT) =>
   api.get<CometView>('/comets' + query({ max_mag: maxMag, min_alt: minAlt }))
 
 export const getBodies = () => api.get<BodiesResult>('/bodies')
+
+export interface BodyFraming {
+  rotation_deg: number
+  offset_frac: number
+}
+
+export interface BodyTrackRow {
+  at: string
+  ra: number
+  dec: number
+  alt: number
+  dark: boolean
+  rate_arcsec_per_min: number
+  motion_pa: number | null
+  tail_pa: number | null
+  velocity_pa: number | null
+  mag: number | null
+}
+
+export interface BodyTrack {
+  designation: string
+  kind: string
+  horizons_command: string
+  night: { night: string; start: string; stop: string }
+  fetched_at: string | null
+  cached: boolean
+  angles: boolean
+  best: BodyTrackRow | null
+  rows: BodyTrackRow[] | null
+  basis: string
+}
+
+export interface BodyFrameInfo {
+  width_deg: number
+  height_deg: number
+  basis: string
+}
+
+export interface BodyTrackView {
+  track: BodyTrack
+  frame: BodyFrameInfo | null
+  frame_reason: string | null
+}
+
+export interface BodyTargetView {
+  target: {
+    target_guid: string
+    name: string
+    designation: string
+    kind: string
+    active: boolean
+    rotation_deg: number | null
+    offset_frac: number | null
+  } | null
+  framing_columns: boolean
+}
+
+export const getBodyTrack = (designation: string, kind?: string, signal?: AbortSignal) =>
+  api.get<BodyTrackView>('/bodies/track' + query({ designation, kind }), signal)
+
+export const getBodyTarget = (guid: string) =>
+  api.get<BodyTargetView>('/bodies/target' + query({ target_guid: guid }))

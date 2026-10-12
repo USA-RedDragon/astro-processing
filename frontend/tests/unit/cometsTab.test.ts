@@ -232,6 +232,64 @@ describe('CometsTab', () => {
     app.unmount()
   })
 
+  it("sends the tail framing from tonight's Horizons track with the new comet", async () => {
+    const best = {
+      at: '2026-10-13T03:00:00Z',
+      ra: 321.33029,
+      dec: 4.81158,
+      alt: 62,
+      dark: true,
+      rate_arcsec_per_min: 5.23,
+      motion_pa: 291.2,
+      tail_pa: 84.063,
+      velocity_pa: 141.662,
+      mag: 14.7,
+    }
+    const { el, app } = await render({
+      '/comets': () => json(tonight),
+      '/commands': () => json([]),
+      '/bodies/track': () =>
+        json({
+          track: {
+            designation: '161P',
+            kind: 'comet',
+            angles: true,
+            best,
+            rows: [best],
+            basis: '',
+          },
+          frame: { width_deg: 3.32, height_deg: 2.22, basis: 'Measured camera field.' },
+          frame_reason: null,
+        }),
+      'POST /planning/projects/draft': () => json(drafted),
+      '/planning': () => json(planning(all)),
+      'POST /commands': () =>
+        json({
+          id: 'n',
+          kind: 'project.create',
+          status: 'queued',
+          payload: {},
+          created_at: '',
+          updated_at: '',
+        }),
+    })
+    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
+    await settle()
+    const panel = el.querySelector('.addpanel')!
+    expect(panel.textContent).toContain('Tail along the frame')
+    const add = [...panel.querySelectorAll('button')].find((b) =>
+      b.textContent?.includes('Add 161P'),
+    )!
+    add.click()
+    await settle()
+    const sent = calls.find((c) => c.method === 'POST' && c.url.endsWith('/commands'))!
+    expect(sent.body).toMatchObject({
+      kind: 'project.create',
+      payload: { targets: [{ designation: '161P', rotation_deg: 84.06, offset_frac: -0.25 }] },
+    })
+    app.unmount()
+  })
+
   it('names a missing filter template and does not draft', async () => {
     const { el, app } = await render({
       '/comets': () => json(tonight),
