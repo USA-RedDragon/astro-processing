@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, RouterView } from 'vue-router'
 import SkyEventsPage from '@/scheduler/pages/SkyEventsPage.vue'
 import type { SkyEvent, SkyEvents } from '@/scheduler/api/skyEvents'
 import real from './fixtures/skyEventsReal.json'
+import mosaicEvent from './fixtures/skyEventMosaic.json'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -100,6 +101,18 @@ const button = (el: HTMLElement, text: string) =>
   [...el.querySelectorAll('button')].find((b) => b.textContent?.trim() === text)
 
 describe('SkyEventsPage', () => {
+  it('shows a 2-panel mosaic with two frames', async () => {
+    const { el, app } = await render(() => json(body({ events: [mosaicEvent as SkyEvent] })))
+    const card = el.querySelector('article.ev')!
+    expect(card.textContent).toContain('Moon with Mars, Jupiter')
+    expect(card.textContent).toContain('2-panel mosaic')
+    expect(card.textContent).toContain('panels follow the bodies')
+    expect(card.textContent).toContain('widest separation')
+    expect(card.querySelectorAll('svg.sky rect')).toHaveLength(2)
+    expect(card.querySelector('svg.sky')!.getAttribute('aria-label')).toContain('2-panel mosaic')
+    app.unmount()
+  })
+
   it('renders a stacker response', async () => {
     const { el, app } = await render(() => json(real))
     const cards = el.querySelectorAll('article.ev')

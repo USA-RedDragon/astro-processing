@@ -105,8 +105,29 @@ export function thisWeek(e: Pick<SkyEvent, 'start' | 'end'>, now: number): boole
   return s.getTime() <= now + 7 * DAY && end.getTime() >= now
 }
 
-export function kindChip(e: Pick<SkyEvent, 'kind'>): string {
-  return e.kind === 'body-dso' ? 'near a deep-sky object' : 'two bodies'
+function bodyCount(e: Pick<SkyEvent, 'members'>): number {
+  return (e.members ?? []).filter((m) => m.kind !== 'dso').length
+}
+
+export function isMosaic(e: Pick<SkyEvent, 'kind' | 'frame'>): boolean {
+  return e.kind === 'mosaic-2' || !!e.frame?.mosaic
+}
+
+export function kindChip(e: Pick<SkyEvent, 'kind' | 'members' | 'frame'>): string {
+  if (isMosaic(e)) return `${e.frame?.mosaic?.panels?.length || 2}-panel mosaic`
+  if (e.kind === 'body-dso') return 'near a deep-sky object'
+  const n = bodyCount(e)
+  return n > 2 ? `${NUMBERS[n] ?? n} bodies` : 'two bodies'
+}
+
+export function movingChip(e: Pick<SkyEvent, 'kind' | 'members' | 'frame' | 'moving_center'>): string {
+  if (!e.moving_center) return ''
+  const who = bodyCount(e) > 2 ? 'the bodies' : 'the pair'
+  return isMosaic(e) ? `panels follow ${who}` : `frame follows ${who}`
+}
+
+export function separationLabel(e: Pick<SkyEvent, 'members'>): string {
+  return bodyCount(e) > 2 ? 'widest separation' : 'separation'
 }
 
 export function nightsText(n: number): string {
@@ -297,11 +318,22 @@ export interface FramePoint {
   anchor: 'start' | 'end'
 }
 
+export interface FrameRect {
+  x: number
+  y: number
+  w: number
+  h: number
+  rotate: number
+  cx: number
+  cy: number
+}
+
 export interface FrameGeometry {
   width: number
   height: number
   scale: number
-  rect: { x: number; y: number; w: number; h: number; rotate: number }
+  rect: FrameRect
+  rects: FrameRect[]
   points: FramePoint[]
 }
 
@@ -324,9 +356,26 @@ export function frameGeometry(
   const th = (f.rotation_deg * Math.PI) / 180
   const c = Math.abs(Math.cos(th))
   const s = Math.abs(Math.sin(th))
-  const bw = f.width_deg * c + f.height_deg * s
-  const bh = f.width_deg * s + f.height_deg * c
+  const m = f.mosaic?.panels?.length ? f.mosaic : null
+  const fw = m ? m.width_deg : f.width_deg
+  const fh = m ? m.height_deg : f.height_deg
+  const bw = fw * c + fh * s
+  const bh = fw * s + fh * c
   const scale = Math.min((width * fill) / bw, (height * fill) / bh)
+  const box = (east: number, north: number, rotation: number): FrameRect => {
+    const cx = width / 2 - east * scale
+    const cy = height / 2 - north * scale
+    return {
+      x: cx - (f.width_deg * scale) / 2,
+      y: cy - (f.height_deg * scale) / 2,
+      w: f.width_deg * scale,
+      h: f.height_deg * scale,
+      rotate: -rotation,
+      cx,
+      cy,
+    }
+  }
+  const rects = m ? m.panels.map((p) => box(p.east_deg, p.north_deg, p.rotation_deg)) : [box(0, 0, f.rotation_deg)]
   const points = (f.objects ?? []).map((o) => {
     const body = o.kind !== 'dso'
     const exact = (o.diameter_deg / 2) * scale
@@ -355,13 +404,8 @@ export function frameGeometry(
     width,
     height,
     scale,
-    rect: {
-      x: width / 2 - (f.width_deg * scale) / 2,
-      y: height / 2 - (f.height_deg * scale) / 2,
-      w: f.width_deg * scale,
-      h: f.height_deg * scale,
-      rotate: -f.rotation_deg,
-    },
+    rect: rects[0]!,
+    rects,
     points,
   }
 }
@@ -369,12 +413,12 @@ export function frameGeometry(
 export function frameLabel(e: SkyEvent): string {
   const f = e.frame
   const objs = (f.objects ?? []).map((o) => `${o.name} ${offsetText(o.east_deg, o.north_deg)}`)
-  return (
-    `Frame preview, north up, east left: ${f.width_deg.toFixed(2)}° × ${f.height_deg.toFixed(2)}° camera field ` +
-    `turned ${Math.round(f.rotation_deg)}°. ` +
-    objs.join('; ') +
-    '.'
-  )
+  const m = f.mosaic?.panels?.length ? f.mosaic : null
+  const field = m
+    ? `${m.panels.length}-panel mosaic of the ${f.width_deg.toFixed(2)}° × ${f.height_deg.toFixed(2)}° camera field, ` +
+      `panels overlapping ${Math.round(m.overlap_pct)}%, ${m.width_deg.toFixed(2)}° × ${m.height_deg.toFixed(2)}° in all, `
+    : `${f.width_deg.toFixed(2)}° × ${f.height_deg.toFixed(2)}° camera field `
+  return `Frame preview, north up, east left: ${field}turned ${Math.round(f.rotation_deg)}°. ` + objs.join('; ') + '.'
 }
 
 export function objectLabels(e: Pick<SkyEvent, 'members'>): Record<string, string> {

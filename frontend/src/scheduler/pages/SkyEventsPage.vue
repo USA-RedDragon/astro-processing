@@ -24,6 +24,7 @@ import {
   momentText,
   monthMarks,
   monthsText,
+  movingChip,
   nightsText,
   objectLabels,
   pageState,
@@ -32,6 +33,7 @@ import {
   rareFirst,
   rarityDetail,
   rarityText,
+  separationLabel,
   stripRange,
   thisWeek,
   windowText,
@@ -168,8 +170,9 @@ const pointColour = (kind: string) =>
 <template>
   <main class="page wide sky-events">
     <PageHead context="Discover" title="Sky events">
-      Close pairings of the Moon, planets and comets with each other and with catalogue objects,
-      found by searching ahead from your site. Times are Central.
+      Close pairings and groups of the Moon, planets and comets with each other and with catalogue
+      objects, in one frame or two frames side by side, found by searching ahead from your site.
+      Times are Central.
       <span v-if="bodiesText" class="block xsmall mt-1">{{ bodiesText }}</span>
       <span v-if="frameText" class="block xsmall">{{ frameText }}</span>
       <span v-if="computedText" class="block xsmall">{{ computedText }}</span>
@@ -297,15 +300,17 @@ const pointColour = (kind: string) =>
             class="sky"
           >
             <rect
-              :x="geometry(e).rect.x"
-              :y="geometry(e).rect.y"
-              :width="geometry(e).rect.w"
-              :height="geometry(e).rect.h"
+              v-for="(r, i) in geometry(e).rects"
+              :key="i"
+              :x="r.x"
+              :y="r.y"
+              :width="r.w"
+              :height="r.h"
               fill="none"
               stroke="var(--ev-frame)"
               stroke-dasharray="4 3"
               stroke-width="1.2"
-              :transform="`rotate(${geometry(e).rect.rotate} ${geometry(e).width / 2} ${geometry(e).height / 2})`"
+              :transform="`rotate(${r.rotate} ${r.cx} ${r.cy})`"
             />
             <g v-for="p in geometry(e).points" :key="p.name">
               <title>{{ p.title }}</title>
@@ -347,12 +352,12 @@ const pointColour = (kind: string) =>
               <span v-if="thisWeek(e, shell.now)" class="chip now">This week</span>
               <span class="chip">{{ kindChip(e) }}</span>
               <span class="chip">{{ nightsText(e.nights) }}</span>
-              <span v-if="e.moving_center" class="chip">frame follows the pair</span>
+              <span v-if="movingChip(e)" class="chip">{{ movingChip(e) }}</span>
             </div>
             <div class="facts">
               <span>window <b>{{ windowText(e.first_night, e.last_night) }}</b></span>
               <span>closest <b>{{ momentText(e.best.at) }}</b></span>
-              <span>separation <b>{{ e.best.separation_deg.toFixed(2) }}°</b></span>
+              <span>{{ separationLabel(e) }} <b>{{ e.best.separation_deg.toFixed(2) }}°</b></span>
               <span>altitude then <b>{{ Math.round(e.best.altitude_deg) }}°</b></span>
               <span>in frame <b>{{ Number(e.hours_in_frame.toFixed(1)) }} h</b> total</span>
             </div>
@@ -405,8 +410,9 @@ const pointColour = (kind: string) =>
       <div v-if="state === 'ready'" class="xsmall muted notes">
         <p>
           <b>Frame previews</b> are to scale: the dashed box is the camera field, turned by the
-          rotator to fit both objects. Planet and comet discs are enlarged so they show; the Moon
-          and deep-sky objects are drawn at their catalogued diameters.
+          rotator to fit every object. A 2-panel mosaic shows two overlapping boxes, shot one after
+          the other. Planet and comet discs are enlarged so they show; the Moon and deep-sky
+          objects are drawn at their catalogued diameters.
         </p>
         <p v-if="criteriaText">{{ criteriaText }}</p>
         <p v-if="rarityBasis"><b>Rarity.</b> {{ rarityBasis }}</p>

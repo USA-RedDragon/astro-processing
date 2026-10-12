@@ -5,7 +5,11 @@ import {
   countText,
   exposureText,
   frameGeometry,
+  frameLabel,
   groupEvents,
+  kindChip,
+  movingChip,
+  separationLabel,
   isRare,
   lanes,
   momentText,
@@ -25,6 +29,7 @@ import {
   yearsText,
   zonedMidnight,
 } from '@/scheduler/skyEvents'
+import mosaicEvent from './fixtures/skyEventMosaic.json'
 
 function ev(over: Partial<SkyEvent> = {}): SkyEvent {
   return {
@@ -413,5 +418,53 @@ describe('rarity', () => {
     expect(autoView(ev({ auto_plan: { state: 'failed', reason: 'No command.', at: null } }))!.tone).toBe('bad')
     expect(autoView(ev({ auto_plan: { state: 'skipped', reason: 'Planned by hand.', at: null } }))).toBeNull()
     expect(autoView(ev())).toBeNull()
+  })
+})
+
+describe('groups and 2-panel mosaics', () => {
+  const mosaic = mosaicEvent as SkyEvent
+
+  it('names the kind in plain words', () => {
+    expect(kindChip(ev())).toBe('near a deep-sky object')
+    const pair = ev({
+      kind: 'body-body',
+      members: [
+        { name: 'Mars', kind: 'planet', designation: null, type: null, diameter_deg: 0, magnitude: null },
+        { name: 'Jupiter', kind: 'planet', designation: null, type: null, diameter_deg: 0, magnitude: null },
+      ],
+      moving_center: true,
+    })
+    expect(kindChip(pair)).toBe('two bodies')
+    expect(movingChip(pair)).toBe('frame follows the pair')
+    expect(separationLabel(pair)).toBe('separation')
+    const triple = { ...pair, members: [...pair.members, { ...pair.members[0]!, name: 'Saturn' }] }
+    expect(kindChip(triple)).toBe('three bodies')
+    expect(movingChip(triple)).toBe('frame follows the bodies')
+    expect(separationLabel(triple)).toBe('widest separation')
+    expect(kindChip(mosaic)).toBe('2-panel mosaic')
+    expect(movingChip(mosaic)).toBe('panels follow the bodies')
+    expect(movingChip(ev())).toBe('')
+  })
+
+  it('draws one box per panel, to scale, around every object', () => {
+    const g = frameGeometry(mosaic.frame)
+    expect(g.rects).toHaveLength(2)
+    const [a, b] = g.rects
+    expect(a!.w).toBeCloseTo(3.32 * g.scale)
+    expect(Math.hypot(a!.cx - b!.cx, a!.cy - b!.cy)).toBeCloseTo(2 * Math.hypot(1.4085, 0.0837) * g.scale)
+    expect(a!.cx).toBeLessThan(b!.cx)
+    expect(a!.rotate).toBeCloseTo(-3.71)
+    for (const p of g.points) {
+      expect(p.x).toBeGreaterThan(0)
+      expect(p.x).toBeLessThan(g.width)
+      expect(p.y).toBeGreaterThan(0)
+      expect(p.y).toBeLessThan(g.height)
+    }
+    expect(frameGeometry(ev().frame).rects).toHaveLength(1)
+  })
+
+  it('says it is a mosaic in the preview label', () => {
+    expect(frameLabel(mosaic)).toContain('2-panel mosaic of the 3.32° × 2.22° camera field, panels overlapping 15%')
+    expect(frameLabel(ev())).not.toContain('mosaic')
   })
 })

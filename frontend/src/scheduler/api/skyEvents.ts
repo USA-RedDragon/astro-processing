@@ -22,6 +22,7 @@ export interface SkyCriteria {
   step_minutes: number
   usable_width_deg: number
   usable_height_deg: number
+  mosaic_overlap_pct?: number
   basis: string
 }
 
@@ -62,6 +63,26 @@ export interface FrameObject {
   diameter_deg: number
 }
 
+export interface MosaicPanel {
+  n: number
+  center_ra: number
+  center_dec: number
+  rotation_deg: number
+  x_deg: number
+  y_deg: number
+  east_deg: number
+  north_deg: number
+}
+
+export interface EventMosaic {
+  cols: number
+  rows: number
+  overlap_pct: number
+  width_deg: number
+  height_deg: number
+  panels: MosaicPanel[]
+}
+
 export interface EventFrame {
   center_ra: number
   center_dec: number
@@ -69,6 +90,7 @@ export interface EventFrame {
   width_deg: number
   height_deg: number
   objects: FrameObject[]
+  mosaic?: EventMosaic | null
 }
 
 export interface NightWindow {
@@ -132,7 +154,7 @@ export interface AutoPlan {
 
 export interface SkyEvent {
   id: string
-  kind: 'body-dso' | 'body-body'
+  kind: 'body-dso' | 'body-body' | 'mosaic-2'
   title: string
   members: EventMember[]
   first_night: string

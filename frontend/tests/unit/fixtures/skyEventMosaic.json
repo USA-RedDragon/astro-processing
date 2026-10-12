@@ -1,0 +1,130 @@
+{
+  "id": "2-panel-moon-mars-jupiter-2026-11-29",
+  "kind": "mosaic-2",
+  "title": "Moon with Mars, Jupiter",
+  "members": [
+    {
+      "name": "Moon",
+      "kind": "moon",
+      "designation": null,
+      "type": null,
+      "diameter_deg": 0.53915,
+      "magnitude": -10.51
+    },
+    {
+      "name": "Mars",
+      "kind": "planet",
+      "designation": null,
+      "type": null,
+      "diameter_deg": 0.0022,
+      "magnitude": 0.49
+    },
+    {
+      "name": "Jupiter",
+      "kind": "planet",
+      "designation": null,
+      "type": null,
+      "diameter_deg": 0.01086,
+      "magnitude": -2.2
+    }
+  ],
+  "first_night": "2026-11-29",
+  "last_night": "2026-11-29",
+  "nights": 1,
+  "start": "2026-11-30T07:30:00Z",
+  "end": "2026-11-30T10:00:00Z",
+  "best": {
+    "at": "2026-11-30T08:30:00Z",
+    "separation_deg": 5.151,
+    "altitude_deg": 34
+  },
+  "hours_in_frame": 2.5,
+  "frame": {
+    "center_ra": 151.48807,
+    "center_dec": 12.5145,
+    "rotation_deg": 3.4,
+    "width_deg": 3.32,
+    "height_deg": 2.22,
+    "objects": [
+      {
+        "name": "Moon",
+        "kind": "moon",
+        "type": null,
+        "east_deg": -2.2735,
+        "north_deg": -0.4051,
+        "x_deg": -2.2452,
+        "y_deg": -0.5407,
+        "diameter_deg": 0.53915
+      },
+      {
+        "name": "Mars",
+        "kind": "planet",
+        "type": null,
+        "east_deg": 2.6244,
+        "north_deg": 0.6494,
+        "x_deg": 2.5807,
+        "y_deg": 0.8056,
+        "diameter_deg": 0.0022
+      },
+      {
+        "name": "Jupiter",
+        "kind": "planet",
+        "type": null,
+        "east_deg": -2.521,
+        "north_deg": 0.9716,
+        "x_deg": -2.5747,
+        "y_deg": 0.8187,
+        "diameter_deg": 0.01086
+      }
+    ],
+    "mosaic": {
+      "cols": 2,
+      "rows": 1,
+      "overlap_pct": 15,
+      "width_deg": 6.142,
+      "height_deg": 2.22,
+      "panels": [
+        {
+          "n": 1,
+          "center_ra": 152.93009,
+          "center_dec": 12.42701,
+          "rotation_deg": 3.71,
+          "x_deg": 1.411,
+          "y_deg": 0,
+          "east_deg": 1.4085,
+          "north_deg": -0.0837
+        },
+        {
+          "n": 2,
+          "center_ra": 150.04511,
+          "center_dec": 12.59432,
+          "rotation_deg": 3.09,
+          "x_deg": -1.411,
+          "y_deg": 0,
+          "east_deg": -1.4085,
+          "north_deg": 0.0837
+        }
+      ]
+    }
+  },
+  "moving_center": true,
+  "night_windows": [
+    {
+      "night": "2026-11-29",
+      "start": "2026-11-30T07:30:00Z",
+      "end": "2026-11-30T10:00:00Z",
+      "hours": 2.5,
+      "center_ra": 151.48871,
+      "center_dec": 12.51605
+    }
+  ],
+  "exposure": {
+    "short_seconds": null,
+    "normal_seconds": null,
+    "basis": ""
+  },
+  "priority": "normal",
+  "plan": null,
+  "rarity": null,
+  "auto_plan": null
+}
