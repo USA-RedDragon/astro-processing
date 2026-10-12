@@ -49,8 +49,8 @@ function body(over: Partial<SkyEvents> = {}): SkyEvents {
     reason: null,
     computed_at: '2026-10-12T05:10:00Z',
     from: '2026-10-12T05:00:00Z',
-    to: '2027-04-12T05:00:00Z',
-    months: 6,
+    to: '2028-10-12T05:00:00Z',
+    months: 24,
     criteria: {
       sun_below_deg: -12,
       min_altitude_deg: 15,
@@ -117,10 +117,11 @@ describe('SkyEventsPage', () => {
     app.unmount()
   })
 
-  it('asks for six months and draws one card and lane per event', async () => {
+  it('asks for 24 months and draws one card and lane per event', async () => {
     const { el, app, fetch } = await render(() => json(body()))
-    expect(fetch.mock.calls[0]![0]).toBe('/api/v1/sky-events?months=6')
-    expect(el.textContent).toContain('1 event in the next six months')
+    expect(fetch.mock.calls[0]![0]).toBe('/api/v1/sky-events?months=24')
+    expect(el.textContent).toContain('1 event in the next 24 months')
+    expect(el.querySelector<HTMLElement>('.strip')!.style.width).toBe('max(100%, 66rem)')
     expect(el.textContent).toContain('Events fill gaps. Mark one high priority')
     expect(el.querySelectorAll('article.ev')).toHaveLength(1)
     expect(el.querySelectorAll('.lane')).toHaveLength(1)
@@ -138,7 +139,7 @@ describe('SkyEventsPage', () => {
     const { el, app } = await render(() =>
       json(body({ status: 'pending', reason: 'Computing the next six months, about two minutes.', events: [] })),
     )
-    expect(el.textContent).toContain('Searching the next 6 months')
+    expect(el.textContent).toContain('Searching the next 24 months')
     expect(el.textContent).toContain('Computing the next six months, about two minutes.')
     expect(el.querySelector('article.ev')).toBeNull()
     app.unmount()
@@ -155,7 +156,7 @@ describe('SkyEventsPage', () => {
 
   it('says no events with the criteria', async () => {
     const { el, app } = await render(() => json(body({ events: [] })))
-    expect(el.textContent).toContain('No events in the next six months')
+    expect(el.textContent).toContain('No events in the next 24 months')
     expect(el.textContent).toContain('Sun below -12°')
     expect(el.textContent).toContain('Usable area is the frame less a margin.')
     expect(el.querySelector('.strip')).toBeNull()
@@ -271,6 +272,110 @@ describe('SkyEventsPage', () => {
     button(el, 'Plan it')!.click()
     await settle()
     expect(el.querySelector('.plan-err')?.textContent).toBe('already planned')
+    app.unmount()
+  })
+
+  it('fetches the months picked', async () => {
+    const { el, app, fetch } = await render((url) => json(body({ months: url.endsWith('=6') ? 6 : 24 })))
+    const pick = el.querySelector<HTMLSelectElement>('#ev-months')!
+    expect([...pick.options].map((o) => o.value)).toEqual(['3', '6', '12', '24'])
+    expect(pick.value).toBe('24')
+    pick.value = '6'
+    pick.dispatchEvent(new Event('change'))
+    await settle()
+    expect(fetch.mock.calls.at(-1)![0]).toBe('/api/v1/sky-events?months=6')
+    expect(el.textContent).toContain('1 event in the next six months')
+    app.unmount()
+  })
+
+  it('puts rare events first in their own group with a badge, a colour and the auto plan', async () => {
+    const common = event({
+      rarity: {
+        status: 'ready',
+        reason: null,
+        searched_from: '1976-10-13T00:00:00Z',
+        searched_to: '2076-10-13T00:00:00Z',
+        previous: { start: '', end: '', first_night: '2025-05-01', last_night: '2025-05-09', best: '2025-05-05T06:00:00Z', separation_deg: 0.64 },
+        next: { start: '', end: '', first_night: '2028-09-13', last_night: '2028-09-20', best: '2028-09-17T10:00:00Z', separation_deg: 0.35 },
+        previous_years: 1.44,
+        next_years: 1.94,
+        interval_years: 1.44,
+        rare: false,
+        basis: 'The same members checked every 30 minutes.',
+      },
+    })
+    const rare = event({
+      id: 'jupiter-saturn-2027-01-01',
+      kind: 'body-body',
+      title: 'Jupiter with Saturn',
+      start: '2027-01-01T01:00:00Z',
+      end: '2027-01-20T03:00:00Z',
+      priority: 'high',
+      rarity: {
+        status: 'ready',
+        reason: null,
+        searched_from: '1977-01-01T00:00:00Z',
+        searched_to: '2077-01-01T00:00:00Z',
+        previous: { start: '', end: '', first_night: '1981-08-07', last_night: '1981-08-08', best: '1981-08-08T02:30:00Z', separation_deg: 1.55 },
+        next: { start: '', end: '', first_night: '2040-11-11', last_night: '2040-11-14', best: '2040-11-12T12:00:00Z', separation_deg: 1.58 },
+        previous_years: 39.34,
+        next_years: 19.92,
+        interval_years: 19.92,
+        rare: true,
+        basis: 'The same members checked every 30 minutes.',
+      },
+      plan: {
+        state: 'queued',
+        priority: 'high',
+        project_guid: 'p',
+        target_guid: 't',
+        command_id: 'c1',
+        planned_at: '2026-10-12T06:40:00Z',
+        message: null,
+        automatic: true,
+      },
+      auto_plan: { state: 'planned', reason: null, at: '2026-10-12T06:40:00Z' },
+    })
+    const { el, app } = await render(() => json(body({ events: [common, rare] })))
+    const groups = el.querySelectorAll('section.events')
+    expect(groups).toHaveLength(2)
+    expect(groups[0]!.querySelector('h3')?.textContent).toBe('Rare')
+    expect(groups[0]!.textContent).toContain('Jupiter with Saturn')
+    expect(groups[0]!.querySelector('.badge.rare')?.textContent).toBe('Rare: once in 20 years')
+    expect(groups[0]!.textContent).toContain('Planned automatically')
+    expect(groups[0]!.textContent).toContain('Previous 7 Aug 1981, 39 years before. Next 11 Nov 2040, 20 years after.')
+    expect(groups[1]!.querySelector('h3')?.textContent).toBe('Other events')
+    expect(groups[1]!.textContent).toContain('once in 1.4 years')
+    expect(groups[1]!.querySelector('.badge.rare')).toBeNull()
+    const bars = el.querySelectorAll('.lane .bar')
+    expect(bars[0]!.classList.contains('rare')).toBe(true)
+    expect(bars[1]!.classList.contains('rare')).toBe(false)
+    expect(el.textContent).toContain('Rarity. The same members checked every 30 minutes.')
+    app.unmount()
+  })
+
+  it('says when a rare event plans itself and when the search found no recurrence', async () => {
+    const lone = event({
+      rarity: {
+        status: 'ready',
+        reason: null,
+        searched_from: '1976-10-13T00:00:00Z',
+        searched_to: '2076-10-13T00:00:00Z',
+        previous: null,
+        next: null,
+        previous_years: null,
+        next_years: null,
+        interval_years: null,
+        rare: true,
+        basis: '',
+      },
+      auto_plan: { state: 'waiting', reason: 'Planned at high priority once the scheduler takes event windows.', at: null },
+    })
+    const { el, app } = await render(() => json(body({ events: [lone] })))
+    expect(el.querySelector('.badge.rare')?.textContent).toBe('Rare: no recurrence before 2076')
+    expect(el.textContent).toContain('None earlier back to 1976. None later up to 2076.')
+    expect(el.textContent).toContain('Plans itself')
+    expect(el.textContent).toContain('Planned at high priority once the scheduler takes event windows.')
     app.unmount()
   })
 })

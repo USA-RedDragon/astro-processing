@@ -1,20 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import type { EventFrame, SkyEvent, SkyEvents } from '@/scheduler/api/skyEvents'
+import type { EventFrame, Rarity, SkyEvent, SkyEvents } from '@/scheduler/api/skyEvents'
 import {
+  autoView,
   countText,
   exposureText,
   frameGeometry,
+  groupEvents,
+  isRare,
   lanes,
   momentText,
   monthMarks,
   pageState,
   planActive,
+  rareBadge,
+  rareFirst,
+  rarityDetail,
+  rarityText,
   secondsText,
   stripRange,
   planView,
   thisWeek,
   tonightBlocks,
   windowText,
+  yearsText,
   zonedMidnight,
 } from '@/scheduler/skyEvents'
 
@@ -209,6 +217,13 @@ describe('month marks', () => {
   it('drops a sliver of a first month', () => {
     const m = monthMarks(Date.parse('2026-10-30T05:00:00Z'), Date.parse('2027-04-30T05:00:00Z'))
     expect(m[0]!.label).toBe('Nov')
+    expect(m[0]!.year).toBe('2026')
+  })
+
+  it('names the year on the first month and on each January over two years', () => {
+    const m = monthMarks(Date.parse('2026-10-12T05:00:00Z'), Date.parse('2028-10-12T05:00:00Z'), 1)
+    expect(m).toHaveLength(25)
+    expect(m.filter((x) => x.year).map((x) => `${x.label} ${x.year}`)).toEqual(['Oct 2026', 'Jan 2027', 'Jan 2028'])
   })
 })
 
@@ -307,5 +322,91 @@ describe('seconds', () => {
     expect(secondsText(2)).toBe('2')
     expect(secondsText(180)).toBe('180')
     expect(secondsText(12.25)).toBe('12.3')
+  })
+})
+
+function rarity(over: Partial<Rarity> = {}): Rarity {
+  return {
+    status: 'ready',
+    reason: null,
+    searched_from: '1976-10-13T00:00:00Z',
+    searched_to: '2076-10-13T00:00:00Z',
+    previous: null,
+    next: null,
+    previous_years: null,
+    next_years: null,
+    interval_years: null,
+    rare: false,
+    basis: '',
+    ...over,
+  }
+}
+
+describe('rarity', () => {
+  it('says how often in years or months', () => {
+    expect(yearsText(19.92)).toBe('20 years')
+    expect(yearsText(1.44)).toBe('1.4 years')
+    expect(yearsText(1)).toBe('1 year')
+    expect(yearsText(0.08)).toBe('1 month')
+    expect(yearsText(0.25)).toBe('3 months')
+    expect(rarityText(rarity({ interval_years: 8 }))).toBe('once in 8 years')
+    expect(rarityText(rarity())).toBe('no recurrence before 2076')
+    expect(rarityText(rarity({ status: 'unavailable', reason: 'comets' }))).toBe('')
+    expect(rarityText(null)).toBe('')
+    expect(rareBadge(rarity({ interval_years: 13.26, rare: true }))).toBe('Rare: once in 13 years')
+  })
+
+  it('names the previous and next occurrence or why there are none', () => {
+    const occ = (night: string) => ({ start: '', end: '', first_night: night, last_night: night, best: '', separation_deg: 1 })
+    expect(rarityDetail(rarity({ previous: occ('2025-05-01'), previous_years: 1.44, next: occ('2028-09-13'), next_years: 1.94 }))).toBe(
+      'Previous 1 May 2025, 1.4 years before. Next 13 Sept 2028, 1.9 years after.',
+    )
+    expect(rarityDetail(rarity())).toBe('None earlier back to 1976. None later up to 2076.')
+    expect(rarityDetail(rarity({ status: 'unavailable', reason: 'Comets are not searched.' }))).toBe(
+      'Recurrence not searched: Comets are not searched.',
+    )
+    expect(rarityDetail(undefined)).toBe('Recurrence not searched yet.')
+  })
+
+  it('groups rare events first and keeps time order inside each group', () => {
+    const a = ev({ id: 'a' })
+    const b = ev({ id: 'b', rarity: rarity({ rare: true, interval_years: 20 }) })
+    const c = ev({ id: 'c', rarity: rarity({ rare: false, interval_years: 2 }) })
+    const d = ev({ id: 'd', rarity: rarity({ rare: true, status: 'unavailable' }) })
+    expect(isRare(b)).toBe(true)
+    expect(isRare(d)).toBe(false)
+    expect(rareFirst([a, b, c, d]).map((e) => e.id)).toEqual(['b', 'a', 'c', 'd'])
+    const g = groupEvents([a, b, c])
+    expect(g.map((x) => [x.key, x.title, x.events.map((e) => e.id).join()])).toEqual([
+      ['rare', 'Rare', 'b'],
+      ['other', 'Other events', 'a,c'],
+    ])
+    expect(groupEvents([a]).map((x) => x.title)).toEqual([''])
+    expect(groupEvents([])).toEqual([])
+  })
+
+  it('marks rare lanes and tonight blocks', () => {
+    const r = ev({ rarity: rarity({ rare: true, interval_years: 20 }), plan: { ...plan('queued', 'high'), automatic: true } })
+    const l = lanes([r], Date.parse('2026-10-01T00:00:00Z'), Date.parse('2027-10-01T00:00:00Z'))
+    expect(l[0]!.rare).toBe(true)
+    const b = tonightBlocks([r], Date.parse('2026-10-12T23:00:00Z'), Date.parse('2026-10-13T12:00:00Z'))
+    expect(b[0]!.rare).toBe(true)
+    expect(b[0]!.rarity).toBe('once in 20 years')
+    expect(b[0]!.automatic).toBe(true)
+  })
+
+  it('describes what the stacker does about planning a rare event', () => {
+    expect(autoView(ev({ plan: { ...plan('queued', 'high'), automatic: true } }))!.label).toBe('Planned automatically')
+    expect(autoView(ev({ auto_plan: { state: 'waiting', reason: 'Waiting for the plugin.', at: null } }))).toEqual({
+      label: 'Plans itself',
+      tone: 'info',
+      message: 'Waiting for the plugin.',
+    })
+    expect(autoView(ev({ auto_plan: { state: 'declined', reason: 'You unplanned it.', at: null } }))!.label).toBe(
+      'Automatic planning off',
+    )
+    expect(autoView(ev({ auto_plan: { state: 'failed', reason: 'No command.', at: null } }))!.tone).toBe('bad')
+    expect(autoView(ev({ auto_plan: { state: 'skipped', reason: 'Planned by hand.', at: null } }))).toBeNull()
+    expect(autoView(ev())).toBeNull()
   })
 })

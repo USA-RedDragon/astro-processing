@@ -94,6 +94,39 @@ export interface EventPlan {
   command_id: string
   planned_at: string
   message: string | null
+  automatic?: boolean
+}
+
+export interface Occurrence {
+  start: string
+  end: string
+  first_night: string
+  last_night: string
+  best: string
+  separation_deg: number
+}
+
+export interface Rarity {
+  status: 'ready' | 'unavailable'
+  reason: string | null
+  key?: string
+  searched_from: string | null
+  searched_to: string | null
+  previous: Occurrence | null
+  next: Occurrence | null
+  previous_years: number | null
+  next_years: number | null
+  interval_years: number | null
+  rare: boolean
+  basis: string
+}
+
+export type AutoPlanState = 'waiting' | 'planned' | 'declined' | 'failed' | 'skipped'
+
+export interface AutoPlan {
+  state: AutoPlanState
+  reason: string | null
+  at: string | null
 }
 
 export interface SkyEvent {
@@ -114,6 +147,8 @@ export interface SkyEvent {
   exposure: EventExposure
   priority: EventPriority
   plan: EventPlan | null
+  rarity?: Rarity | null
+  auto_plan?: AutoPlan | null
 }
 
 export interface SkyEvents {
@@ -138,7 +173,9 @@ export interface EventChange {
 
 const path = (id: string, action: string) => `/sky-events/${encodeURIComponent(id)}/${action}`
 
-export const getSkyEvents = (months = 6, signal?: AbortSignal) =>
+export const MAX_MONTHS = 24
+
+export const getSkyEvents = (months = MAX_MONTHS, signal?: AbortSignal) =>
   api.get<SkyEvents>('/sky-events' + query({ months }), signal)
 
 export const planSkyEvent = (id: string, priority: EventPriority) =>

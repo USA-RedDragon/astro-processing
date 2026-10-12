@@ -155,7 +155,7 @@ const skyReq = latestOnly()
 async function loadSkyEvents() {
   const current = skyReq.next()
   try {
-    const r = await getSkyEvents()
+    const r = await getSkyEvents(1)
     if (!current()) return
     skyEvents.value = r.events ?? []
     skyEventsNote.value = r.status === 'ready' ? '' : r.reason || `sky events are ${r.status}`
@@ -350,7 +350,10 @@ const eventBlocks = computed(() => {
       x,
       w,
       text: fitLabel(label, w, 11, 600),
-      tip: `Planned sky event: ${b.title} ${hm(b.start)}–${clock(b.end)}${b.high ? ' · high priority' : ''} · ${b.state}`,
+      tip:
+        `Planned sky event: ${b.title} ${hm(b.start)}–${clock(b.end)}` +
+        `${b.rare ? ` · rare, ${b.rarity}` : ''}${b.high ? ' · high priority' : ''}` +
+        `${b.automatic ? ' · planned automatically' : ''} · ${b.state}`,
     }
   })
 })

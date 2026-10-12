@@ -1,8 +1,10 @@
 import type {
+  AutoPlan,
   EventExposure,
   EventFrame,
   EventPlan,
   PlanState,
+  Rarity,
   SkyEvent,
   SkyEvents,
 } from './api/skyEvents'
@@ -170,6 +172,7 @@ export interface Lane {
   left: number
   width: number
   high: boolean
+  rare: boolean
   label: string
   labelSide: 'left' | 'right'
   labelAt: number
@@ -207,6 +210,7 @@ export function lanes(events: SkyEvent[], t0: number, t1: number): Lane[] {
       left: a,
       width,
       high: e.priority === 'high',
+      rare: isRare(e),
       label,
       labelSide: room ? 'right' : 'left',
       labelAt: room ? a + width + LABEL_ROOM : 100 - a + LABEL_ROOM,
@@ -250,6 +254,7 @@ const ymFmt = new Intl.DateTimeFormat('en-US', {
 export interface MonthMark {
   label: string
   at: number
+  year: string | null
 }
 
 export function monthMarks(t0: number, t1: number, minGap = 4): MonthMark[] {
@@ -257,7 +262,7 @@ export function monthMarks(t0: number, t1: number, minGap = 4): MonthMark[] {
   const parts = ymFmt.formatToParts(new Date(t0))
   let y = Number(parts.find((p) => p.type === 'year')?.value)
   let m = Number(parts.find((p) => p.type === 'month')?.value) - 1
-  const out: MonthMark[] = [{ label: monthFmt.format(new Date(t0)), at: 0 }]
+  const out: MonthMark[] = [{ label: monthFmt.format(new Date(t0)), at: 0, year: String(y) }]
   for (let i = 0; ; i++) {
     m++
     if (m > 11) {
@@ -267,8 +272,12 @@ export function monthMarks(t0: number, t1: number, minGap = 4): MonthMark[] {
     const t = zonedMidnight(y, m, 1)
     if (t >= t1) break
     const at = pct(t, t0, t1)
-    if (i === 0 && at < minGap) out.shift()
-    out.push({ label: monthFmt.format(new Date(t + DAY / 2)), at })
+    let year = m === 0 ? String(y) : null
+    if (i === 0 && at < minGap) {
+      out.shift()
+      year = String(y)
+    }
+    out.push({ label: monthFmt.format(new Date(t + DAY / 2)), at, year })
   }
   return out
 }
@@ -380,6 +389,9 @@ export interface TonightBlock {
   start: number
   end: number
   high: boolean
+  rare: boolean
+  rarity: string
+  automatic: boolean
   state: PlanState
 }
 
@@ -398,6 +410,9 @@ export function tonightBlocks(events: SkyEvent[] | null | undefined, t0: number,
         start: Math.max(s, t0),
         end: Math.min(end, t1),
         high: (e.plan?.priority ?? e.priority) === 'high',
+        rare: isRare(e),
+        rarity: isRare(e) ? rarityText(e.rarity) : '',
+        automatic: !!e.plan?.automatic,
         state: e.plan!.state,
       })
     }
@@ -440,4 +455,108 @@ const spanFmt = new Intl.DateTimeFormat('en-GB', {
 export function spanDate(v: string | null | undefined): string {
   const d = toDate(v)
   return d ? spanFmt.format(d) : ''
+}
+
+export function isRare(e: Pick<SkyEvent, 'rarity'>): boolean {
+  return e.rarity?.status === 'ready' && e.rarity.rare
+}
+
+const yearOf = (v: string | null | undefined) => toDate(v)?.getUTCFullYear() ?? null
+
+export function yearsText(y: number): string {
+  if (y < 1) {
+    const m = Math.max(1, Math.round(y * 12))
+    return `${m} ${m === 1 ? 'month' : 'months'}`
+  }
+  const v = y >= 10 ? Math.round(y) : Number(y.toFixed(1))
+  return `${v} ${v === 1 ? 'year' : 'years'}`
+}
+
+export function rarityText(r: Rarity | null | undefined): string {
+  if (!r || r.status !== 'ready') return ''
+  if (r.interval_years !== null && r.interval_years !== undefined) return `once in ${yearsText(r.interval_years)}`
+  const to = yearOf(r.searched_to)
+  return to ? `no recurrence before ${to}` : 'no recurrence found'
+}
+
+export function rareBadge(r: Rarity | null | undefined): string {
+  const t = rarityText(r)
+  return t ? `Rare: ${t}` : 'Rare'
+}
+
+const occFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+
+function occDate(night: string): string {
+  const d = nightDate(night)
+  return d ? occFmt.format(d) : night
+}
+
+export function rarityDetail(r: Rarity | null | undefined): string {
+  if (!r) return 'Recurrence not searched yet.'
+  if (r.status !== 'ready') return `Recurrence not searched: ${r.reason || 'no reason given.'}`
+  const from = yearOf(r.searched_from)
+  const to = yearOf(r.searched_to)
+  const prev =
+    r.previous && r.previous_years !== null
+      ? `Previous ${occDate(r.previous.first_night)}, ${yearsText(r.previous_years)} before.`
+      : `None earlier${from ? ` back to ${from}` : ''}.`
+  const next =
+    r.next && r.next_years !== null
+      ? `Next ${occDate(r.next.first_night)}, ${yearsText(r.next_years)} after.`
+      : `None later${to ? ` up to ${to}` : ''}.`
+  return `${prev} ${next}`
+}
+
+export interface AutoView {
+  label: string
+  tone: 'ok' | 'info' | 'warn' | 'bad' | ''
+  message: string
+}
+
+export function autoView(e: Pick<SkyEvent, 'plan' | 'auto_plan'>): AutoView | null {
+  const a: AutoPlan | null | undefined = e.auto_plan
+  if (e.plan?.automatic) {
+    const when = e.plan.planned_at ? ` ${shortDay(e.plan.planned_at)}` : ''
+    return { label: 'Planned automatically', tone: 'info', message: `The stacker planned this rare event at high priority${when}.` }
+  }
+  if (!a) return null
+  switch (a.state) {
+    case 'waiting':
+      return { label: 'Plans itself', tone: 'info', message: a.reason || 'The stacker plans this rare event at high priority.' }
+    case 'declined':
+      return { label: 'Automatic planning off', tone: '', message: a.reason || '' }
+    case 'failed':
+      return { label: 'Automatic plan failed', tone: 'bad', message: a.reason || '' }
+    case 'planned':
+      return { label: 'Planned automatically', tone: 'info', message: '' }
+    case 'skipped':
+      return null
+  }
+  return null
+}
+
+const dayFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone: SITE_TZ })
+
+function shortDay(v: string): string {
+  const d = toDate(v)
+  return d ? `on ${dayFmt.format(d)}, ${clock(d)}` : ''
+}
+
+export interface EventGroup {
+  key: 'rare' | 'other'
+  title: string
+  events: SkyEvent[]
+}
+
+export function groupEvents(events: SkyEvent[]): EventGroup[] {
+  const rare = events.filter(isRare)
+  const other = events.filter((e) => !isRare(e))
+  const out: EventGroup[] = []
+  if (rare.length) out.push({ key: 'rare', title: 'Rare', events: rare })
+  if (other.length) out.push({ key: 'other', title: rare.length ? 'Other events' : '', events: other })
+  return out
+}
+
+export function rareFirst(events: SkyEvent[]): SkyEvent[] {
+  return [...events.filter(isRare), ...events.filter((e) => !isRare(e))]
 }

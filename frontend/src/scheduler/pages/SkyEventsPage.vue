@@ -2,6 +2,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import PageHead from '../components/PageHead.vue'
 import {
+  MAX_MONTHS,
   getSkyEvents,
   planSkyEvent,
   setSkyEventPriority,
@@ -11,10 +12,13 @@ import {
   type SkyEvents,
 } from '../api/skyEvents'
 import {
+  autoView,
   countText,
   exposureText,
   frameGeometry,
   frameLabel,
+  groupEvents,
+  isRare,
   kindChip,
   lanes,
   momentText,
@@ -24,6 +28,10 @@ import {
   objectLabels,
   pageState,
   planView,
+  rareBadge,
+  rareFirst,
+  rarityDetail,
+  rarityText,
   spanDate,
   stripRange,
   thisWeek,
@@ -33,7 +41,8 @@ import { describeOutcome, shell, showToast, upsertWaiting } from '../shell'
 import { clock, shortDate } from '../format'
 import { latestOnly } from '../latest'
 
-const MONTHS = 6
+const MONTH_CHOICES = [3, 6, 12, MAX_MONTHS]
+const wanted = ref(MAX_MONTHS)
 
 const data = ref<SkyEvents | null>(null)
 const error = ref('')
@@ -44,7 +53,7 @@ async function load() {
   const current = req.next()
   loading.value = true
   try {
-    const r = await getSkyEvents(MONTHS)
+    const r = await getSkyEvents(wanted.value)
     if (!current()) return
     data.value = r
     error.value = ''
@@ -60,12 +69,19 @@ onMounted(load)
 
 const state = computed(() => pageState(data.value, error.value, loading.value))
 const events = computed(() => data.value?.events ?? [])
-const months = computed(() => data.value?.months ?? MONTHS)
+const months = computed(() => data.value?.months ?? wanted.value)
+const groups = computed(() => groupEvents(events.value))
+const stripWidth = computed(() => `max(100%, ${months.value * 2.75}rem)`)
+
+function pickMonths(ev: Event) {
+  wanted.value = Number((ev.target as HTMLSelectElement).value)
+  load()
+}
 
 const range = computed(() => stripRange(data.value?.from, data.value?.to, months.value, shell.now))
 
-const laneList = computed(() => (range.value ? lanes(events.value, range.value.t0, range.value.t1) : []))
-const marks = computed(() => (range.value ? monthMarks(range.value.t0, range.value.t1) : []))
+const laneList = computed(() => (range.value ? lanes(rareFirst(events.value), range.value.t0, range.value.t1) : []))
+const marks = computed(() => (range.value ? monthMarks(range.value.t0, range.value.t1, 24 / months.value) : []))
 const todayAt = computed(() => {
   const r = range.value
   if (!r || shell.now < r.t0 || shell.now > r.t1) return null
@@ -97,6 +113,8 @@ const criteriaText = computed(() => {
     `Sun below ${c.sun_below_deg}°, altitude above ${c.min_altitude_deg}°, sampled every ${c.step_minutes} minutes. ${c.basis}`
   )
 })
+
+const rarityBasis = computed(() => events.value.find((e) => e.rarity?.status === 'ready')?.rarity?.basis ?? '')
 
 const computedText = computed(() => {
   const d = data.value
@@ -187,11 +205,18 @@ const pointColour = (kind: string) =>
         <h2 id="ev-h">
           {{ state === 'empty' ? `No events in the ${monthsText(months)}` : countText(events.length, months) }}
         </h2>
-        <span class="small muted" style="max-width: 60ch">
-          Events fill gaps. Mark one high priority to let it interrupt a running project at the
-          next exposure boundary.
-        </span>
+        <label class="small months-pick" for="ev-months">
+          Show
+          <select id="ev-months" :value="wanted" :disabled="loading" @change="pickMonths">
+            <option v-for="n in MONTH_CHOICES" :key="n" :value="n">{{ n }} months</option>
+          </select>
+        </label>
       </div>
+      <p class="small muted lead">
+        Events fill gaps. Mark one high priority to let it interrupt a running project at the next
+        exposure boundary. Rare events, with no other chance within 10 years either way, are planned
+        at high priority by the stacker unless you unplan them or set them to normal.
+      </p>
 
       <p v-if="state === 'empty' && criteriaText" class="empty" style="padding: 0">
         {{ criteriaText }}
@@ -207,15 +232,23 @@ const pointColour = (kind: string) =>
         </li>
       </ul>
 
-      <div v-if="state === 'ready' && range" class="strip" aria-label="Event windows over the search span">
+      <div
+        v-if="state === 'ready' && range"
+        class="strip-scroll"
+        tabindex="0"
+        aria-label="Event windows over the search span, scrolls sideways"
+      >
+      <div class="strip" :style="{ width: stripWidth }">
         <div class="months" aria-hidden="true">
-          <span v-for="m in marks" :key="m.label + m.at" :style="{ left: m.at + '%' }">{{ m.label }}</span>
+          <span v-for="m in marks" :key="m.label + m.at" :style="{ left: m.at + '%' }"
+            >{{ m.label }}<b v-if="m.year" class="yr">{{ m.year }}</b></span
+          >
         </div>
         <ul class="lanes">
           <li v-for="l in laneList" :key="l.id" class="lane" :title="l.title">
             <span
               class="bar"
-              :class="{ hi: l.high }"
+              :class="{ hi: l.high, rare: l.rare }"
               :style="{ left: l.left + '%', width: l.width + '%' }"
               aria-hidden="true"
             />
@@ -225,7 +258,8 @@ const pointColour = (kind: string) =>
                   ? { left: l.labelAt + '%', maxWidth: l.labelMax + '%' }
                   : { right: l.labelAt + '%', maxWidth: l.labelMax + '%', textAlign: 'right' }
               "
-              >{{ l.label }}<span v-if="l.high" class="sr-only">, high priority</span></em
+              >{{ l.label }}<span v-if="l.rare" class="sr-only">, rare</span
+              ><span v-if="l.high" class="sr-only">, high priority</span></em
             >
           </li>
           <li
@@ -238,9 +272,22 @@ const pointColour = (kind: string) =>
           </li>
         </ul>
       </div>
+      </div>
 
-      <div v-if="state === 'ready'" class="events">
-        <article v-for="e in events" :key="e.id" class="ev">
+      <section
+        v-for="g in state === 'ready' ? groups : []"
+        :key="g.key"
+        class="events"
+        :class="g.key"
+        :aria-label="g.title || 'Events'"
+      >
+        <header v-if="g.title" class="group-head">
+          <h3>{{ g.title }}</h3>
+          <span v-if="g.key === 'rare'" class="xsmall muted"
+            >No other chance for these members within 10 years before or after.</span
+          >
+        </header>
+        <article v-for="e in g.events" :key="e.id" class="ev" :class="{ rare: isRare(e) }">
           <svg
             :viewBox="`0 0 ${geometry(e).width} ${geometry(e).height}`"
             role="img"
@@ -293,6 +340,8 @@ const pointColour = (kind: string) =>
           <div class="ev-body">
             <h3>{{ e.title }}</h3>
             <div class="chips">
+              <span v-if="isRare(e)" class="badge rare">{{ rareBadge(e.rarity) }}</span>
+              <span v-else-if="rarityText(e.rarity)" class="chip">{{ rarityText(e.rarity) }}</span>
               <span v-if="thisWeek(e, shell.now)" class="chip now">This week</span>
               <span class="chip">{{ kindChip(e) }}</span>
               <span class="chip">{{ nightsText(e.nights) }}</span>
@@ -305,6 +354,7 @@ const pointColour = (kind: string) =>
               <span>altitude then <b>{{ Math.round(e.best.altitude_deg) }}°</b></span>
               <span>in frame <b>{{ Number(e.hours_in_frame.toFixed(1)) }} h</b> total</span>
             </div>
+            <p class="xsmall muted exposure" :title="e.rarity?.basis || undefined">{{ rarityDetail(e.rarity) }}</p>
             <p class="xsmall muted exposure">{{ exposureText(e.exposure) }}</p>
             <div class="row actions">
               <template v-if="planView(e.plan)?.active">
@@ -338,13 +388,17 @@ const pointColour = (kind: string) =>
                 High priority
               </label>
             </div>
+            <p v-if="autoView(e)" class="xsmall plan-msg auto">
+              <span class="badge" :class="autoView(e)!.tone">{{ autoView(e)!.label }}</span>
+              {{ autoView(e)!.message }}
+            </p>
             <p v-if="planView(e.plan)?.message" class="xsmall muted plan-msg">
               {{ planView(e.plan)!.message }}
             </p>
             <p v-if="cardError[e.id]" class="xsmall plan-err" role="alert">{{ cardError[e.id] }}</p>
           </div>
         </article>
-      </div>
+      </section>
 
       <div v-if="state === 'ready'" class="xsmall muted notes">
         <p>
@@ -353,6 +407,7 @@ const pointColour = (kind: string) =>
           and deep-sky objects are drawn at their catalogued diameters.
         </p>
         <p v-if="criteriaText">{{ criteriaText }}</p>
+        <p v-if="rarityBasis"><b>Rarity.</b> {{ rarityBasis }}</p>
       </div>
     </section>
   </main>
@@ -375,13 +430,26 @@ const pointColour = (kind: string) =>
   display: grid;
   gap: 0.25rem;
 }
+.lead {
+  margin: 0.25rem 0 0.75rem;
+  max-width: 75ch;
+}
+.months-pick {
+  display: inline-flex;
+  gap: 0.375rem;
+  align-items: center;
+}
+.strip-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
 .strip {
   position: relative;
   min-width: 0;
 }
 .months {
   position: relative;
-  height: 1.25rem;
+  height: 2.25rem;
   font-size: 0.75rem;
   color: var(--muted-foreground);
   border-bottom: 1px solid var(--border);
@@ -390,6 +458,14 @@ const pointColour = (kind: string) =>
   position: absolute;
   top: 0;
   white-space: nowrap;
+  padding-left: 2px;
+  border-left: 1px solid var(--border);
+  height: 100%;
+}
+.months .yr {
+  display: block;
+  font-weight: 600;
+  color: var(--foreground);
 }
 .lanes {
   position: relative;
@@ -414,6 +490,41 @@ const pointColour = (kind: string) =>
 }
 .lane .bar.hi {
   background: var(--warn);
+}
+.lane .bar.rare {
+  background: var(--violet);
+  opacity: 1;
+}
+.lane .bar.rare.hi {
+  box-shadow: 0 0 0 2px var(--warn);
+}
+.badge.rare {
+  background: var(--violet-bg);
+  color: var(--violet);
+  font-weight: 600;
+}
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: baseline;
+}
+.group-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.events.rare {
+  margin-bottom: 1.25rem;
+}
+.ev.rare {
+  border-color: var(--violet);
+}
+.auto {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  align-items: baseline;
+  color: var(--muted-foreground);
 }
 .lane em {
   position: absolute;
