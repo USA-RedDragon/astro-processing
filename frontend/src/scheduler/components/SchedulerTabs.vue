@@ -44,28 +44,10 @@ import {
   type GoalKind,
   type Point,
   type ProjectDetail,
-  type ProjectSettingValues,
   type StackMaster,
   type Target,
 } from '../api/planning'
 import { submitCommand } from '../api/commands'
-import {
-  MINIMUM_ALTITUDE_RANGE,
-  MINIMUM_TIME_RANGE,
-  NOT_SET,
-  SETTINGS,
-  flatsLabel,
-  flatsOptions,
-  minimumAltitudeError,
-  minimumTimeError,
-  projectSettings,
-  settingChanges,
-  settingError,
-  settingErrors,
-  settingText,
-  type ProjectSettingCurrent,
-  type SettingKey,
-} from '../projectSettings'
 import {
   errorToast,
   exposureEnd,
@@ -720,78 +702,25 @@ async function resetWeights() {
 const optDraft = reactive<{
   priority?: string
   state?: string
-  minimumTime?: number
-  minimumAltitude?: number
 }>({})
-const schedDraft = reactive<Partial<ProjectSettingValues>>({})
-const sched = computed(() => (p.value ? projectSettings(p.value) : null))
-const schedValues = computed<ProjectSettingCurrent | null>(() =>
-  sched.value ? { ...sched.value, ...schedDraft } : null,
-)
-const schedChanges = computed(() =>
-  sched.value ? settingChanges(sched.value, schedDraft) : [],
-)
-const minAltChanged = computed(
-  () => optDraft.minimumAltitude !== undefined && optDraft.minimumAltitude !== p.value?.minimumAltitude,
-)
-const schedErrors = computed<Partial<Record<SettingKey, string>>>(() => {
-  if (!schedValues.value || !p.value) return {}
-  const minAlt = optDraft.minimumAltitude ?? p.value.minimumAltitude
-  if (schedChanges.value.length) return settingErrors(schedValues.value, minAlt)
-  if (!minAltChanged.value) return {}
-  const spec = SETTINGS.find((s) => s.key === 'maximumAltitude')!
-  const e = settingError(spec, schedValues.value.maximumAltitude, minAlt)
-  return e ? { maximumAltitude: e } : {}
-})
-const optErrors = computed(() => ({
-  minimumTime:
-    optDraft.minimumTime !== undefined && optDraft.minimumTime !== p.value?.minimumTime
-      ? minimumTimeError(optDraft.minimumTime)
-      : '',
-  minimumAltitude:
-    minAltChanged.value && optDraft.minimumAltitude !== undefined
-      ? minimumAltitudeError(optDraft.minimumAltitude)
-      : '',
-}))
-const schedInvalid = computed(
-  () =>
-    Object.keys(schedErrors.value).length > 0 ||
-    !!optErrors.value.minimumTime ||
-    !!optErrors.value.minimumAltitude,
-)
-
-function setSched(key: SettingKey, v: number | boolean) {
-  ;(schedDraft as Record<SettingKey, number | boolean>)[key] = v
-}
-
-function inputNum(e: Event): number {
-  const v = (e.target as HTMLInputElement).value.trim()
-  return v === '' ? NaN : Number(v)
-}
 
 const optDirty = computed(() => {
   const pr = p.value
   if (!pr) return false
   return (
-    schedChanges.value.length > 0 ||
     (optDraft.priority !== undefined && optDraft.priority !== pr.priority) ||
-    (optDraft.state !== undefined && optDraft.state !== pr.state) ||
-    (optDraft.minimumTime !== undefined && optDraft.minimumTime !== pr.minimumTime) ||
-    (optDraft.minimumAltitude !== undefined && optDraft.minimumAltitude !== pr.minimumAltitude)
+    (optDraft.state !== undefined && optDraft.state !== pr.state)
   )
 })
 
 function resetOpts() {
   delete optDraft.priority
   delete optDraft.state
-  delete optDraft.minimumTime
-  delete optDraft.minimumAltitude
-  Object.keys(schedDraft).forEach((k) => delete schedDraft[k as SettingKey])
 }
 
 async function saveOpts() {
   const pr = p.value
-  if (!pr || schedInvalid.value) return
+  if (!pr) return
   const changes: { field: string; before: unknown; after: unknown }[] = []
   if (optDraft.priority !== undefined && optDraft.priority !== pr.priority)
     changes.push({
@@ -805,15 +734,6 @@ async function saveOpts() {
       before: STATE_INDEX[pr.state],
       after: STATE_INDEX[optDraft.state],
     })
-  if (optDraft.minimumTime !== undefined && optDraft.minimumTime !== pr.minimumTime)
-    changes.push({ field: 'minimumtime', before: pr.minimumTime, after: optDraft.minimumTime })
-  if (optDraft.minimumAltitude !== undefined && optDraft.minimumAltitude !== pr.minimumAltitude)
-    changes.push({
-      field: 'minimumaltitude',
-      before: pr.minimumAltitude,
-      after: optDraft.minimumAltitude,
-    })
-  changes.push(...schedChanges.value)
   resetOpts()
   if (!changes.length) return
   try {
@@ -1518,113 +1438,10 @@ function numInput(e: Event): number {
               <option v-if="p.state === 'Draft'">Draft</option>
             </select>
           </label>
-          <label class="field">
-            <span>Minimum time, min</span>
-            <input
-              class="input num"
-              type="number"
-              :min="MINIMUM_TIME_RANGE.min"
-              :max="MINIMUM_TIME_RANGE.max"
-              :value="Number.isNaN(optDraft.minimumTime) ? '' : (optDraft.minimumTime ?? p.minimumTime)"
-              :aria-invalid="!!optErrors.minimumTime"
-              @change="optDraft.minimumTime = inputNum($event)"
-            />
-            <span v-if="optErrors.minimumTime" class="xsmall" style="color: var(--bad)">{{
-              optErrors.minimumTime
-            }}</span>
-          </label>
-          <label class="field">
-            <span>Minimum altitude, °</span>
-            <input
-              class="input num"
-              type="number"
-              :min="MINIMUM_ALTITUDE_RANGE.min"
-              :max="MINIMUM_ALTITUDE_RANGE.max"
-              step="0.1"
-              :value="
-                Number.isNaN(optDraft.minimumAltitude) ? '' : (optDraft.minimumAltitude ?? p.minimumAltitude)
-              "
-              :aria-invalid="!!optErrors.minimumAltitude"
-              @change="optDraft.minimumAltitude = inputNum($event)"
-            />
-            <span v-if="optErrors.minimumAltitude" class="xsmall" style="color: var(--bad)">{{
-              optErrors.minimumAltitude
-            }}</span>
-          </label>
-        </div>
-        <div v-if="sched && schedValues" class="sched" aria-labelledby="sched-h">
-          <h3 id="sched-h" class="small" style="margin: 0">Scheduling</h3>
-          <p class="xsmall muted" style="margin: 0.125rem 0 0">
-            Target Scheduler's acquisition settings for this project.
-          </p>
-          <div class="optgrid" style="margin-top: 0.75rem">
-            <div v-for="s in SETTINGS" :key="s.key" class="field">
-              <label v-if="s.kind === 'bool'" class="field">
-                <span>{{ s.label }}</span>
-                <span class="row small" style="height: 2.25rem; flex-wrap: nowrap">
-                  <input
-                    type="checkbox"
-                    class="size-4 accent-primary"
-                    :checked="!!schedValues[s.key]"
-                    @change="setSched(s.key, ($event.target as HTMLInputElement).checked)"
-                  />
-                  {{ settingText(s, schedValues[s.key]) }}
-                </span>
-              </label>
-              <label v-else-if="s.kind === 'flats'" class="field">
-                <span>{{ s.label }}</span>
-                <select
-                  class="input"
-                  :value="schedValues.flatsHandling ?? ''"
-                  @change="setSched(s.key, Number(($event.target as HTMLSelectElement).value))"
-                >
-                  <option v-if="schedValues.flatsHandling === null" value="" disabled>
-                    {{ NOT_SET }}
-                  </option>
-                  <option
-                    v-for="v in flatsOptions(sched.flatsHandling ?? undefined)"
-                    :key="v"
-                    :value="v"
-                  >
-                    {{ flatsLabel(v) }}
-                  </option>
-                </select>
-              </label>
-              <label v-else class="field">
-                <span>{{ s.label }}{{ s.unit ? ', ' + s.unit : '' }}</span>
-                <input
-                  class="input num"
-                  type="number"
-                  :min="s.min"
-                  :max="s.max"
-                  :step="s.kind === 'int' ? 1 : 0.1"
-                  :value="
-                    schedValues[s.key] === null || Number.isNaN(schedValues[s.key])
-                      ? ''
-                      : schedValues[s.key]
-                  "
-                  :placeholder="schedValues[s.key] === null ? NOT_SET : undefined"
-                  :aria-invalid="!!schedErrors[s.key]"
-                  @change="setSched(s.key, inputNum($event))"
-                />
-              </label>
-              <span v-if="schedErrors[s.key]" class="xsmall" style="color: var(--bad)">{{
-                schedErrors[s.key]
-              }}</span>
-              <span v-else class="xsmall muted"
-                >{{ schedDraft[s.key] !== undefined && schedDraft[s.key] !== sched[s.key]
-                  ? 'Now ' + settingText(s, sched[s.key]) + '. '
-                  : s.kind === 'bool' || s.kind === 'flats'
-                    ? ''
-                    : settingText(s, schedValues[s.key]) + '. '
-                }}{{ s.help }}</span
-              >
-            </div>
-          </div>
         </div>
         <div v-if="optDirty" class="row" style="justify-content: flex-end">
           <button type="button" class="btn" @click="resetOpts">Reset</button>
-          <button type="button" class="btn primary" :disabled="schedInvalid" @click="saveOpts">
+          <button type="button" class="btn primary" @click="saveOpts">
             Save options
           </button>
         </div>
