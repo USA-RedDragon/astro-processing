@@ -47,6 +47,7 @@ const drafting = ref(false)
 const busy = ref(false)
 const framing = ref<BodyFraming | null>(null)
 const typicalHours = ref<number | null>(null)
+const loadingWindow = ref(false)
 
 function usual<T>(vals: T[]): T | null {
   const counts = new Map<T, number>()
@@ -97,6 +98,7 @@ watch(
     draft.value = null
     draftError.value = ''
     typicalHours.value = null
+    loadingWindow.value = false
     if (!b) {
       draftSeq++
       drafting.value = false
@@ -112,8 +114,10 @@ watch(
         return
       }
     }
+    loadingWindow.value = true
     const hours = await typical
     if (props.body !== b) return
+    loadingWindow.value = false
     typicalHours.value = hours
     makeDraft()
   },
@@ -220,6 +224,9 @@ async function add() {
       Could not load your exposure templates: {{ snapError }}
     </p>
     <p v-else-if="!snap" class="small muted" style="margin: 0">Loading your exposure templates…</p>
+    <p v-else-if="loadingWindow" class="small muted" style="margin: 0">
+      Working out its window above {{ minAlt }}° over the next 90 nights…
+    </p>
     <p v-else-if="missing" class="small" style="margin: 0; color: var(--bad)">{{ missing }}</p>
     <p v-else-if="draftError" class="small" style="margin: 0; color: var(--bad)">
       Not drafted: {{ draftError }}

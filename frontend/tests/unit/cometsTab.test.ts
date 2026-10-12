@@ -232,6 +232,22 @@ describe('CometsTab', () => {
     app.unmount()
   })
 
+  it('says it is working out the window and drafts nothing until it knows', async () => {
+    const { el, app } = await render({
+      '/comets': () => json(tonight),
+      '/commands': () => json([]),
+      'POST /planning/projects/draft': () => json(drafted),
+      '/bodies/nights': () => new Promise<Response>(() => {}) as unknown as Response,
+      '/planning': () => json(planning(all)),
+    })
+    ;(el.querySelector('tbody button') as HTMLButtonElement).click()
+    await settle()
+    const panel = el.querySelector('.addpanel')!
+    expect(panel.textContent).toContain('Working out its window above 30° over the next 90 nights…')
+    expect(calls.some((c) => c.url.includes('/planning/projects/draft'))).toBe(false)
+    app.unmount()
+  })
+
   it('shortens the minimum time to half of a short window and says why', async () => {
     const short = {
       ...comet('332P/Ikeya-Murakami', 12.4, 12.2, 0.4),
