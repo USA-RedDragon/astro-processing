@@ -271,7 +271,7 @@ describe('AsteroidsTab', () => {
       desired: 0,
       minimumAltitude: 30,
       plans: [{ templateId: 1 }, { templateId: 2 }, { templateId: 3 }, { templateId: 4 }],
-      goal: { kind: 'snr', snr: 0, depth: 0 },
+      goal: { kind: 'snr', snr: 50, depth: 0 },
       panels: [{ name: '1 Ceres', dec: 23.4 }],
     })
     const add = [...panel.querySelectorAll('button')].find((b) =>

@@ -5,6 +5,7 @@ import { getBodyNightsPreview, type BodyFraming } from '../api/comets'
 import { withFraming } from '../framing'
 import FramingEditor from './FramingEditor.vue'
 import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../api/planning'
+import { DEFAULT_ASTEROID_SNR } from '../bodyGoals'
 import { defaultValues } from '../projectSettings'
 import { errorToast, notifyCommand, shell } from '../shell'
 import {
@@ -143,7 +144,7 @@ async function makeDraft() {
       plans: plans.plans,
       goalDriven,
       desired: 0,
-      goal: { kind: 'snr', snr: 0, depth: 0 },
+      goal: { kind: 'snr', snr: props.kind === 'asteroid' ? DEFAULT_ASTEROID_SNR : 0, depth: 0 },
       panels: [{ name: b.name, raHours: b.ra / 15, dec: b.dec, rotation: 0 }],
       ...(ps ? defaultValues(ps) : {}),
     })) as CometDraft
