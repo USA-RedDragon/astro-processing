@@ -1,5 +1,6 @@
 import type { WeightDiff } from './ruleweights'
 import { api, query } from './client'
+import { bodyTonightText } from '../bodyGoals'
 import type { Bucket } from './sublength'
 
 export type GoalKind = 'snr' | 'depth'
@@ -111,6 +112,40 @@ export interface FilterGoal {
   goalProgress: number | null
   notMeasured?: string
   plateauAt?: Plateau
+  body?: BodyStatus
+}
+
+export type BodyKind = 'comet' | 'asteroid'
+
+export interface BodyNightView {
+  night: string
+  subs: number
+  effectiveHours: number
+  snr: number | null
+  headSnr?: number
+  tailSnr?: number
+  progress: number
+  done: boolean
+  plateau: boolean
+  saturated: boolean
+  trailPx?: number
+  trailShort: boolean
+  note?: string
+  previewKey?: string
+  measuredAt?: string
+}
+
+export interface BodyStatus {
+  kind: BodyKind
+  measure: string
+  goal: number
+  tonight: string
+  tonightSubs: number
+  current?: BodyNightView
+  nights: BodyNightView[]
+  done: boolean
+  doneNight?: string
+  minTrailPx: number
 }
 
 export interface LeastPlateau {
@@ -203,6 +238,7 @@ export interface Target {
   exposureSet: string
   goalMode: GoalKind
   objectLinks?: ObjectLink[]
+  bodyKind?: BodyKind
 }
 
 export interface ObjectLinkMethod {
@@ -770,6 +806,7 @@ export function leastText(l: Least | undefined, mosaic = false): string {
 }
 
 export function filterHeadline(fg: FilterGoal): string {
+  if (fg.body) return bodyTonightText(fg)
   if (filterOnCounts(fg))
     return `${fg.enough ? 'enough data · ' : ''}${ON_COUNTS_TEXT} · ${countsLine(fg)}`
   if (fg.enough) {

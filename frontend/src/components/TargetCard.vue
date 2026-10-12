@@ -151,6 +151,7 @@ export default {
       return this.target.active ? 'secondary' : 'outline';
     },
     statusText(): string {
+      if (this.enoughData && this.planning?.bodyKind === 'comet') return 'Done for tonight';
       if (this.enoughData) return 'Enough data';
       return this.target.active ? 'Active' : 'Inactive';
     },

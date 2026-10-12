@@ -4,6 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import BodyFramingCard from './BodyFramingCard.vue'
 import BodySeasonCard from './BodySeasonCard.vue'
+import BodyNightsCard from './BodyNightsCard.vue'
+import {
+  bodyFill,
+  bodyHeading,
+  bodyIntro,
+  bodyMeasureText,
+  bodyTonightText,
+  bodyValue,
+  bodyValueTitle,
+} from '../bodyGoals'
 import { formatDate } from '@/lib/formatters'
 import {
   countsBadge,
@@ -238,6 +248,12 @@ function goalValue(fg: FilterGoal, m: GoalKind): number {
 }
 
 const goals = computed(() => target.value?.goals ?? [])
+const bodyKind = computed(() => target.value?.bodyKind)
+const bodyObjects = computed(() => {
+  const t = target.value
+  if (!t) return []
+  return [...new Set([t.name, ...(t.objectLinks ?? []).map((l) => l.object)])]
+})
 const weakest = computed(() => {
   const f = target.value?.least?.filter
   return goals.value.find((g) => g.filter === f) ?? goals.value[0]
@@ -930,15 +946,24 @@ function numInput(e: Event): number {
           <div class="spread" style="align-items: flex-start">
             <div style="flex: 1 1 20rem; min-width: 0">
               <h2 id="goal-h">
-                {{ mode === 'snr' ? 'Faint-signal SNR per filter' : 'Depth per filter' }}
+                {{
+                  bodyKind
+                    ? bodyHeading(bodyKind)
+                    : mode === 'snr'
+                      ? 'Faint-signal SNR per filter'
+                      : 'Depth per filter'
+                }}
               </h2>
-              <p class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
+              <p v-if="bodyKind" class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
+                {{ bodyIntro(bodyKind) }}
+              </p>
+              <p v-else class="small muted" style="margin: 0.25rem 0 0; max-width: 70ch">
                 Bars show each filter's measured progress toward its goal. A filter with no goal
                 measurement yet reads as not measured, never as a sub count. The target has enough
                 data when every filter does.
               </p>
             </div>
-            <div role="group" aria-label="Goal type" class="seg">
+            <div v-if="!bodyKind" role="group" aria-label="Goal type" class="seg">
               <button
                 type="button"
                 :aria-pressed="mode === 'snr'"
@@ -980,17 +1005,26 @@ function numInput(e: Event): number {
                 }}</span
               >
               <div style="display: flex; flex-direction: column; gap: 0.25rem; min-width: 0">
-                <div class="bar tall" style="flex: none" :title="filterHeadline(fg)">
+                <div
+                  class="bar tall"
+                  style="flex: none"
+                  :title="bodyKind ? bodyTonightText(fg) : filterHeadline(fg)"
+                >
                   <div
                     :style="{
-                      width: fgFill(fg),
+                      width: bodyKind ? bodyFill(fg) : fgFill(fg),
                       background: filterColor(fg.stackFilter),
                     }"
                   />
                 </div>
-                <PlateauLine :plateau="filterPlateau(fg)" :rollup="false" />
+                <PlateauLine
+                  v-if="bodyKind !== 'asteroid'"
+                  :plateau="filterPlateau(fg)"
+                  :rollup="false"
+                />
                 <div class="spread xsmall muted num">
-                  <span
+                  <span v-if="bodyKind" data-testid="body-tonight">{{ bodyTonightText(fg) }}</span>
+                  <span v-else
                     >{{ fgLine(fg) }}<span v-if="fg.measurement?.gainPerHourPct != null">
                       · +1 h gives {{ r1(fg.measurement.gainPerHourPct) }}%</span
                     ></span
@@ -1007,7 +1041,8 @@ function numInput(e: Event): number {
                 </div>
               </div>
               <span class="row num" style="justify-content: flex-end; flex-wrap: wrap; min-width: 0">
-                <strong :title="measuredTitle(fg)">{{ measuredValue(fg) }}</strong>
+                <strong v-if="bodyKind" :title="bodyValueTitle(fg)">{{ bodyValue(fg) }}</strong>
+                <strong v-else :title="measuredTitle(fg)">{{ measuredValue(fg) }}</strong>
                 <span
                   v-if="mode === 'depth' && fg.measurement?.depth != null && fg.measurement.depthBand"
                   class="xsmall muted"
@@ -1022,7 +1057,8 @@ function numInput(e: Event): number {
                   fg.goalSet ? 'of' : fg.goal ? 'of default' : 'no goal · default'
                 }}</span>
                 <label :for="'goal-' + fg.filter" class="sr-only"
-                  >{{ fg.filter }} {{ mode === 'depth' ? 'depth goal' : 'faint SNR goal' }}</label
+                  >{{ fg.filter }}
+                  {{ bodyKind ? 'SNR goal' : mode === 'depth' ? 'depth goal' : 'faint SNR goal' }}</label
                 >
                 <input
                   :id="'goal-' + fg.filter"
@@ -1038,7 +1074,7 @@ function numInput(e: Event): number {
             </div>
             <p v-if="!goals.length" class="empty">No enabled exposure plans on this target.</p>
           </div>
-          <label class="row small">
+          <label v-if="bodyKind !== 'asteroid'" class="row small">
             <input
               type="checkbox"
               :checked="plateauStop"
@@ -1095,7 +1131,8 @@ function numInput(e: Event): number {
           </div>
         </section>
 
-        <section class="card" style="flex: 2 1 26rem" aria-labelledby="band-h">
+        <BodyNightsCard v-if="bodyKind" :kind="bodyKind" :goals="goals" :objects="bodyObjects" />
+        <section v-else class="card" style="flex: 2 1 26rem" aria-labelledby="band-h">
           <div class="spread">
             <h2 id="band-h">Where the faint signal is measured</h2>
             <span class="xsmall muted">{{
@@ -1153,7 +1190,10 @@ function numInput(e: Event): number {
       </div>
       <section v-if="tab === 'goal'" class="card" aria-labelledby="meas-h">
         <h2 id="meas-h">What the stacker measured</h2>
-        <div class="scroll-x">
+        <p v-if="bodyKind" class="small" style="margin: 0">
+          {{ bodyMeasureText(bodyKind) }}
+        </p>
+        <div v-else class="scroll-x">
           <table class="dgrid num xsmall">
             <thead>
               <tr>
@@ -1193,7 +1233,7 @@ function numInput(e: Event): number {
             </tbody>
           </table>
         </div>
-        <p class="xsmall muted" style="margin: 0">
+        <p v-if="!bodyKind" class="xsmall muted" style="margin: 0">
           Values are 4×4-binned rates in full-scale units per second. σ is the stack's noise at
           its current hours from the fit σ² = a²/t + b² to the half-stack differences (A−B)/√2;
           SNR is the band's median above the sky over σ.
