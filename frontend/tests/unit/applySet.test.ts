@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { applySetCount, canApplySet, submitApplySet } from '@/scheduler/applySet'
+import { canApplySet, submitApplySet } from '@/scheduler/applySet'
 import type { CommandRecord } from '@/scheduler/api/commands'
-import type { ApplySetDraft, GoalEditPayload } from '@/scheduler/api/planning'
+import type { GoalEditPayload } from '@/scheduler/api/planning'
 
 const goal: GoalEditPayload = {
   project_id: 7,
@@ -53,11 +53,6 @@ describe('apply set draft', () => {
     expect(canApplySet({ effects: [], goals: [] })).toBe(false)
     expect(canApplySet({ effects: [], payload: { a: 1 } })).toBe(true)
     expect(canApplySet({ effects: [effect(1, true)], goals: [goal] })).toBe(true)
-  })
-
-  it('counts targets with changes, including goal-only ones', () => {
-    const d: ApplySetDraft = { effects: [effect(1, true), effect(2, false), effect(3, true)], goals: [goal] }
-    expect(applySetCount(d)).toBe(2)
   })
 
   it('submits the plan change first, then each goal edit', async () => {

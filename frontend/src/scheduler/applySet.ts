@@ -12,10 +12,6 @@ export function canApplySet(d: ApplySetDraft | null | undefined): boolean {
   return d.payload !== undefined && d.payload !== null ? true : applySetGoalEdits(d).length > 0
 }
 
-export function applySetCount(d: ApplySetDraft | null | undefined): number {
-  return d?.effects.filter((e) => e.changes).length ?? 0
-}
-
 export async function submitApplySet(
   d: ApplySetDraft,
   submit: (kind: string, payload: unknown) => Promise<CommandRecord>,

@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -46,7 +45,6 @@ import { matchesFilter, type ProjectFilter } from '../projects'
 
 const props = defineProps<{ filter: ProjectFilter; order?: (string | number)[] }>()
 
-const router = useRouter()
 const snap = ref<Snapshot | null>(null)
 const loading = ref(true)
 const loadError = ref('')
@@ -240,11 +238,6 @@ async function adoptGoals() {
     errorToast(e)
   }
 }
-
-function applySet() {
-  const ids = selected.value.flatMap((p) => p.targets.map((t) => t.id))
-  router.push({ name: 'templates', query: { targets: ids.join(',') } })
-}
 </script>
 
 <template>
@@ -282,7 +275,6 @@ function applySet() {
       >
         Finish on goals
       </Button>
-      <Button @click="applySet">Apply an exposure set…</Button>
       <Button variant="link" size="sm" class="px-0" @click="clearSel">Clear</Button>
     </div>
 

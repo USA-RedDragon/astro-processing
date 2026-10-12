@@ -50,12 +50,6 @@ export const navGroups: NavGroup[] = [
         names: ['mosaics', 'mosaic'],
       },
       {
-        to: '/templates',
-        label: 'Templates',
-        note: 'Exposure sets and bulk edits',
-        names: ['templates'],
-      },
-      {
         to: '/rule-weights',
         label: 'Rule weights',
         note: 'One scoring set for every project',

@@ -88,12 +88,6 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Add target' },
   },
   {
-    path: '/templates',
-    name: 'templates',
-    component: () => import('../scheduler/pages/TemplatesPage.vue'),
-    meta: { title: 'Templates' },
-  },
-  {
     path: '/rule-weights',
     name: 'rule-weights',
     component: () => import('../scheduler/pages/RuleWeightsPage.vue'),

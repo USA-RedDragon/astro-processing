@@ -338,22 +338,6 @@ export interface Filter {
   managed: boolean
 }
 
-export interface SetItem {
-  template: string
-  exposure: number
-  desired: number
-}
-
-export interface ExposureSet {
-  id: string
-  name: string
-  hint: string
-  items: SetItem[]
-  projects: number
-  projectIds: number[]
-  examples: string[]
-}
-
 export interface RigBasis {
   source: string
   frames: number
@@ -422,7 +406,6 @@ export interface Snapshot {
   projects: Project[]
   templates: Template[]
   filters?: Filter[] | null
-  sets: ExposureSet[]
   rules: Rule[]
   defaults: PlanningDefaults
 }
@@ -430,7 +413,6 @@ export interface Snapshot {
 export interface ProjectDetail {
   project: Project
   rules: Rule[]
-  sets: ExposureSet[]
   templates: Template[]
   filters?: Filter[] | null
   defaults?: {
@@ -587,12 +569,6 @@ export interface StackMaster {
 export const getPlanning = () => api.get<Snapshot>('/planning')
 export const getProject = (id: number | string) =>
   api.get<ProjectDetail>(`/planning/projects/${id}`)
-export const draftApplySet = (body: {
-  setId: string
-  mode: string
-  targetIds: number[]
-  desired?: number
-}) => api.post<ApplySetDraft>('/planning/applyset/draft', body)
 export const draftFilters = (body: { targetIds: number[]; filters: string[] }) =>
   api.post<ApplySetDraft>('/planning/filters/draft', body)
 export interface PickGoal {
