@@ -902,6 +902,8 @@ const KIND_BY_REASON: Record<string, LeftOutKind> = {
   'no visible targets': 'hidden',
   'all exposure plans rejected for twilight': 'conditions',
   'all exposure plans rejected for moon avoidance': 'conditions',
+  'all exposure plans rejected for a bright Moon': 'conditions',
+  'bright Moon': 'conditions',
   'all exposure plans rejected for humidity': 'conditions',
   'moon avoidance': 'conditions',
   complete: 'complete',

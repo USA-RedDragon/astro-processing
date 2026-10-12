@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import RuleWeightsConfirm from '../components/RuleWeightsConfirm.vue'
+import MoonKeepCard from '../components/MoonKeepCard.vue'
 import {
   applyRuleWeights,
   getRuleWeights,
@@ -262,6 +263,8 @@ async function run() {
         </li>
       </ul>
     </section>
+
+    <MoonKeepCard />
 
     <RuleWeightsConfirm
       v-if="confirm.open"

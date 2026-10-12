@@ -72,6 +72,9 @@ import { onChange } from '@/lib/events'
 import { flatsTile, moonTile, mosaicTile } from '../tonightTiles'
 import { getSkyEvents, type SkyEvent } from '../api/skyEvents'
 import { tonightBlocks } from '../skyEvents'
+import { getMoonKeep, type MoonKeepView } from '../api/moonkeep'
+import { tonightNote } from '../moonKeep'
+import MoonKeepNote from '../components/MoonKeepNote.vue'
 
 const night = ref<Night>('tonight')
 const preview = ref<Preview | null>(null)
@@ -88,6 +91,7 @@ async function load(fresh = false, live = false) {
     preview.value = p
     error.value = ''
     loadMoon()
+    loadMoonKeep()
     if (fresh)
       showToast({
         text: 'Re-simulated at ' + clock(Date.now()),
@@ -121,6 +125,25 @@ async function loadMoon() {
     moonError.value = e instanceof Error ? e.message : String(e)
   }
 }
+
+const moonKeep = ref<MoonKeepView | null>(null)
+const moonKeepReq = latestOnly()
+
+async function loadMoonKeep() {
+  const r = nightRange(preview.value)
+  if (!r) return
+  const current = moonKeepReq.next()
+  try {
+    const v = await getMoonKeep(new Date(r[0]).toISOString(), new Date(r[1]).toISOString())
+    if (current()) moonKeep.value = v
+  } catch {
+    if (current()) moonKeep.value = null
+  }
+}
+
+const moonKeepNote = computed(() =>
+  tonightNote(moonKeep.value, preview.value?.blocks, preview.value?.left_out),
+)
 
 const projects = ref<SchedProject[]>([])
 const projectsError = ref('')
@@ -215,6 +238,7 @@ onUnmounted(() => offLive.forEach((f) => f()))
 watch(night, () => {
   preview.value = null
   moonNight.value = null
+  moonKeep.value = null
   whatIf.value = null
   load()
   if (hasChanges.value) runWhatIf()
@@ -822,6 +846,12 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
         at dawn; longer cadences wait for a later dawn. Target Scheduler matches flats on the
         rotator's mechanical angle at capture; the angles shown are each target's rotation.
       </p>
+
+      <MoonKeepNote
+        v-if="preview && moonKeepNote"
+        :headline="moonKeepNote.headline"
+        :lines="moonKeepNote.lines"
+      />
 
       <section aria-labelledby="tl-h" class="card">
         <div class="spread">

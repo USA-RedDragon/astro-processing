@@ -46,6 +46,9 @@ import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../s
 import { activityLine } from '../activity'
 import PageHead from '../components/PageHead.vue'
 import AutofocusPanel from '../components/AutofocusPanel.vue'
+import MoonKeepNote from '../components/MoonKeepNote.vue'
+import { getMoonKeep, type MoonKeepView } from '../api/moonkeep'
+import { nowNote } from '../moonKeep'
 import { getAutofocusRuns } from '../api/autofocus'
 import { fromStatus, type AfRun } from '../autofocus'
 import {
@@ -131,6 +134,22 @@ async function loadMoon() {
   }
 }
 
+const moonKeep = ref<MoonKeepView | null>(null)
+
+async function loadMoonKeep() {
+  const t = Date.now()
+  try {
+    moonKeep.value = await getMoonKeep(
+      new Date(t - 15 * 60e3).toISOString(),
+      new Date(t + 15 * 60e3).toISOString(),
+    )
+  } catch {
+    moonKeep.value = null
+  }
+}
+
+const moonNow = computed(() => nowNote(moonKeep.value, st.value, shell.now))
+
 async function loadPreview() {
   try {
     preview.value = await getPreview('tonight')
@@ -144,6 +163,7 @@ async function loadPreview() {
 
 let previewTimer: ReturnType<typeof setInterval> | undefined
 let conditionsTimer: ReturnType<typeof setInterval> | undefined
+let moonKeepTimer: ReturnType<typeof setInterval> | undefined
 let debounce: ReturnType<typeof setTimeout> | undefined
 const offs: (() => void)[] = []
 
@@ -177,6 +197,8 @@ onMounted(() => {
   // subs reload only when the stacker or the scheduler's tables say so.
   conditionsTimer = setInterval(loadConditions, 30000)
   previewTimer = setInterval(loadPreview, 300000)
+  loadMoonKeep()
+  moonKeepTimer = setInterval(loadMoonKeep, 300000)
   offs.push(
     onEvent('frames', soon),
     onEvent('preview', tonights),
@@ -194,6 +216,7 @@ onMounted(() => {
 onUnmounted(() => {
   if (previewTimer) clearInterval(previewTimer)
   if (conditionsTimer) clearInterval(conditionsTimer)
+  if (moonKeepTimer) clearInterval(moonKeepTimer)
   if (debounce) clearTimeout(debounce)
   offs.forEach((f) => f())
   window.removeEventListener('keydown', onKey)
@@ -802,6 +825,8 @@ const cross = (x: number, y: number, r: number) =>
         <span class="num" style="font-weight: 500">{{ s.value }}</span>
       </span>
     </section>
+
+    <MoonKeepNote v-if="moonNow" headline="Bright Moon" :lines="[moonNow]" />
 
     <div class="cards">
       <section aria-labelledby="current-h" class="card current">
