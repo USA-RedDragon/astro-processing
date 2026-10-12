@@ -51,6 +51,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Finder' },
   },
   {
+    path: '/sky-events',
+    name: 'sky-events',
+    component: () => import('../scheduler/pages/SkyEventsPage.vue'),
+    meta: { title: 'Sky events' },
+  },
+  {
     path: '/collabs',
     name: 'collabs',
     component: () => import('../scheduler/pages/CollabsPage.vue'),

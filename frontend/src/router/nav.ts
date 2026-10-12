@@ -70,6 +70,12 @@ export const navGroups: NavGroup[] = [
       },
       { to: '/finder', label: 'Finder', note: 'Objects that suit your frame', names: ['finder'] },
       {
+        to: '/sky-events',
+        label: 'Events',
+        note: 'Conjunctions and close passes to plan',
+        names: ['sky-events'],
+      },
+      {
         to: '/collabs',
         label: 'Collabs',
         note: 'Starfront collaborations and fit',

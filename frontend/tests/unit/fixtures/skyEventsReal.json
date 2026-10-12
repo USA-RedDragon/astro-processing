@@ -1,0 +1,280 @@
+{
+ "bodies": [
+  {
+   "kind": "moon",
+   "name": "Moon",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Mercury",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Venus",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Mars",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Jupiter",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Saturn",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Uranus",
+   "source": "DE440"
+  },
+  {
+   "kind": "planet",
+   "name": "Neptune",
+   "source": "DE440"
+  }
+ ],
+ "body_errors": [],
+ "computed_at": "2026-10-12T20:00:00Z",
+ "criteria": {
+  "basis": "Every 30 minutes while the Sun is below -12° and every member is above 15°; the members fit inside the 3.32° × 2.22° frame less 0.16° on each side (3.00° × 1.90°) at some rotator angle, and no two are more than 3.00° apart edge to edge. Steps up to 36 hours apart join into one event. Positions: Moon and planets from JPL DE440s, comets and asteroids from JPL Horizons, deep-sky objects from the stacker catalogue (Messier, and named objects of 20′ or more).",
+  "min_altitude_deg": 15,
+  "step_minutes": 30,
+  "sun_below_deg": -12,
+  "usable_height_deg": 1.9,
+  "usable_width_deg": 3
+ },
+ "events": [
+  {
+   "best": {
+    "altitude_deg": 53.9,
+    "at": "2026-10-11T11:30:00Z",
+    "separation_deg": 0.089
+   },
+   "end": "2026-10-14T12:00:00Z",
+   "exposure": {
+    "basis": "Short set: 0.0041 s keeps the brightest pixel of Mars (magnitude 1.1) near 32768 ADU, from the L zero point 21.50 (median of 1 measured stacks), 1.91″/px, typical HFR 4.0″, and 0.4 mag allowed for the band. Normal set not measured yet: no L exposure length is known.",
+    "normal_seconds": null,
+    "short_seconds": 0.0041
+   },
+   "first_night": "2026-10-07",
+   "frame": {
+    "center_dec": 19.67206,
+    "center_ra": 130.0925,
+    "height_deg": 2.22,
+    "objects": [
+     {
+      "diameter_deg": 0.00163,
+      "east_deg": -0.0559,
+      "kind": "planet",
+      "name": "Mars",
+      "north_deg": -0.0689,
+      "type": null,
+      "x_deg": -0.0559,
+      "y_deg": -0.0689
+     },
+     {
+      "diameter_deg": 1.81,
+      "east_deg": 0,
+      "kind": "dso",
+      "name": "M 44 Beehive",
+      "north_deg": 0,
+      "type": "open-cluster",
+      "x_deg": 0,
+      "y_deg": 0
+     }
+    ],
+    "rotation_deg": 0,
+    "width_deg": 3.32
+   },
+   "hours_in_frame": 23.5,
+   "id": "mars-m-44-2026-10-07",
+   "kind": "body-dso",
+   "last_night": "2026-10-13",
+   "members": [
+    {
+     "designation": null,
+     "diameter_deg": 0.00163,
+     "kind": "planet",
+     "magnitude": 1.06,
+     "name": "Mars",
+     "type": null
+    },
+    {
+     "designation": "M 44",
+     "diameter_deg": 1.81,
+     "kind": "dso",
+     "magnitude": 3.1,
+     "name": "M 44 Beehive",
+     "type": "open-cluster"
+    }
+   ],
+   "moving_center": false,
+   "night_windows": [
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-08T12:00:00Z",
+     "hours": 3,
+     "night": "2026-10-07",
+     "start": "2026-10-08T09:00:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-09T12:00:00Z",
+     "hours": 3,
+     "night": "2026-10-08",
+     "start": "2026-10-09T09:00:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-10T12:00:00Z",
+     "hours": 3.5,
+     "night": "2026-10-09",
+     "start": "2026-10-10T08:30:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-11T12:00:00Z",
+     "hours": 3.5,
+     "night": "2026-10-10",
+     "start": "2026-10-11T08:30:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-12T12:00:00Z",
+     "hours": 3.5,
+     "night": "2026-10-11",
+     "start": "2026-10-12T08:30:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-13T12:00:00Z",
+     "hours": 3.5,
+     "night": "2026-10-12",
+     "start": "2026-10-13T08:30:00Z"
+    },
+    {
+     "center_dec": 19.67206,
+     "center_ra": 130.0925,
+     "end": "2026-10-14T12:00:00Z",
+     "hours": 3.5,
+     "night": "2026-10-13",
+     "start": "2026-10-14T08:30:00Z"
+    }
+   ],
+   "nights": 7,
+   "plan": null,
+   "priority": "normal",
+   "start": "2026-10-08T09:00:00Z",
+   "title": "Mars with M 44 Beehive"
+  },
+  {
+   "best": {
+    "altitude_deg": 65.8,
+    "at": "2026-11-02T12:00:00Z",
+    "separation_deg": 1.243
+   },
+   "end": "2026-11-02T12:30:00Z",
+   "exposure": {
+    "basis": "Short set: 0.0036 s keeps the brightest pixel of Mars (magnitude 0.9) near 32768 ADU, from the L zero point 21.50 (median of 1 measured stacks), 1.91″/px, typical HFR 4.0″, and 0.4 mag allowed for the band.",
+    "normal_seconds": null,
+    "short_seconds": 0.0036
+   },
+   "first_night": "2026-11-01",
+   "frame": {
+    "center_dec": 16.24543,
+    "center_ra": 141.26896,
+    "height_deg": 2.22,
+    "objects": [
+     {
+      "diameter_deg": 0.53966,
+      "east_deg": -0.2917,
+      "kind": "moon",
+      "name": "Moon",
+      "north_deg": -0.3741,
+      "type": null,
+      "x_deg": 0.4744,
+      "y_deg": 0.0004
+     },
+     {
+      "diameter_deg": 0.00183,
+      "east_deg": 0.6548,
+      "kind": "planet",
+      "name": "Mars",
+      "north_deg": 0.4321,
+      "type": null,
+      "x_deg": -0.7436,
+      "y_deg": 0.25
+     }
+    ],
+    "rotation_deg": 128,
+    "width_deg": 3.32
+   },
+   "hours_in_frame": 4.5,
+   "id": "moon-mars-2026-11-01",
+   "kind": "body-body",
+   "last_night": "2026-11-01",
+   "members": [
+    {
+     "designation": null,
+     "diameter_deg": 0.53966,
+     "kind": "moon",
+     "magnitude": -9.79,
+     "name": "Moon",
+     "type": null
+    },
+    {
+     "designation": null,
+     "diameter_deg": 0.00183,
+     "kind": "planet",
+     "magnitude": 0.86,
+     "name": "Mars",
+     "type": null
+    }
+   ],
+   "moving_center": true,
+   "night_windows": [
+    {
+     "center_dec": 16.51696,
+     "center_ra": 140.87361,
+     "end": "2026-11-02T12:30:00Z",
+     "hours": 4.5,
+     "night": "2026-11-01",
+     "start": "2026-11-02T08:00:00Z"
+    }
+   ],
+   "nights": 1,
+   "plan": null,
+   "priority": "normal",
+   "start": "2026-11-02T08:00:00Z",
+   "title": "Moon with Mars"
+  }
+ ],
+ "frame": {
+  "basis": "Measured camera field 3.32° × 2.22° at 1.91″/px.",
+  "height_deg": 2.22,
+  "width_deg": 3.32
+ },
+ "from": "2026-07-01T00:00:00Z",
+ "months": 6,
+ "planning": {
+  "available": true,
+  "reason": null
+ },
+ "reason": null,
+ "status": "ready",
+ "to": "2027-11-01T00:00:00Z"
+}
