@@ -1656,6 +1656,11 @@ function numInput(e: Event): number {
   border-radius: 0.5rem;
   padding: 0.625rem 0.75rem;
 }
+.badge.warn {
+  display: inline-flex;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+}
 .tabs {
   display: flex;
   flex-wrap: wrap;
