@@ -32,7 +32,6 @@ import {
   rareFirst,
   rarityDetail,
   rarityText,
-  spanDate,
   stripRange,
   thisWeek,
   windowText,
@@ -95,14 +94,18 @@ const planDisabledReason = computed(() => {
   return p.available ? '' : p.reason || 'Planning is not available.'
 })
 
+const majorBodies = ['Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
+
 const bodiesText = computed(() => {
   const b = data.value?.bodies ?? []
-  return b.length ? b.map((x) => `${x.name} (${x.source})`).join(', ') : ''
+  if (!b.length) return ''
+  const added = b.map((x) => x.name).filter((n) => !majorBodies.includes(n))
+  return added.length ? `Searches the Moon, the planets and ${added.join(', ')}.` : 'Searches the Moon and the planets.'
 })
 
 const frameText = computed(() => {
   const f = data.value?.frame
-  return f ? `${f.width_deg.toFixed(2)}° × ${f.height_deg.toFixed(2)}° frame. ${f.basis}` : ''
+  return f ? `Your camera frame is ${f.width_deg.toFixed(2)}° × ${f.height_deg.toFixed(2)}°, measured from your images.` : ''
 })
 
 const criteriaText = computed(() => {
@@ -119,8 +122,7 @@ const rarityBasis = computed(() => events.value.find((e) => e.rarity?.status ===
 const computedText = computed(() => {
   const d = data.value
   if (!d?.computed_at) return ''
-  const span = d.from && d.to ? `, covering ${spanDate(d.from)} to ${spanDate(d.to)}` : ''
-  return `Computed ${shortDate(d.computed_at)} ${clock(d.computed_at)}${span}.`
+  return `Updated ${shortDate(d.computed_at)} ${clock(d.computed_at)}.`
 })
 
 const busy = reactive<Record<string, boolean>>({})
@@ -168,7 +170,7 @@ const pointColour = (kind: string) =>
     <PageHead context="Discover" title="Sky events">
       Close pairings of the Moon, planets and comets with each other and with catalogue objects,
       found by searching ahead from your site. Times are Central.
-      <span v-if="bodiesText" class="block xsmall mt-1">Bodies: {{ bodiesText }}.</span>
+      <span v-if="bodiesText" class="block xsmall mt-1">{{ bodiesText }}</span>
       <span v-if="frameText" class="block xsmall">{{ frameText }}</span>
       <span v-if="computedText" class="block xsmall">{{ computedText }}</span>
     </PageHead>
