@@ -161,6 +161,7 @@ describe('AsteroidsTab', () => {
           asteroids: 13737,
           error: 'refresh failed, using yesterday',
         },
+        horizons: { checked: 2, failed: 1, pending: 0, errors: ['2026 TC6: timed out'] },
       },
     )
     const created = {
@@ -214,6 +215,8 @@ describe('AsteroidsTab', () => {
     expect(el.textContent).toContain('Elements from ssd-api.jpl.nasa.gov, 13,737 asteroids')
     expect(el.textContent).toContain('Close approaches from ssd-api.jpl.nasa.gov, 18 asteroids')
     expect(el.textContent).toContain('Asteroid elements: refresh failed, using yesterday')
+    expect(el.textContent).toContain('JPL Horizons: 2 asteroids checked for tonight, 1 failed')
+    expect(el.textContent).toContain('JPL Horizons: 2026 TC6: timed out')
     expect(el.querySelector('.blank')).toBeNull()
     app.unmount()
   })

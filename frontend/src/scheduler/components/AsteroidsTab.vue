@@ -18,6 +18,7 @@ import {
   asteroidEmptyState,
   asteroidSubTitle,
   fetchedText,
+  horizonsText,
   positionSource,
   sortAsteroids,
 } from '../asteroids'
@@ -185,16 +186,24 @@ const pick = (a: Asteroid) => (picked.value = { ...a })
       <p style="margin: 0">
         V magnitudes are predictions from each asteroid's H and G (the H,G model), not measurements.
         Positions and motion are two-body from JPL Small-Body Database elements, except near-Earth
-        asteroids, which come from JPL Horizons. The list keeps asteroids at V
-        {{ view.max_magnitude }} or brighter.
+        asteroids and asteroids on JPL's close-approach list, which come from JPL Horizons. The list
+        keeps asteroids at V {{ view.max_magnitude }} or brighter.
       </p>
       <p style="margin: 0">{{ fetchedText('Elements', view.elements) }}</p>
       <p style="margin: 0">{{ fetchedText('Close approaches', view.close_approaches) }}</p>
+      <p v-if="view.horizons" style="margin: 0">{{ horizonsText(view.horizons) }}</p>
       <p v-if="view.elements.error" style="margin: 0; color: var(--warn)">
         Asteroid elements: {{ view.elements.error }}
       </p>
       <p v-if="view.close_approaches.error" style="margin: 0; color: var(--warn)">
         Close approaches: {{ view.close_approaches.error }}
+      </p>
+      <p
+        v-for="(e, i) in view.horizons?.errors ?? []"
+        :key="i"
+        style="margin: 0; color: var(--warn)"
+      >
+        JPL Horizons: {{ e }}
       </p>
     </div>
   </section>

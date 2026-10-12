@@ -5,6 +5,7 @@ import {
   asteroidEmptyState,
   asteroidSubTitle,
   fetchedText,
+  horizonsText,
   positionSource,
   sortAsteroids,
   sourceHost,
@@ -130,5 +131,17 @@ describe('fetchedText', () => {
         fetched_at: '2026-10-12T15:00:00Z',
       }),
     ).toMatch(/^Close approaches from ssd-api\.jpl\.nasa\.gov, 18 asteroids, fetched .+ 10:00 CDT$/)
+  })
+})
+
+describe('horizonsText', () => {
+  it('counts the checks and names failures and pending ones', () => {
+    expect(horizonsText(undefined)).toBe('')
+    expect(horizonsText({ checked: 6, failed: 0, pending: 0, errors: [] })).toBe(
+      'JPL Horizons: 6 asteroids checked for tonight',
+    )
+    expect(horizonsText({ checked: 1, failed: 1, pending: 2, errors: ['timeout'] })).toBe(
+      'JPL Horizons: 1 asteroid checked for tonight, 1 failed, 2 still pending',
+    )
   })
 })

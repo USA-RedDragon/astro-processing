@@ -1,5 +1,5 @@
 import { ApiError } from './api/client'
-import type { Asteroid, AsteroidSourceInfo, AsteroidView } from './api/asteroids'
+import type { Asteroid, AsteroidSourceInfo, AsteroidView, HorizonsInfo } from './api/asteroids'
 import type { EmptyState } from './comets'
 import { clock, shortDate } from './format'
 
@@ -72,4 +72,14 @@ export function fetchedText(label: string, info: AsteroidSourceInfo): string {
     ? `fetched ${shortDate(info.fetched_at)} ${clock(info.fetched_at)}`
     : 'not fetched yet'
   return `${label}${from}, ${info.asteroids.toLocaleString('en-US')} asteroids, ${when}`
+}
+
+export function horizonsText(h: HorizonsInfo | null | undefined): string {
+  if (!h) return ''
+  const parts = [
+    `JPL Horizons: ${h.checked} ${h.checked === 1 ? 'asteroid' : 'asteroids'} checked for tonight`,
+  ]
+  if (h.failed) parts.push(`${h.failed} failed`)
+  if (h.pending) parts.push(`${h.pending} still pending`)
+  return parts.join(', ')
 }

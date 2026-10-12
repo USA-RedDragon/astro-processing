@@ -32,6 +32,13 @@ export interface AsteroidSourceInfo {
   error?: string
 }
 
+export interface HorizonsInfo {
+  checked: number
+  failed: number
+  pending: number
+  errors: string[] | null
+}
+
 export interface AsteroidView {
   computed_at: string
   night: { start: string; dusk?: string; dawn?: string }
@@ -39,6 +46,7 @@ export interface AsteroidView {
   max_magnitude: number
   elements: AsteroidSourceInfo
   close_approaches: AsteroidSourceInfo
+  horizons?: HorizonsInfo
   basis: string
   asteroids: Asteroid[] | null
 }
