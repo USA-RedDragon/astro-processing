@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
 import SkyThumb from '../components/SkyThumb.vue'
+import CometsTab from '../components/CometsTab.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   MONTHS,
   addLink,
@@ -35,6 +37,12 @@ const types = [
   { key: 'pn', label: 'Planetary' },
   { key: 'gal', label: 'Galaxy' },
 ]
+
+type Tab = 'deep' | 'comets'
+const route = useRoute()
+const router = useRouter()
+const tab = ref<Tab>(route.query.tab === 'comets' ? 'comets' : 'deep')
+watch(tab, (t) => router.replace({ query: { ...route.query, tab: t === 'deep' ? undefined : t } }))
 
 const thisMonth = new Date().getMonth()
 function defaultMonths(): Record<number, boolean> {
@@ -91,7 +99,12 @@ watch(
   },
   { deep: true },
 )
-onMounted(load)
+onMounted(() => {
+  if (tab.value === 'deep') load()
+})
+watch(tab, (t) => {
+  if (t === 'deep' && !result.value && !loading.value) load()
+})
 
 function reset() {
   f.fit = { one: true, few: true, many: true }
@@ -222,7 +235,11 @@ function imaged(r: FinderRow) {
 <template>
   <main class="page wide">
     <PageHead context="Discover" title="Target finder">
-      <template v-if="frame">
+      <template v-if="tab === 'comets'">
+        Comets above the comet list's altitude floor in tonight's darkness, from the Minor Planet
+        Center's daily elements. Times are Central.
+      </template>
+      <template v-else-if="frame">
         Objects that suit your {{ frame.w.toFixed(2) }}° × {{ frame.h.toFixed(2) }}° frame from your
         site, ranked by how well they fill it, their dark hours, H-α and catalogue gaps. Brightness
         is shown as the catalogue gives it and is not ranked.
@@ -230,14 +247,42 @@ function imaged(r: FinderRow) {
       <template v-else>
         Objects ranked by how well they fill your frame, their dark hours, H-α and catalogue gaps.
       </template>
-      <span v-if="result" class="block xsmall mt-1">{{ rigSource(result.rig) }}</span>
-      <template #actions>
+      <span v-if="result && tab === 'deep'" class="block xsmall mt-1">{{
+        rigSource(result.rig)
+      }}</span>
+      <template v-if="tab === 'deep'" #actions>
         <span v-if="result?.siteError" class="badge warn">{{ result.siteError }}</span>
         <span v-if="result?.rigError" class="badge warn">{{ result.rigError }}</span>
       </template>
     </PageHead>
 
-    <div class="row" style="gap: 1.5rem; align-items: flex-start">
+    <div role="tablist" aria-label="Finder sections" class="tabs">
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'deep'"
+        :class="{ on: tab === 'deep' }"
+        @click="tab = 'deep'"
+      >
+        Deep sky
+      </button>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'comets'"
+        :class="{ on: tab === 'comets' }"
+        @click="tab = 'comets'"
+      >
+        Comets
+      </button>
+      <button type="button" role="tab" aria-selected="false" disabled>
+        Asteroids ≤ V 12 <span class="badge xsmall">coming soon</span>
+      </button>
+    </div>
+
+    <CometsTab v-if="tab === 'comets'" />
+
+    <div v-else class="row" style="gap: 1.5rem; align-items: flex-start">
       <form aria-labelledby="filters-h" class="card filters" @submit.prevent>
         <div class="spread">
           <h2 id="filters-h">Filters</h2>
@@ -462,6 +507,32 @@ function imaged(r: FinderRow) {
 </template>
 
 <style scoped>
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font-size: 0.875rem;
+  margin-bottom: -1px;
+}
+.tabs button.on {
+  border-bottom-color: var(--foreground);
+  font-weight: 600;
+}
+.tabs button:disabled {
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
 .filters {
   flex: 1 1 17rem;
   max-width: 100%;
