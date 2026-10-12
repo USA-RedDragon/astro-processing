@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Badge } from '@/components/ui/badge'
 import BodyFramingCard from './BodyFramingCard.vue'
+import BodySeasonCard from './BodySeasonCard.vue'
 import { formatDate } from '@/lib/formatters'
 import {
   countsBadge,
@@ -902,6 +903,12 @@ function numInput(e: Event): number {
         :target-guid="target.guid"
         :target-id="target.id"
         :target-name="target.name"
+      />
+
+      <BodySeasonCard
+        v-if="target?.guid"
+        :key="'season-' + target.guid"
+        :target-guid="target.guid"
       />
 
       <div role="tablist" aria-label="Target sections" class="tabs">

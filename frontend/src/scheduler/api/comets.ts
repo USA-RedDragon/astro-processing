@@ -123,3 +123,44 @@ export const getBodyTrack = (designation: string, kind?: string, signal?: AbortS
 
 export const getBodyTarget = (guid: string) =>
   api.get<BodyTargetView>('/bodies/target' + query({ target_guid: guid }))
+
+export interface BodyNight {
+  night: string
+  mag: number | null
+  mag_limit: number | null
+  bright: boolean
+  peak_altitude: number | null
+  dark_hours: number
+  usable: boolean
+}
+
+export interface BodyNightsView {
+  target_guid: string
+  name: string
+  designation: string
+  kind: string
+  computed_at: string | null
+  min_altitude: number
+  minimum_minutes: number
+  mag_limit: number
+  bright_nights: number
+  usable_nights: number
+  typical_window_hours: number | null
+  first_usable: string | null
+  last_usable: string | null
+  brightest_mag: number | null
+  brightest_night: string | null
+  basis: string
+  nights: BodyNight[]
+}
+
+export const getBodyNights = (guid: string) =>
+  api.get<BodyNightsView>('/bodies/nights' + query({ target_guid: guid }))
+
+export const getBodyNightsPreview = (
+  designation: string,
+  kind: string,
+  minAlt: number,
+  signal?: AbortSignal,
+) =>
+  api.get<BodyNightsView>('/bodies/nights' + query({ designation, kind, min_alt: minAlt }), signal)
