@@ -42,6 +42,7 @@ import { errorToast, notifyCommand, shell, showToast, whenApplies } from '../she
 import { onEvent } from '../api/events'
 import { ago } from '../format'
 import { matchesFilter, type ProjectFilter } from '../projects'
+import { selectedFilters, sortFilters } from '../filters'
 
 const props = defineProps<{ filter: ProjectFilter; order?: (string | number)[] }>()
 
@@ -72,6 +73,11 @@ onMounted(() => {
 onUnmounted(() => off?.())
 
 const projects = computed(() => snap.value?.projects ?? [])
+
+function filtersText(p: Project): string {
+  const names = sortFilters(selectedFilters(p.targets).map((name) => ({ name }))).map((x) => x.name)
+  return names.length ? names.join(', ') : 'No filters'
+}
 
 const rows = computed(() => {
   const shown = projects.value.filter((p) =>
@@ -314,7 +320,7 @@ async function adoptGoals() {
                 <TableHead>Project</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>State</TableHead>
-                <TableHead>Exposure set</TableHead>
+                <TableHead>Filters</TableHead>
                 <TableHead class="min-w-[11rem]">Toward goal</TableHead>
                 <TableHead>Season</TableHead>
                 <TableHead>Last sub</TableHead>
@@ -382,7 +388,7 @@ async function adoptGoals() {
                 <TableCell
                   class="align-top whitespace-normal min-w-[9rem] max-w-[16rem] break-words"
                 >
-                  {{ p.exposureSet }}
+                  {{ filtersText(p) }}
                 </TableCell>
                 <TableCell class="align-top whitespace-normal min-w-[11rem] max-w-[18rem]">
                   <div class="flex items-center gap-2">
