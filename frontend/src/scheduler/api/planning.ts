@@ -499,8 +499,6 @@ export interface ProjectDraft {
   priority: string
   minimumAltitude: number
   minimumTime: number
-  setId?: string
-  plans?: { templateId: number }[]
   filters?: string[]
   goalDriven?: boolean
   desired?: number

@@ -267,10 +267,9 @@ describe('AsteroidsTab', () => {
     const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
     expect(draft.body).toMatchObject({
       name: '1 Ceres',
-      setId: '',
       desired: 0,
       minimumAltitude: 30,
-      plans: [{ templateId: 1 }, { templateId: 2 }, { templateId: 3 }, { templateId: 4 }],
+      filters: ['L', 'R', 'G', 'B'],
       goal: { kind: 'snr', snr: 50, depth: 0 },
       panels: [{ name: '1 Ceres', dec: 23.4 }],
     })

@@ -1,7 +1,6 @@
 import { ApiError } from './api/client'
 import type { BodyTable, Comet, CometView, CometWindow } from './api/comets'
 import type { CommandRecord } from './api/commands'
-import type { ExposureSet, Template } from './api/planning'
 import { clock, hm } from './format'
 
 export const PIXEL_SCALE_ARCSEC = 1.91
@@ -192,60 +191,20 @@ export function canonicalFilter(name: string | null | undefined): string {
   return n
 }
 
-type TemplateLite = Pick<Template, 'id' | 'name' | 'filter' | 'usedByPlans'>
-
-function lrgbSet(
-  templates: readonly TemplateLite[],
-  sets: readonly Pick<ExposureSet, 'items'>[],
-): Map<string, TemplateLite> | null {
-  const byName = new Map(templates.map((t) => [t.name.trim().toLowerCase(), t]))
-  const keys: string[] = LRGB.map((f) => f.key)
-  for (const set of sets) {
-    if (set.items.length !== keys.length) continue
-    const got = new Map<string, TemplateLite>()
-    for (const it of set.items) {
-      const t = byName.get(it.template.trim().toLowerCase())
-      const c = canonicalFilter(t?.filter)
-      if (!t || !keys.includes(c) || got.has(c)) break
-      got.set(c, t)
-    }
-    if (got.size === keys.length) return got
-  }
-  return null
-}
-
-function mostUsed(templates: readonly TemplateLite[], key: string): TemplateLite | null {
-  let best: TemplateLite | null = null
-  for (const t of templates) {
-    if (canonicalFilter(t.filter) !== key) continue
-    if (
-      !best ||
-      t.usedByPlans > best.usedByPlans ||
-      (t.usedByPlans === best.usedByPlans && t.name < best.name)
-    )
-      best = t
-  }
-  return best
-}
-
-export interface LrgbPlans {
-  plans: { templateId: number }[]
+export interface LrgbFilters {
+  filters: string[]
   missing: string[]
 }
 
-export function lrgbPlans(
-  templates: readonly TemplateLite[],
-  sets: readonly Pick<ExposureSet, 'items'>[],
-): LrgbPlans {
-  const set = lrgbSet(templates, sets)
-  const plans: { templateId: number }[] = []
+export function lrgbFilters(choices: readonly { name: string }[]): LrgbFilters {
+  const filters: string[] = []
   const missing: string[] = []
   for (const f of LRGB) {
-    const t = set ? set.get(f.key) : mostUsed(templates, f.key)
-    if (t) plans.push({ templateId: t.id })
+    const c = choices.find((x) => canonicalFilter(x.name) === f.key)
+    if (c) filters.push(c.name)
     else missing.push(f.label)
   }
-  return { plans, missing }
+  return { filters, missing }
 }
 
 export type BodyKind = 'comet' | 'asteroid'
@@ -267,8 +226,8 @@ export function missingText(missing: readonly string[]): string {
     missing.length === 1
       ? missing[0]
       : `${missing.slice(0, -1).join(', ')} and ${missing[missing.length - 1]}`
-  const n = missing.length === 1 ? 'template' : 'templates'
-  return `No exposure ${n} for ${list}. Make one in Templates first.`
+  const n = missing.length === 1 ? 'filter' : 'filters'
+  return `The observatory has no ${list} ${n}, so it can't image this in LRGB.`
 }
 
 export const MIN_BODY_MINUTES = 20

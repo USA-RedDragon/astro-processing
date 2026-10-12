@@ -8,11 +8,12 @@ import { draftProject, getPlanning, goalDrivenPlugin, type Snapshot } from '../a
 import { DEFAULT_ASTEROID_SNR } from '../bodyGoals'
 import { defaultValues } from '../projectSettings'
 import { errorToast, notifyCommand, shell } from '../shell'
+import { filterChoices } from '../filters'
 import {
   LRGB,
   bodyMinimumTime,
   longestSub,
-  lrgbPlans,
+  lrgbFilters,
   missingText,
   withDesignation,
   type BodyKind,
@@ -87,7 +88,15 @@ async function loadTypical(b: AddBody): Promise<number | null> {
   }
 }
 const lrgb = computed(() =>
-  snap.value ? lrgbPlans(snap.value.templates ?? [], snap.value.sets ?? []) : null,
+  snap.value
+    ? lrgbFilters(
+      filterChoices({
+        filters: snap.value.filters,
+        templates: snap.value.templates,
+        plans: projects.value.flatMap((p) => p.targets?.flatMap((t) => t.plans) ?? []),
+      }),
+    )
+    : null,
 )
 const missing = computed(() => missingText(lrgb.value?.missing ?? []))
 const filterNames = LRGB.map((f) => f.label).join(', ')
@@ -127,8 +136,8 @@ watch(
 
 async function makeDraft() {
   const b = props.body
-  const plans = lrgb.value
-  if (!b || !plans || plans.missing.length) return
+  const lrgbPick = lrgb.value
+  if (!b || !lrgbPick || lrgbPick.missing.length) return
   const my = ++draftSeq
   drafting.value = true
   draftError.value = ''
@@ -140,8 +149,7 @@ async function makeDraft() {
       priority: priority.value,
       minimumAltitude: props.minAlt,
       minimumTime: minTime.value,
-      setId: '',
-      plans: plans.plans,
+      filters: lrgbPick.filters,
       goalDriven,
       desired: 0,
       goal: { kind: 'snr', snr: props.kind === 'asteroid' ? DEFAULT_ASTEROID_SNR : 0, depth: 0 },
@@ -222,9 +230,9 @@ async function add() {
       Minimum time: {{ minTimeChoice.basis }}.
     </p>
     <p v-if="snapError" class="small" style="margin: 0; color: var(--bad)">
-      Could not load your exposure templates: {{ snapError }}
+      Could not load the observatory's filters: {{ snapError }}
     </p>
-    <p v-else-if="!snap" class="small muted" style="margin: 0">Loading your exposure templates…</p>
+    <p v-else-if="!snap" class="small muted" style="margin: 0">Loading the observatory's filters…</p>
     <p v-else-if="loadingWindow" class="small muted" style="margin: 0">
       Working out its window above {{ minAlt }}° over the next 90 nights…
     </p>

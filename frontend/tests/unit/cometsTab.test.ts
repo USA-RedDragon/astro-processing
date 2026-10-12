@@ -210,12 +210,12 @@ describe('CometsTab', () => {
     expect(panel.textContent).not.toContain('capped')
     const draft = calls.find((c) => c.url.includes('/planning/projects/draft'))!
     expect(draft.body).toMatchObject({
-      setId: '',
       desired: 0,
-      plans: [{ templateId: 1 }, { templateId: 2 }, { templateId: 3 }, { templateId: 4 }],
+      filters: ['L', 'R', 'G', 'B'],
       goal: { kind: 'snr', snr: 0, depth: 0 },
     })
-    expect((draft.body as { plans: object[] }).plans.every((p) => !('exposure' in p))).toBe(true)
+    expect(draft.body).not.toHaveProperty('setId')
+    expect(draft.body).not.toHaveProperty('plans')
     const add = [...panel.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('Add 161P'),
     )!
@@ -334,7 +334,7 @@ describe('CometsTab', () => {
     app.unmount()
   })
 
-  it('names a missing filter template and does not draft', async () => {
+  it('names a missing filter and does not draft', async () => {
     const { el, app } = await render({
       '/comets': () => json(tonight),
       '/commands': () => json([]),
@@ -344,8 +344,9 @@ describe('CometsTab', () => {
     await settle()
     const panel = el.querySelector('.addpanel')!
     expect(panel.textContent).toContain(
-      'No exposure template for Green. Make one in Templates first.',
+      "The observatory has no Green filter, so it can't image this in LRGB.",
     )
+    expect(panel.textContent).not.toContain('Templates')
     expect(calls.some((c) => c.url.includes('/planning/projects/draft'))).toBe(false)
     const add = [...panel.querySelectorAll('button')].find((b) =>
       b.textContent?.includes('Add 161P'),

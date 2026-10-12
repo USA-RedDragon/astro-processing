@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/scheduler/api/client'
 import type { Comet, CometView } from '@/scheduler/api/comets'
 import type { CommandRecord } from '@/scheduler/api/commands'
-import type { ExposureSet, Template } from '@/scheduler/api/planning'
 import {
   bodyMinimumTime,
   addStates,
@@ -10,7 +9,7 @@ import {
   canonicalFilter,
   emptyState,
   longestSub,
-  lrgbPlans,
+  lrgbFilters,
   missingText,
   peakText,
   rateText,
@@ -229,68 +228,23 @@ describe('addStates', () => {
   })
 })
 
-describe('lrgbPlans', () => {
-  const t = (id: number, name: string, filter: string, usedByPlans = 0) =>
-    ({ id, name, filter, usedByPlans }) as Template
+describe('lrgbFilters', () => {
+  const f = (name: string) => ({ name })
 
-  const templates = [
-    t(1, 'Luminance', 'Luminance', 5),
-    t(2, 'R 600', 'R', 3),
-    t(3, 'G 600', 'G', 3),
-    t(4, 'B 600', 'B', 3),
-    t(5, 'Red short', 'Red', 1),
-    t(6, 'H-a', 'H-a', 9),
-    t(7, 'Lum alt', 'L', 5),
-  ]
-
-  it('always gives Luminance, Red, Green and Blue, most-used template first', () => {
-    const out = lrgbPlans(templates, [])
-    expect(out.missing).toEqual([])
-    expect(out.plans).toEqual([
-      { templateId: 7 },
-      { templateId: 2 },
-      { templateId: 3 },
-      { templateId: 4 },
-    ])
-    expect(out.plans.every((p) => !('exposure' in p))).toBe(true)
-  })
-
-  it('takes the templates from a set that is exactly LRGB, like the wizard', () => {
-    const sets = [
-      {
-        items: [
-          { template: 'R 600' },
-          { template: 'G 600' },
-          { template: 'B 600' },
-          { template: 'H-a' },
-        ],
-      },
-      {
-        items: [
-          { template: 'luminance' },
-          { template: 'Red short' },
-          { template: 'G 600' },
-          { template: 'B 600' },
-        ],
-      },
-    ] as unknown as ExposureSet[]
-    expect(lrgbPlans(templates, sets).plans).toEqual([
-      { templateId: 1 },
-      { templateId: 5 },
-      { templateId: 3 },
-      { templateId: 4 },
-    ])
+  it('names the observatory filters for Luminance, Red, Green and Blue', () => {
+    const out = lrgbFilters([f('H-a'), f('Blue'), f('L'), f('Red'), f('Green')])
+    expect(out).toEqual({ filters: ['L', 'Red', 'Green', 'Blue'], missing: [] })
   })
 
   it('names the missing filters instead of guessing', () => {
-    const out = lrgbPlans([t(1, 'L', 'L'), t(3, 'G', 'G'), t(6, 'H-a', 'H-a')], [])
-    expect(out.plans).toEqual([{ templateId: 1 }, { templateId: 3 }])
+    const out = lrgbFilters([f('L'), f('G'), f('H-a')])
+    expect(out.filters).toEqual(['L', 'G'])
     expect(out.missing).toEqual(['Red', 'Blue'])
     expect(missingText(out.missing)).toBe(
-      'No exposure templates for Red and Blue. Make one in Templates first.',
+      "The observatory has no Red and Blue filters, so it can't image this in LRGB.",
     )
     expect(missingText(['Green'])).toBe(
-      'No exposure template for Green. Make one in Templates first.',
+      "The observatory has no Green filter, so it can't image this in LRGB.",
     )
     expect(missingText([])).toBe('')
   })
