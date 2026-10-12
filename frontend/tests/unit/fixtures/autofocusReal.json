@@ -1,0 +1,727 @@
+{
+ "since": "2026-10-05T14:51:01Z",
+ "available": true,
+ "runs": [
+  {
+   "id": "1d00d3bb-e791-4d8d-8a48-5fbc20449fec",
+   "profile_id": "2794f735-8a27-4d3a-ad20-9fe7ae159276",
+   "started_at": "2026-10-12T08:46:56.738Z",
+   "finished_at": "2026-10-12T08:49:06.515Z",
+   "duration_seconds": 129.77696,
+   "success": true,
+   "filter": "Red",
+   "temperature": 21.0699996948242,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "initial_position": 26209,
+   "chosen_position": 26208.1009285628,
+   "chosen_value": 1.62522154531061,
+   "points": [
+    {
+     "position": 26169,
+     "value": 2.3035701200513747,
+     "error": 0.26828743767619434
+    },
+    {
+     "position": 26179,
+     "value": 1.9866710191315289,
+     "error": 0.20792080250239042
+    },
+    {
+     "position": 26189,
+     "value": 1.7673177949584482,
+     "error": 0.12585429864666087
+    },
+    {
+     "position": 26199,
+     "value": 1.6655594210304612,
+     "error": 0.07393276862890596
+    },
+    {
+     "position": 26209,
+     "value": 1.6333826827889393,
+     "error": 0.06181046213412644
+    },
+    {
+     "position": 26219,
+     "value": 1.6343316665358165,
+     "error": 0.07629908837664434
+    },
+    {
+     "position": 26229,
+     "value": 1.6673924073974962,
+     "error": 0.0930358251462362
+    },
+    {
+     "position": 26239,
+     "value": 1.7055307662356074,
+     "error": 0.11406325914557347
+    },
+    {
+     "position": 26249,
+     "value": 1.8444650504754323,
+     "error": 0.1638161746588569
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26208.101 - x) / 10), 1) * 3.259/59.681 * \u221a((x - 26208.101)\u00b2 + 59.681\u00b2) + (1 - min(max(0, (26208.101 - x) / 10), 1)) * 3.259/121.807 * \u221a((x - 26208.101)\u00b2 + 121.807\u00b2) + -1.633",
+     "LeftTrend": "y = -0.02526315593797101 * x + 663.3787688173438",
+     "RightTrend": "y = 0 * x + 0"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9863996941529474,
+     "LeftTrend": 0.9953689449813921,
+     "RightTrend": 0.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26259.0,
+      "Value": 0.0,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26208.100928562842,
+      "Value": 1.6252215453106085,
+      "Error": 0.0
+     }
+    }
+   },
+   "target_name": "Andromeda",
+   "target_guid": "91a57b0b-3943-4657-9900-24aad179b8c6",
+   "source": "report"
+  },
+  {
+   "id": "a0036f44-1830-5046-ba58-b86568d931dc",
+   "started_at": "2026-10-12T05:44:08.124666Z",
+   "finished_at": "2026-10-12T05:46:17.909862Z",
+   "duration_seconds": 129.785,
+   "success": true,
+   "filter": "Red",
+   "temperature": 22.969999313354492,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26214.009316714517,
+   "chosen_value": 1.624256908309393,
+   "points": [
+    {
+     "position": 26176.0,
+     "value": 2.186750207761541,
+     "error": 0.20525536507512854
+    },
+    {
+     "position": 26186.0,
+     "value": 1.9256142819160793,
+     "error": 0.16507957504561976
+    },
+    {
+     "position": 26196.0,
+     "value": 1.7438870285495915,
+     "error": 0.10582782421963088
+    },
+    {
+     "position": 26206.0,
+     "value": 1.642497657171323,
+     "error": 0.07303062981529918
+    },
+    {
+     "position": 26216.0,
+     "value": 1.6461490481427974,
+     "error": 0.07406945309088986
+    },
+    {
+     "position": 26226.0,
+     "value": 1.6187860378941392,
+     "error": 0.06588212398234683
+    },
+    {
+     "position": 26236.0,
+     "value": 1.6484267448670855,
+     "error": 0.081356729646056
+    },
+    {
+     "position": 26246.0,
+     "value": 1.7218961441643603,
+     "error": 0.12133533327392154
+    },
+    {
+     "position": 26256.0,
+     "value": 1.7846048694372176,
+     "error": 0.1457687612425147
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26214.009 - x) / 10), 1) * 3.251/63.293 * \u221a((x - 26214.009)\u00b2 + 63.293\u00b2) + (1 - min(max(0, (26214.009 - x) / 10), 1)) * 3.251/136.813 * \u221a((x - 26214.009)\u00b2 + 136.813\u00b2) + -1.626",
+     "LeftTrend": "y = -0.021312142350673094 * x + 560.0280078196338",
+     "RightTrend": "y = 0 * x + 0"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9885083293091029,
+     "LeftTrend": 0.9931034218179117,
+     "RightTrend": 0.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26277.0,
+      "Value": 0.0,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26214.009316714517,
+      "Value": 1.624256908309393,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26206.0,
+   "previous_position": 26205.89649059307,
+   "previous_value": 1.6380845118893697
+  },
+  {
+   "id": "08f25681-a2ec-5365-95ef-189bdab8d7bc",
+   "started_at": "2026-10-12T04:38:35.795418Z",
+   "finished_at": "2026-10-12T04:40:45.992729Z",
+   "duration_seconds": 130.197,
+   "success": true,
+   "filter": "Red",
+   "temperature": 22.84000015258789,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26205.89649059307,
+   "chosen_value": 1.6380845118893697,
+   "points": [
+    {
+     "position": 26169.0,
+     "value": 2.273303493180868,
+     "error": 0.21984473163912144
+    },
+    {
+     "position": 26179.0,
+     "value": 1.995538663097768,
+     "error": 0.176885227340442
+    },
+    {
+     "position": 26189.0,
+     "value": 1.7676538356430211,
+     "error": 0.11704329400467284
+    },
+    {
+     "position": 26199.0,
+     "value": 1.656893602825519,
+     "error": 0.0779955622247539
+    },
+    {
+     "position": 26209.0,
+     "value": 1.643206800266914,
+     "error": 0.07424239280130518
+    },
+    {
+     "position": 26219.0,
+     "value": 1.6495316002315483,
+     "error": 0.0826746082364398
+    },
+    {
+     "position": 26229.0,
+     "value": 1.671801548965866,
+     "error": 0.09880460240163513
+    },
+    {
+     "position": 26239.0,
+     "value": 1.7026120951013246,
+     "error": 0.11192377687330701
+    },
+    {
+     "position": 26249.0,
+     "value": 1.8077572442230643,
+     "error": 0.16059622800686046
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26205.896 - x) / 10), 1) * 3.282/56.996 * \u221a((x - 26205.896)\u00b2 + 56.996\u00b2) + (1 - min(max(0, (26205.896 - x) / 10), 1)) * 3.282/144.654 * \u221a((x - 26205.896)\u00b2 + 144.654\u00b2) + -1.644",
+     "LeftTrend": "y = -0.024512018642452945 * x + 643.7094055811483",
+     "RightTrend": "y = 0 * x + 0"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9957315485080278,
+     "LeftTrend": 0.9938152378537589,
+     "RightTrend": 0.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26261.0,
+      "Value": 0.0,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26205.89649059307,
+      "Value": 1.6380845118893697,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26209.0,
+   "previous_position": 26208.68195806531,
+   "previous_value": 1.6296019559503632
+  },
+  {
+   "id": "18120433-b109-5cbd-abfd-518a9fd228a4",
+   "started_at": "2026-10-12T03:54:14.147348Z",
+   "finished_at": "2026-10-12T03:56:21.863397Z",
+   "duration_seconds": 127.716,
+   "success": true,
+   "filter": "Red",
+   "temperature": 24.15999984741211,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26208.68195806531,
+   "chosen_value": 1.6296019559503632,
+   "points": [
+    {
+     "position": 26184.0,
+     "value": 1.9035454438715054,
+     "error": 0.17165832838773176
+    },
+    {
+     "position": 26194.0,
+     "value": 1.7332337589470947,
+     "error": 0.10750138066982573
+    },
+    {
+     "position": 26204.0,
+     "value": 1.6536617116033099,
+     "error": 0.07610232560233876
+    },
+    {
+     "position": 26214.0,
+     "value": 1.6218748656288586,
+     "error": 0.07207176875593757
+    },
+    {
+     "position": 26224.0,
+     "value": 1.662962015923143,
+     "error": 0.09223255074137371
+    },
+    {
+     "position": 26234.0,
+     "value": 1.715326322005698,
+     "error": 0.12157046286078699
+    },
+    {
+     "position": 26244.0,
+     "value": 1.758826760614439,
+     "error": 0.13546227282749324
+    },
+    {
+     "position": 26254.0,
+     "value": 1.8142681291949632,
+     "error": 0.16513296056881321
+    },
+    {
+     "position": 26264.0,
+     "value": 1.8482687568319878,
+     "error": 0.17430873704260108
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26208.682 - x) / 10), 1) * 0.094/6.931 * \u221a((x - 26208.682)\u00b2 + 6.931\u00b2) + (1 - min(max(0, (26208.682 - x) / 10), 1)) * 0.094/16.534 * \u221a((x - 26208.682)\u00b2 + 16.534\u00b2) + 1.536",
+     "LeftTrend": "y = -0.016607579700213437 * x + 436.75692423740685",
+     "RightTrend": "y = 0.004220409316460146 * x + -108.99606501779212"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9817961422555644,
+     "LeftTrend": 1.0,
+     "RightTrend": 0.9962080631023846
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26203.0,
+      "Value": 1.5907515248293862,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26208.68195806531,
+      "Value": 1.6296019559503632,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26234.0,
+   "previous_position": 26234.2288871481,
+   "previous_value": 1.6292041353659152
+  },
+  {
+   "id": "8638cda2-4ba3-5203-8b77-1637df9183ee",
+   "started_at": "2026-10-12T02:11:48.132530Z",
+   "finished_at": "2026-10-12T02:14:13.952919Z",
+   "duration_seconds": 145.82,
+   "success": true,
+   "filter": "Red",
+   "temperature": 24.780000686645508,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26234.2288871481,
+   "chosen_value": 1.6292041353659152,
+   "points": [
+    {
+     "position": 26177.0,
+     "value": 2.2746134798243274,
+     "error": 0.23742751511396065
+    },
+    {
+     "position": 26187.0,
+     "value": 2.0612353307718974,
+     "error": 0.20983259702818224
+    },
+    {
+     "position": 26197.0,
+     "value": 1.8897416473936954,
+     "error": 0.17216309601386737
+    },
+    {
+     "position": 26207.0,
+     "value": 1.765605036105974,
+     "error": 0.1287710123912107
+    },
+    {
+     "position": 26217.0,
+     "value": 1.6838835973263497,
+     "error": 0.09567879670063184
+    },
+    {
+     "position": 26227.0,
+     "value": 1.67048844750272,
+     "error": 0.0877606484320137
+    },
+    {
+     "position": 26237.0,
+     "value": 1.620290089048698,
+     "error": 0.0712620501432848
+    },
+    {
+     "position": 26247.0,
+     "value": 1.657802987311086,
+     "error": 0.1001858183349964
+    },
+    {
+     "position": 26257.0,
+     "value": 1.7243131505151388,
+     "error": 0.12644388985412114
+    },
+    {
+     "position": 26267.0,
+     "value": 1.795017882049465,
+     "error": 0.15281150009487843
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26234.229 - x) / 10), 1) * 3.237/88.979 * \u221a((x - 26234.229)\u00b2 + 88.979\u00b2) + (1 - min(max(0, (26234.229 - x) / 10), 1)) * 3.237/97.996 * \u221a((x - 26234.229)\u00b2 + 97.996\u00b2) + -1.608",
+     "LeftTrend": "y = -0.01626109025506775 * x + 427.9042876387094",
+     "RightTrend": "y = 0.007223012775652801 * x + -187.92935362283097"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.990882673036481,
+     "LeftTrend": 0.9855124480860109,
+     "RightTrend": 1.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26223.0,
+      "Value": 1.4827883989462407,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26234.2288871481,
+      "Value": 1.6292041353659152,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26197.0,
+   "previous_position": 26188.790490312374,
+   "previous_value": 1.6357996953048657
+  },
+  {
+   "id": "4c5c1cdb-1c8b-52d6-8f80-d590fda69d6c",
+   "started_at": "2026-10-11T08:32:10.705947Z",
+   "finished_at": "2026-10-11T08:34:32.581578Z",
+   "duration_seconds": 141.876,
+   "success": true,
+   "filter": "Red",
+   "temperature": 19.75,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26188.790490312374,
+   "chosen_value": 1.6357996953048657,
+   "points": [
+    {
+     "position": 26161.0,
+     "value": 1.9675133114861192,
+     "error": 0.18569114922325358
+    },
+    {
+     "position": 26171.0,
+     "value": 1.7556675661369847,
+     "error": 0.11312968804022683
+    },
+    {
+     "position": 26181.0,
+     "value": 1.6842654542382003,
+     "error": 0.0833016331355414
+    },
+    {
+     "position": 26191.0,
+     "value": 1.635397860472071,
+     "error": 0.06776347276033223
+    },
+    {
+     "position": 26201.0,
+     "value": 1.6551612891219503,
+     "error": 0.08493954131443004
+    },
+    {
+     "position": 26211.0,
+     "value": 1.6847080446552005,
+     "error": 0.104889174637951
+    },
+    {
+     "position": 26221.0,
+     "value": 1.7542097275688153,
+     "error": 0.1329791162616898
+    },
+    {
+     "position": 26231.0,
+     "value": 1.7978816011040992,
+     "error": 0.15531443719414328
+    },
+    {
+     "position": 26241.0,
+     "value": 1.8601345221961907,
+     "error": 0.17616084161467072
+    },
+    {
+     "position": 26251.0,
+     "value": 1.8654255667175306,
+     "error": 0.18059895324686415
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26188.79 - x) / 10), 1) * 0.121/8.417 * \u221a((x - 26188.79)\u00b2 + 8.417\u00b2) + (1 - min(max(0, (26188.79 - x) / 10), 1)) * 0.121/20.671 * \u221a((x - 26188.79)\u00b2 + 20.671\u00b2) + 1.515",
+     "LeftTrend": "y = -0.01624928888096953 * x + 427.04392874844314",
+     "RightTrend": "y = 0.004058353828044026 * x + -104.65455808489224"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9849499168575386,
+     "LeftTrend": 1.0,
+     "RightTrend": 0.972646549155984
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26182.0,
+      "Value": 1.602018334365539,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26188.790490312374,
+      "Value": 1.6357996953048657,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26221.0,
+   "previous_position": 26221.359663071024,
+   "previous_value": 1.739104036253772
+  },
+  {
+   "id": "53b97331-c7d3-53c3-a0bc-9592a474293c",
+   "started_at": "2026-10-11T08:02:52.702141Z",
+   "finished_at": "2026-10-11T08:05:08.564236Z",
+   "duration_seconds": 135.862,
+   "success": true,
+   "filter": "Red",
+   "temperature": 19.860000610351562,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26221.359663071024,
+   "chosen_value": 1.739104036253772,
+   "points": [
+    {
+     "position": 26176.0,
+     "value": 2.0107553588963576,
+     "error": 0.1467968724195745
+    },
+    {
+     "position": 26186.0,
+     "value": 1.870010554958323,
+     "error": 0.1271965959499446
+    },
+    {
+     "position": 26196.0,
+     "value": 1.8714178977120495,
+     "error": 0.1281957204721107
+    },
+    {
+     "position": 26206.0,
+     "value": 1.7694553615458108,
+     "error": 0.1073186768149641
+    },
+    {
+     "position": 26216.0,
+     "value": 1.732817767142948,
+     "error": 0.0992597173758305
+    },
+    {
+     "position": 26226.0,
+     "value": 1.7360307394218317,
+     "error": 0.10425807299818812
+    },
+    {
+     "position": 26236.0,
+     "value": 1.7561724039537567,
+     "error": 0.11538298531085611
+    },
+    {
+     "position": 26246.0,
+     "value": 1.8075624539015958,
+     "error": 0.14789253250671908
+    },
+    {
+     "position": 26256.0,
+     "value": 1.8676068182496497,
+     "error": 0.1780528633389893
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26221.36 - x) / 10), 1) * 3.471/112.437 * \u221a((x - 26221.36)\u00b2 + 112.437\u00b2) + (1 - min(max(0, (26221.36 - x) / 10), 1)) * 3.471/126.749 * \u221a((x - 26221.36)\u00b2 + 126.749\u00b2) + -1.732",
+     "LeftTrend": "y = -0.008497861722330507 * x + 224.439547611044",
+     "RightTrend": "y = 0 * x + 0"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9804739549105866,
+     "LeftTrend": 0.8773511222866275,
+     "RightTrend": 0.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26411.0,
+      "Value": 0.0,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26221.359663071024,
+      "Value": 1.739104036253772,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26186.0,
+   "previous_position": 26186.057714964296,
+   "previous_value": 1.679810030210126
+  },
+  {
+   "id": "052dc877-1fda-56f9-abed-4f5eabb2d944",
+   "started_at": "2026-10-11T05:39:22.732938Z",
+   "finished_at": "2026-10-11T05:41:34.587958Z",
+   "duration_seconds": 131.855,
+   "success": true,
+   "filter": "Red",
+   "temperature": 20.239999771118164,
+   "autofocuser": "Hocus Focus",
+   "method": "STARHFR",
+   "fitting": "HYPERBOLIC",
+   "chosen_position": 26186.057714964296,
+   "chosen_value": 1.679810030210126,
+   "points": [
+    {
+     "position": 26149.0,
+     "value": 2.163131342310597,
+     "error": 0.20394854456932743
+    },
+    {
+     "position": 26159.0,
+     "value": 1.9442909338532084,
+     "error": 0.16216662814500893
+    },
+    {
+     "position": 26169.0,
+     "value": 1.7777504762777714,
+     "error": 0.11767199601568712
+    },
+    {
+     "position": 26179.0,
+     "value": 1.6913479991644216,
+     "error": 0.09108007584715128
+    },
+    {
+     "position": 26189.0,
+     "value": 1.6641401714100184,
+     "error": 0.08212640407714478
+    },
+    {
+     "position": 26199.0,
+     "value": 1.6766204688520943,
+     "error": 0.09001371873024056
+    },
+    {
+     "position": 26209.0,
+     "value": 1.6685170477054423,
+     "error": 0.09377752201265044
+    },
+    {
+     "position": 26219.0,
+     "value": 1.7410062028779587,
+     "error": 0.13054280913681837
+    },
+    {
+     "position": 26229.0,
+     "value": 1.797378236078736,
+     "error": 0.15539265767948107
+    }
+   ],
+   "fit": {
+    "fittings": {
+     "Hyperbolic": "y = min(max(0, (26186.058 - x) / 10), 1) * 3.359/67.076 * \u221a((x - 26186.058)\u00b2 + 67.076\u00b2) + (1 - min(max(0, (26186.058 - x) / 10), 1)) * 3.359/166.28 * \u221a((x - 26186.058)\u00b2 + 166.28\u00b2) + -1.679",
+     "LeftTrend": "y = -0.018608358890995835 * x + 488.7373281912718",
+     "RightTrend": "y = 0 * x + 0"
+    },
+    "r_squared": {
+     "Hyperbolic": 0.9992378948832247,
+     "LeftTrend": 0.992088399152514,
+     "RightTrend": 0.0
+    },
+    "intersections": {
+     "TrendLineIntersection": {
+      "Position": 26264.0,
+      "Value": 0.0,
+      "Error": 0.0
+     },
+     "HyperbolicMinimum": {
+      "Position": 26186.057714964296,
+      "Value": 1.679810030210126,
+      "Error": 0.0
+     }
+    }
+   },
+   "source": "report",
+   "initial_position": 26179.0
+  }
+ ]
+}

@@ -1,4 +1,5 @@
 import { api, query } from './client'
+import type { AfStatus } from '../autofocus'
 
 export type Reachability = 'unknown' | 'online' | 'offline' | 'unconfigured'
 
@@ -87,6 +88,7 @@ export interface SchedulerStatus {
   skips?: SchedulerSkip[] | null
   pending?: { id: string; kind: string; received_at?: string }[] | null
   last_plan_at?: string
+  autofocus?: AfStatus | null
 }
 
 export interface Twilight {

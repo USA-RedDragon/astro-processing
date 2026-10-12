@@ -26,6 +26,12 @@ export const navGroups: NavGroup[] = [
         note: 'Timeline, why each pick, what-if',
         names: ['tonight'],
       },
+      {
+        to: '/autofocus',
+        label: 'Autofocus',
+        note: "Curves, tonight's runs, focus drift",
+        names: ['autofocus'],
+      },
     ],
   },
   {

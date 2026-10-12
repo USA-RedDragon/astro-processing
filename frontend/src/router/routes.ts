@@ -33,6 +33,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Now' },
   },
   {
+    path: '/autofocus',
+    name: 'autofocus',
+    component: () => import('../scheduler/pages/AutofocusPage.vue'),
+    meta: { title: 'Autofocus' },
+  },
+  {
     path: '/tonight',
     name: 'tonight',
     component: () => import('../scheduler/pages/TonightPage.vue'),

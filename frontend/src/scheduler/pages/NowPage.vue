@@ -45,6 +45,9 @@ import {
 import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../shell'
 import { activityLine } from '../activity'
 import PageHead from '../components/PageHead.vue'
+import AutofocusPanel from '../components/AutofocusPanel.vue'
+import { getAutofocusRuns } from '../api/autofocus'
+import { fromStatus, type AfRun } from '../autofocus'
 import {
   conditionPills,
   hasData,
@@ -67,6 +70,29 @@ const online = computed(() => st.value.reachable === 'online')
 const target = computed(() => st.value.target ?? null)
 const exposure = computed(() => st.value.exposure ?? null)
 const state = computed(() => (st.value.paused ? 'paused' : (st.value.state ?? '')))
+
+const afLast = ref<AfRun | null>(null)
+const afView = computed(() => {
+  const af = st.value.autofocus
+  return af ? fromStatus(af, afLast.value) : null
+})
+
+async function loadAfLast() {
+  try {
+    const r = await getAutofocusRuns(new Date(shell.now - 14 * 86400e3).toISOString(), 1)
+    afLast.value = r.runs?.[0] ?? null
+  } catch {
+    afLast.value = null
+  }
+}
+
+watch(
+  () => (st.value.autofocus?.state === 'running' ? st.value.autofocus.run_id : ''),
+  (id) => {
+    if (id) loadAfLast()
+  },
+  { immediate: true },
+)
 
 const subs = ref<TonightSubs | null>(null)
 const subsError = ref('')
@@ -948,6 +974,10 @@ const cross = (x: number, y: number, r: number) =>
             The scheduler is {{ state || 'not running' }}. Nothing is being imaged.
           </p>
         </template>
+        <AutofocusPanel v-if="afView" :view="afView" :now="shell.now" :last="afLast" history />
+        <RouterLink v-else :to="{ name: 'autofocus' }" class="lnk xsmall muted af-only-link"
+          >Autofocus history</RouterLink
+        >
       </section>
 
       <section aria-labelledby="sub-h" class="card latest">
@@ -1659,6 +1689,9 @@ const cross = (x: number, y: number, r: number) =>
 .blocked {
   margin: -1rem 0 0;
   text-align: right;
+}
+.af-only-link {
+  align-self: flex-start;
 }
 .abort-row {
   display: flex;
