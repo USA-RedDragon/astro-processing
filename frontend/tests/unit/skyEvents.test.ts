@@ -354,6 +354,11 @@ describe('rarity', () => {
     expect(rarityText(rarity({ status: 'unavailable', reason: 'comets' }))).toBe('')
     expect(rarityText(null)).toBe('')
     expect(rareBadge(rarity({ interval_years: 13.26, rare: true }))).toBe('Rare: once in 13 years')
+    expect(rareBadge(rarity({ method: 'orbit', rare: true, searched_to: null }))).toBe('Rare: once in a lifetime')
+    expect(rarityText(rarity({ method: 'orbit', interval_years: 21.4, rare: true }))).toBe('once in 21 years')
+    expect(rarityDetail(rarity({ method: 'orbit', basis: 'From the orbit, not a search: 2P returns every 3.3 years.' }))).toBe(
+      'From the orbit, not a search: 2P returns every 3.3 years.',
+    )
   })
 
   it('names the previous and next occurrence or why there are none', () => {

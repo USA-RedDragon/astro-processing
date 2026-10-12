@@ -118,6 +118,7 @@ export interface Rarity {
   next_years: number | null
   interval_years: number | null
   rare: boolean
+  method?: 'search' | 'orbit'
   basis: string
 }
 

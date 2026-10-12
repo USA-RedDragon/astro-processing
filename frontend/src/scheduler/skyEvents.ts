@@ -475,6 +475,7 @@ export function yearsText(y: number): string {
 export function rarityText(r: Rarity | null | undefined): string {
   if (!r || r.status !== 'ready') return ''
   if (r.interval_years !== null && r.interval_years !== undefined) return `once in ${yearsText(r.interval_years)}`
+  if (r.method === 'orbit') return 'once in a lifetime'
   const to = yearOf(r.searched_to)
   return to ? `no recurrence before ${to}` : 'no recurrence found'
 }
@@ -494,6 +495,7 @@ function occDate(night: string): string {
 export function rarityDetail(r: Rarity | null | undefined): string {
   if (!r) return 'Recurrence not searched yet.'
   if (r.status !== 'ready') return `Recurrence not searched: ${r.reason || 'no reason given.'}`
+  if (r.method === 'orbit') return r.basis
   const from = yearOf(r.searched_from)
   const to = yearOf(r.searched_to)
   const prev =
