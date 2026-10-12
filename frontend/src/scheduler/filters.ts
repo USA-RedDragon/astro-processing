@@ -197,3 +197,23 @@ export function plateauFact(fg: FilterGoal | undefined): Fact {
 export function emptyHeadline(s: SubCount): string {
   return s.taken ? `not measured yet · ${s.taken} ${s.taken === 1 ? 'sub' : 'subs'} taken` : 'not measured yet · no subs taken'
 }
+
+export interface PlanStats {
+  filter_name: string
+  exposure?: number | null
+  gain?: number | null
+  offset?: number | null
+  enabled?: boolean | null
+}
+
+export function planStatsLabel(f: PlanStats): string {
+  let name = f.filter_name || 'Unknown filter'
+  const parts: string[] = []
+  if (f.exposure !== undefined && f.exposure !== null) parts.push(`${f.exposure}s`)
+  if (f.gain !== undefined && f.gain !== null) parts.push(`Gain ${f.gain}`)
+  if (f.offset !== undefined && f.offset !== null)
+    parts.push(f.offset === -1 ? 'Offset Default' : `Offset ${f.offset}`)
+  if (parts.length) name += ` (${parts.join(', ')})`
+  if (f.enabled === false) name += ' · off'
+  return name
+}

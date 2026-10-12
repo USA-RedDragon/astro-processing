@@ -9,6 +9,7 @@ import {
   hasFilter,
   isNarrowband,
   pickFilters,
+  planStatsLabel,
   plateauFact,
   QUICK_PICKS,
   selectedFilters,
@@ -132,5 +133,14 @@ describe('progress facts', () => {
   it('shows a met goal as no time needed', () => {
     const g = { ...goal('H-a'), enough: true, progress: { ...goal('H-a').progress!, done: true, progress: 1 } }
     expect(timeFact(g).value).toBe('none, goal met')
+  })
+})
+
+describe('plan stats label', () => {
+  it('names the filter, never the template', () => {
+    expect(
+      planStatsLabel({ filter_name: 'Red', exposure: 600, gain: 0, offset: -1, enabled: true }),
+    ).toBe('Red (600s, Gain 0, Offset Default)')
+    expect(planStatsLabel({ filter_name: '', enabled: false })).toBe('Unknown filter · off')
   })
 })

@@ -59,7 +59,7 @@
             <StatsDisplay :stats="target.stats.total" total />
 
             <div v-if="target.stats.filters && target.stats.filters.length > 0" class="text-sm space-y-1">
-              <div class="font-semibold mt-2 mb-1">Subs by exposure plan:</div>
+              <div class="font-semibold mt-2 mb-1">Subs by filter:</div>
               <div
                 v-for="(filterStats, index) in target.stats.filters"
                 :key="index"
@@ -102,6 +102,7 @@ import ProgressCircle from '@/components/ProgressCircle.vue';
 import type { PropType } from 'vue';
 import { formatDate, formatRA, formatDec } from '@/lib/formatters';
 import type { Target, TargetFilterStats } from '../graphql/graphql';
+import { planStatsLabel } from '@/scheduler/filters';
 import {
   filterHeadline,
   filterPlateau,
@@ -166,29 +167,7 @@ export default {
     formatRA,
     formatDec,
     formatFilterName(filterStats: TargetFilterStats): string {
-      let name = filterStats.template_name ?? `${filterStats.filter_name || 'Unknown'} (template missing)`;
-      const parts = [];
-
-      if (filterStats.exposure !== undefined && filterStats.exposure !== null) {
-        parts.push(`${filterStats.exposure}s${filterStats.exposure_source === 'template' ? ' template default' : ''}`);
-      }
-      if (filterStats.gain !== undefined && filterStats.gain !== null) {
-        parts.push(`Gain ${filterStats.gain}`);
-      }
-      if (filterStats.offset !== undefined && filterStats.offset !== null) {
-        if (filterStats.offset === -1) {
-          parts.push(`Offset Default`);
-        } else {
-          parts.push(`Offset ${filterStats.offset}`);
-        }
-      }
-
-      if (parts.length > 0) {
-        name += ` (${parts.join(', ')})`;
-      }
-      if (filterStats.enabled === false) name += ' · off';
-
-      return name;
+      return planStatsLabel(filterStats);
     },
   },
 };
