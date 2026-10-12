@@ -2,6 +2,7 @@
 import PageHead from '../components/PageHead.vue'
 import SkyThumb from '../components/SkyThumb.vue'
 import CometsTab from '../components/CometsTab.vue'
+import AsteroidsTab from '../components/AsteroidsTab.vue'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -38,10 +39,12 @@ const types = [
   { key: 'gal', label: 'Galaxy' },
 ]
 
-type Tab = 'deep' | 'comets'
+type Tab = 'deep' | 'comets' | 'asteroids'
 const route = useRoute()
 const router = useRouter()
-const tab = ref<Tab>(route.query.tab === 'comets' ? 'comets' : 'deep')
+const tab = ref<Tab>(
+  route.query.tab === 'comets' || route.query.tab === 'asteroids' ? route.query.tab : 'deep',
+)
 watch(tab, (t) => router.replace({ query: { ...route.query, tab: t === 'deep' ? undefined : t } }))
 
 const thisMonth = new Date().getMonth()
@@ -239,6 +242,10 @@ function imaged(r: FinderRow) {
         Comets above the comet list's altitude floor in tonight's darkness, from the Minor Planet
         Center's daily elements. Times are Central.
       </template>
+      <template v-else-if="tab === 'asteroids'">
+        Asteroids at V 12 or brighter above the list's altitude floor in tonight's darkness, from
+        JPL Small-Body Database elements. Times are Central.
+      </template>
       <template v-else-if="frame">
         Objects that suit your {{ frame.w.toFixed(2) }}° × {{ frame.h.toFixed(2) }}° frame from your
         site, ranked by how well they fill it, their dark hours, H-α and catalogue gaps. Brightness
@@ -275,12 +282,19 @@ function imaged(r: FinderRow) {
       >
         Comets
       </button>
-      <button type="button" role="tab" aria-selected="false" disabled>
-        Asteroids ≤ V 12 <span class="badge xsmall">coming soon</span>
+      <button
+        type="button"
+        role="tab"
+        :aria-selected="tab === 'asteroids'"
+        :class="{ on: tab === 'asteroids' }"
+        @click="tab = 'asteroids'"
+      >
+        Asteroids ≤ V 12
       </button>
     </div>
 
     <CometsTab v-if="tab === 'comets'" />
+    <AsteroidsTab v-else-if="tab === 'asteroids'" />
 
     <div v-else class="row" style="gap: 1.5rem; align-items: flex-start">
       <form aria-labelledby="filters-h" class="card filters" @submit.prevent>
@@ -528,10 +542,6 @@ function imaged(r: FinderRow) {
 .tabs button.on {
   border-bottom-color: var(--foreground);
   font-weight: 600;
-}
-.tabs button:disabled {
-  color: var(--muted-foreground);
-  cursor: not-allowed;
 }
 .filters {
   flex: 1 1 17rem;
