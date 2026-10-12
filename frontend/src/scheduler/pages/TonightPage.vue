@@ -70,6 +70,8 @@ import { getPlanning, type Snapshot } from '../api/planning'
 import { onEvent } from '../api/events'
 import { onChange } from '@/lib/events'
 import { flatsTile, moonTile, mosaicTile } from '../tonightTiles'
+import { getSkyEvents, type SkyEvent } from '../api/skyEvents'
+import { tonightBlocks } from '../skyEvents'
 
 const night = ref<Night>('tonight')
 const preview = ref<Preview | null>(null)
@@ -146,6 +148,24 @@ async function loadPlanning() {
   }
 }
 
+const skyEvents = ref<SkyEvent[] | null>(null)
+const skyEventsNote = ref('')
+const skyReq = latestOnly()
+
+async function loadSkyEvents() {
+  const current = skyReq.next()
+  try {
+    const r = await getSkyEvents()
+    if (!current()) return
+    skyEvents.value = r.events ?? []
+    skyEventsNote.value = r.status === 'ready' ? '' : r.reason || `sky events are ${r.status}`
+  } catch (e) {
+    if (!current()) return
+    skyEvents.value = null
+    skyEventsNote.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
 const route = useRoute()
 const gw = ref<GlobalWeights | null>(null)
 const gwError = ref('')
@@ -171,6 +191,7 @@ function reloadLive() {
   load(false, true)
   loadProjects()
   loadPlanning()
+  loadSkyEvents()
 }
 
 const offLive: (() => void)[] = []
@@ -179,6 +200,7 @@ onMounted(() => {
   load()
   loadProjects()
   loadPlanning()
+  loadSkyEvents()
   loadWeights()
   offLive.push(
     onChange(['project', 'target', 'exposureplan', 'acquiredimage'], reloadLive, 15000),
@@ -314,7 +336,26 @@ const phaseText = computed(() => {
     : { x: LABEL_W + bar + 8, fill: 'var(--muted-foreground)' }
 })
 const moonAllDown = computed(() => /below the horizon all night/.test(moonCaption.value))
-const svgH = computed(() => (moonNight.value ? 270 : 150))
+const EV_Y = 128
+const EV_H = 24
+const eventBlocks = computed(() => {
+  const s = sc.value
+  if (!s) return []
+  return tonightBlocks(skyEvents.value, s.t0, s.t1).map((b) => {
+    const x = s.x(b.start)
+    const w = Math.max(1, s.x(b.end) - x)
+    const label = 'Event · ' + b.title
+    return {
+      ...b,
+      x,
+      w,
+      text: fitLabel(label, w, 11, 600),
+      tip: `Planned sky event: ${b.title} ${hm(b.start)}–${clock(b.end)}${b.high ? ' · high priority' : ''} · ${b.state}`,
+    }
+  })
+})
+const evShift = computed(() => (eventBlocks.value.length ? EV_H + 10 : 0))
+const svgH = computed(() => (moonNight.value ? 270 : 150) + evShift.value)
 const bandH = computed(() => svgH.value - 36)
 
 const PALETTE = ['var(--c1)', 'var(--c4)', 'var(--c2)', 'var(--c3)']
@@ -839,12 +880,46 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             <g font-size="12" fill="var(--muted-foreground)">
               <text x="0" y="72">Target</text>
               <text x="0" y="116">Filter</text>
+              <text v-if="eventBlocks.length" x="0" :y="EV_Y + 16">Sky event</text>
               <template v-if="moonNight">
-                <text x="0" y="170">Moon altitude</text>
-                <text x="0" y="238">Moon phase</text>
+                <text x="0" :y="170 + evShift">Moon altitude</text>
+                <text x="0" :y="238 + evShift">Moon phase</text>
               </template>
             </g>
-            <g v-if="moonNight && sc">
+            <RouterLink
+              v-for="(b, i) in eventBlocks"
+              :key="'ev' + i"
+              v-slot="{ href, navigate }"
+              to="/sky-events"
+              custom
+            >
+              <a :href="href" class="tl-link tl-event" :aria-label="b.tip" @click="navigate">
+                <title>{{ b.tip }}</title>
+                <rect
+                  :x="b.x"
+                  :y="EV_Y"
+                  :width="b.w"
+                  :height="EV_H"
+                  rx="4"
+                  :fill="b.high ? 'var(--warn)' : 'var(--violet)'"
+                  fill-opacity="0.18"
+                  :stroke="b.high ? 'var(--warn)' : 'var(--violet)'"
+                  stroke-dasharray="6 3"
+                  stroke-width="1.5"
+                />
+                <text
+                  v-if="b.text"
+                  :x="b.x + 8"
+                  :y="EV_Y + 16"
+                  font-size="11"
+                  font-weight="600"
+                  fill="var(--foreground)"
+                >
+                  {{ b.text }}
+                </text>
+              </a>
+            </RouterLink>
+            <g v-if="moonNight && sc" :transform="`translate(0 ${evShift})`">
               <line
                 :x1="LABEL_W"
                 :y1="MOON_Y"
@@ -1024,8 +1099,15 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
             ><span class="key" :style="{ background: l.fill, borderRadius: 0 }"></span
             >{{ l.label }}</span
           >
+          <span v-if="eventBlocks.length"
+            ><span class="key ev-key"></span>Planned sky event, in its window</span
+          >
+          <span v-if="eventBlocks.some((b) => b.high)"
+            ><span class="key ev-key hi"></span>High priority sky event</span
+          >
           <span>Twilight times come from the scheduler's preview.</span>
           <span v-if="moonError">The Moon is not drawn: {{ moonError }}</span>
+          <span v-if="skyEventsNote">Sky events are not drawn: {{ skyEventsNote }}</span>
         </div>
       </section>
     </template>
@@ -1535,6 +1617,14 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
   cursor: pointer;
   font-weight: 600;
   margin-bottom: 0.5rem;
+}
+.ev-key {
+  border: 1.5px dashed var(--violet);
+  background: var(--violet-bg);
+}
+.ev-key.hi {
+  border-color: var(--warn);
+  background: var(--warn-bg);
 }
 .tl-link {
   cursor: pointer;
