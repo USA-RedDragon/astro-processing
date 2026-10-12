@@ -94,6 +94,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Rule weights' },
   },
   {
+    path: '/scheduling',
+    name: 'scheduling',
+    component: () => import('../scheduler/pages/SchedulingPage.vue'),
+    meta: { title: 'Scheduling' },
+  },
+  {
     path: '/history',
     name: 'history',
     component: () => import('../scheduler/pages/HistoryPage.vue'),

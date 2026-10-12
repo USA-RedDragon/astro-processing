@@ -55,6 +55,12 @@ export const navGroups: NavGroup[] = [
         note: 'One scoring set for every project',
         names: ['rule-weights'],
       },
+      {
+        to: '/scheduling',
+        label: 'Scheduling',
+        note: 'Settings every project uses',
+        names: ['scheduling'],
+      },
       { to: '/history', label: 'History', note: 'Every change, with undo', names: ['history'] },
       { to: '/add', label: 'Add target', note: 'Find, frame, mosaic, goal', names: ['add'] },
     ],
