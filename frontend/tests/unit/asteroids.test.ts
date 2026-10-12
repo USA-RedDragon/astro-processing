@@ -100,8 +100,11 @@ describe('asteroidEmptyState', () => {
 })
 
 describe('asteroidSubTitle', () => {
-  it('shows the designation only when it differs from the name', () => {
+  it('shows the designation only when the name does not already hold it', () => {
     expect(asteroidSubTitle(asteroid('1 Ceres', '1', 8.5))).toBe(
+      '2.40 au from Earth · 2.91 au from the Sun',
+    )
+    expect(asteroidSubTitle(asteroid('Ceres', '1', 8.5))).toBe(
       '1 · 2.40 au from Earth · 2.91 au from the Sun',
     )
     expect(asteroidSubTitle(asteroid('2026 TC6', '2026 TC6', 11))).toBe(

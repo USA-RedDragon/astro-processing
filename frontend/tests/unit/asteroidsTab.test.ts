@@ -196,7 +196,7 @@ describe('AsteroidsTab', () => {
       expect.stringContaining('2026 TC6'),
     ])
     expect(rows[0].textContent).toContain('8.5')
-    expect(rows[0].textContent).toContain('1 · 2.40 au from Earth · 2.91 au from the Sun')
+    expect(rows[0].textContent).toContain('1 Ceres 2.40 au from Earth · 2.91 au from the Sun')
     expect(rows[0].textContent).toContain('two-body')
     expect(rows[0].textContent).toContain('Added')
     expect(rows[0].querySelector('.badge.warn')).toBeNull()

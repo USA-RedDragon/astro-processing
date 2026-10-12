@@ -45,7 +45,8 @@ export function asteroidSubTitle(
   a: Pick<Asteroid, 'name' | 'designation' | 'delta_au' | 'r_au'>,
 ): string {
   const parts = [`${a.delta_au.toFixed(2)} au from Earth`, `${a.r_au.toFixed(2)} au from the Sun`]
-  if (a.designation && a.designation !== a.name) parts.unshift(a.designation)
+  if (a.designation && a.designation !== a.name && !a.name.startsWith(`${a.designation} `))
+    parts.unshift(a.designation)
   return parts.join(' · ')
 }
 
