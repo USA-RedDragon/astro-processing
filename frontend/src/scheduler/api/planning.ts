@@ -1,9 +1,10 @@
 import type { WeightDiff } from './ruleweights'
 import { api, query } from './client'
 import { bodyTonightText } from '../bodyGoals'
-import type { Bucket } from './sublength'
 
 export type GoalKind = 'snr' | 'depth'
+
+export type Bucket = 'dark' | 'low' | 'mid' | 'bright'
 
 export interface Point {
   x: number
