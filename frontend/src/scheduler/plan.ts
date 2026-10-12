@@ -548,6 +548,8 @@ export function verdictBadge(v?: string): { label: string; tone: Tone } {
   switch (v) {
     case 'added':
       return { label: 'Added', tone: 'ok' }
+    case 'night':
+      return { label: "Added to its night's stack", tone: 'ok' }
     case 'low_score':
       return { label: 'Low score', tone: 'bad' }
     case 'moon':

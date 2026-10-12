@@ -280,7 +280,7 @@
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.airmass, 2) }}</TableCell>
                 <TableCell :title="`Target Scheduler: ${s.grading_status.toLowerCase()}`">
                   <Badge :variant="statusVariant(s.stack_status)">
-                    {{ s.stack_status.replace(/_/g, ' ') }}
+                    {{ s.stack_status === 'night' ? "added to its night's stack" : s.stack_status.replace(/_/g, ' ') }}
                   </Badge>
                   <div v-if="s.stack_reason" class="text-xs text-muted-foreground max-w-56">{{ s.stack_reason }}</div>
                 </TableCell>
@@ -649,10 +649,10 @@ export default {
       this.threshold = v === '' ? null : Number(v);
     },
     effectiveOf(s: Subframe): number {
-      return s.stack_status === 'added' ? (s.weight ?? 0) : 0;
+      return s.stack_status === 'added' || s.stack_status === 'night' ? (s.weight ?? 0) : 0;
     },
     statusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-      if (status === 'added') return 'default';
+      if (status === 'added' || status === 'night') return 'default';
       if (status === 'pending') return 'outline';
       if (['low_score', 'unmeasured', 'moon', 'off_target', 'rejected', 'dead', 'duplicate'].includes(status)) return 'destructive';
       return 'secondary';
