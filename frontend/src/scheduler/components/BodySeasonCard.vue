@@ -2,7 +2,6 @@
 import { computed, ref, watch } from 'vue'
 import { ApiError } from '../api/client'
 import { getBodyNights, getBodyTarget, type BodyNightsView } from '../api/comets'
-import { shortDate } from '../format'
 
 const props = defineProps<{ targetGuid: string }>()
 
@@ -28,7 +27,13 @@ async function load() {
 }
 watch(() => props.targetGuid, load, { immediate: true })
 
-const day = (night: string | null) => (night ? shortDate(night + 'T18:00:00Z') : '')
+const dayFmt = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short',
+  timeZone: 'UTC',
+})
+const day = (night: string | null) => (night ? dayFmt.format(new Date(night + 'T12:00:00Z')) : '')
 const mag = (v: number | null) => (v === null ? '—' : 'V ' + v.toFixed(1))
 const kindWord = computed(() => (view.value?.kind === 'asteroid' ? 'asteroid' : 'comet'))
 
@@ -36,8 +41,15 @@ const summary = computed(() => {
   const v = view.value
   if (!v) return ''
   const n = v.nights.length
+  if (v.season_nights_left > 0) {
+    const later =
+      v.usable_nights > v.season_nights_left
+        ? ` It is usable on ${v.usable_nights - v.season_nights_left} more of the next ${n} nights after a break, up to ${day(v.last_usable)}.`
+        : ''
+    return `In season: ${v.season_nights_left} usable nights from tonight to ${day(v.season_end)}.${later}`
+  }
   if (v.usable_nights > 0)
-    return `Bright enough and up long enough on ${v.usable_nights} of the next ${n} nights, between ${day(v.first_usable)} and ${day(v.last_usable)}.`
+    return `Not usable tonight. Usable on ${v.usable_nights} of the next ${n} nights, the first on ${day(v.first_usable)}.`
   if (v.bright_nights === 0)
     return `Fainter than V ${v.mag_limit} on all of the next ${n} nights, so it has no season.`
   return `Bright enough on ${v.bright_nights} of the next ${n} nights, but never up long enough in full darkness on those nights, so it has no season.`
@@ -52,7 +64,7 @@ const brightest = computed(() => {
 const rule = computed(() => {
   const v = view.value
   if (!v) return ''
-  return `A night counts when the ${kindWord.value} is V ${v.mag_limit} or brighter and stays above ${v.min_altitude}° for ${v.minimum_minutes} min in full darkness. The season on the project list also checks the horizon, moon avoidance and the twilight of the exposure plans, so it can be shorter.`
+  return `A night counts when the ${kindWord.value} is V ${v.mag_limit} or brighter and stays above ${v.min_altitude}° for ${v.minimum_minutes} min in full darkness. The season runs from tonight until 14 nights in a row do not count. The season on the project list is counted the same way but also checks the horizon, moon avoidance and the twilight of the exposure plans, so it can be shorter.`
 })
 
 const windowNote = computed(() => {
@@ -131,7 +143,7 @@ const months = computed(() => {
               <td style="text-align: right">
                 {{
                   m.peak === null
-                    ? 'no darkness'
+                    ? '—'
                     : m.peak < 0
                       ? 'below the horizon'
                       : Math.round(m.peak) + '°'

@@ -146,6 +146,8 @@ export interface BodyNightsView {
   bright_nights: number
   usable_nights: number
   typical_window_hours: number | null
+  season_nights_left: number
+  season_end: string | null
   first_usable: string | null
   last_usable: string | null
   brightest_mag: number | null

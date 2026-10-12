@@ -66,6 +66,8 @@ function view(usableUntil: number, brightUntil: number) {
     first_usable: usable[0]?.night ?? null,
     last_usable: usable[usable.length - 1]?.night ?? null,
     typical_window_hours: 2.17 as number | null,
+    season_nights_left: usable.length,
+    season_end: usable[usable.length - 1]?.night ?? null,
     brightest_mag: 9.6,
     brightest_night: '2026-10-12',
     basis: '',
@@ -106,8 +108,9 @@ describe('BodySeasonCard', () => {
       '/bodies/nights': () => json(view(42, 189)),
     })
     const text = el.textContent ?? ''
-    expect(text).toContain('Bright enough and up long enough on 42 of the next 366 nights')
-    expect(text).toContain('between Mon 12 Oct and Sun 22 Nov')
+    expect(text).toContain('In season: 42 usable nights from tonight to Sun 22 Nov.')
+    expect(text).not.toContain('more of the next')
+    expect(text).toContain('until 14 nights in a row do not count')
     expect(text).toContain('Brightest V 9.6 on Mon 12 Oct (a model estimate, not a measurement)')
     expect(text).toContain('V 15 or brighter and stays above 30° for 60 min in full darkness')
     const rows = el.querySelectorAll('tbody tr')
@@ -136,6 +139,34 @@ describe('BodySeasonCard', () => {
     )
     expect(el.textContent).toContain('never up long enough in full darkness on those nights')
     expect(urls.every((u) => !u.includes('/commands'))).toBe(true)
+    app.unmount()
+  })
+
+  it('separates the season from usable nights after a break', async () => {
+    const v = view(42, 189)
+    v.usable_nights = 108
+    v.last_usable = '2027-04-18'
+    const { el, app } = await render({
+      '/bodies/target': () => json(bodyTarget),
+      '/bodies/nights': () => json(v),
+    })
+    expect(el.textContent).toContain(
+      'In season: 42 usable nights from tonight to Sun 22 Nov. It is usable on 66 more of the next 366 nights after a break, up to Sun 18 Apr.',
+    )
+    app.unmount()
+  })
+
+  it('says when it is not usable tonight but later', async () => {
+    const v = view(0, 189)
+    v.usable_nights = 30
+    v.first_usable = '2026-10-22'
+    const { el, app } = await render({
+      '/bodies/target': () => json(bodyTarget),
+      '/bodies/nights': () => json(v),
+    })
+    expect(el.textContent).toContain(
+      'Not usable tonight. Usable on 30 of the next 366 nights, the first on Thu 22 Oct.',
+    )
     app.unmount()
   })
 
