@@ -80,7 +80,11 @@ export interface CommandFilter {
   since?: string
 }
 
-export const NO_UNDO_KINDS: ReadonlySet<string> = new Set(['exposure.abort', 'scheduler.replan'])
+export const NO_UNDO_KINDS: ReadonlySet<string> = new Set([
+  'exposure.abort',
+  'scheduler.replan',
+  'collab.switch',
+])
 
 export const isWaiting = (s: CommandStatus) => s === 'queued' || s === 'pending'
 

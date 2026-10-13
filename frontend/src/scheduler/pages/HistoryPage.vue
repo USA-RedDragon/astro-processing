@@ -25,7 +25,7 @@ const busy = ref<string | null>(null)
 
 const categories = [
   { value: '', label: 'All kinds' },
-  { value: 'control', label: 'Skips and pauses' },
+  { value: 'control', label: 'Skips, pauses and the collab switch' },
   { value: 'priority', label: 'Priority, state, active' },
   { value: 'goals', label: 'Goals' },
   { value: 'rules', label: 'Rule weights' },

@@ -513,6 +513,24 @@ export interface Collab {
     lastNight?: string
     subs: number
   }[]
+  colourOnly?: string[]
+}
+
+export interface CollabFrames {
+  project: string
+  name?: string
+  nights: number
+  firstNight: string
+  lastNight: string
+  frames: number
+  hours: number
+  filters: { filter: string; exposure: number; frames: number }[]
+  targets: {
+    object: string
+    panel: number | null
+    frames: number
+    stacked: { filter: string; frames: number }[]
+  }[]
 }
 
 export interface CollabsView {
@@ -533,6 +551,9 @@ export interface CollabsView {
   bestMonthHours?: number
   monthSample?: string
   overlap?: number
+  frames?: CollabFrames[]
+  framesError?: string
+  sharedPrefix?: string
 }
 
 export const searchCatalog = (q: string, limit = 20) =>

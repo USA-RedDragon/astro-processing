@@ -10,6 +10,7 @@ import {
   type CommandRecord,
 } from './api/commands'
 import { getSchedulerStatus, type SchedulerStatus } from './api/scheduler'
+import { getCollabSwitch, type CollabSwitchStatus } from './api/collab'
 import { applyPhrase, liveExposureEnd } from './activity'
 import { clock } from './format'
 
@@ -27,7 +28,18 @@ export const shell = reactive({
   toast: null as Toast | null,
   statusOpen: false,
   now: Date.now(),
+  collab: null as CollabSwitchStatus | null,
+  collabError: '',
 })
+
+export async function refreshCollab() {
+  try {
+    shell.collab = await getCollabSwitch()
+    shell.collabError = ''
+  } catch (e) {
+    shell.collabError = e instanceof Error ? e.message : String(e)
+  }
+}
 
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -194,6 +206,9 @@ export function startShell() {
   started = true
   refreshStatus()
   refreshWaiting()
+  refreshCollab()
+  setInterval(refreshCollab, 60000)
+  onEvent('collab', () => refreshCollab())
   // The stacker sends the scheduler's state every 10 s; ask for it only
   // when those messages stop, such as while the stacker is down.
   let heard = Date.now()
@@ -209,6 +224,7 @@ export function startShell() {
   onReconnect(() => {
     refreshStatus()
     refreshWaiting()
+    refreshCollab()
   })
   onEvent('command', (e: { data?: CommandRecord }) => {
     const r = e.data

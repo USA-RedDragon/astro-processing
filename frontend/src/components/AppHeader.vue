@@ -35,6 +35,7 @@
       </div>
     </nav>
     <div class="button flex items-center justify-end gap-2">
+      <CollabIndicator />
       <SchedulerIndicator />
       <ProcessingIndicator />
       <ColorModeButton />
@@ -73,6 +74,7 @@
 
 <script lang="ts">
 import { ChevronDown, Menu as MenuIcon, X as XIcon } from 'lucide-vue-next';
+import CollabIndicator from '@/components/CollabIndicator.vue';
 import ColorModeButton from '@/components/ColorModeButton.vue';
 import ProcessingIndicator from '@/components/ProcessingIndicator.vue';
 import SchedulerIndicator from '@/components/SchedulerIndicator.vue';
@@ -82,6 +84,7 @@ import { shell } from '@/scheduler/shell';
 export default {
   components: {
     ChevronDown,
+    CollabIndicator,
     ColorModeButton,
     MenuIcon,
     ProcessingIndicator,

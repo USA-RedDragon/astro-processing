@@ -2,6 +2,7 @@
 import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import SurveyImage from '../components/SurveyImage.vue'
+import CollabSwitchCard from '../components/CollabSwitchCard.vue'
 import { snapFov } from '../cutout'
 import {
   MONTHS,
@@ -15,11 +16,12 @@ import {
   rigSource,
   skySource,
   type Collab,
+  type CollabFrames,
   type CollabsView,
   type Criterion,
 } from '../api/discover'
 import { ago, clock, hm, shortDate } from '../format'
-import { errorToast, shell } from '../shell'
+import { errorToast, refreshCollab, shell } from '../shell'
 import { subjectRoute } from '../imaged'
 
 const view = ref<CollabsView | null>(null)
@@ -28,6 +30,7 @@ const f = reactive({ fits: false, mosaic: false, closed: true })
 const expanded = reactive<Record<string, boolean>>({})
 
 onMounted(async () => {
+  refreshCollab()
   try {
     view.value = await getCollabs()
   } catch (e) {
@@ -91,6 +94,11 @@ function resultText(c: Criterion) {
 
 function verdictText(c: Collab, short = false) {
   const v = c.verdict ?? (c.fits ? 'fits' : 'no')
+  const colourOnly = c.colourOnly?.length ?? 0
+  if (v === 'fits' && colourOnly)
+    return short
+      ? 'Fits, colour bands excepted'
+      : 'Fits your rig for its mono bands; its colour bands need a colour camera'
   if (v === 'fits') return short ? 'Fits' : 'Fits your rig · every rig criterion passes'
   if (v === 'no') return short ? 'Does not fit' : 'Does not fit your rig'
   const n = c.unchecked ?? 0
@@ -99,7 +107,35 @@ function verdictText(c: Collab, short = false) {
 
 function verdictClass(c: Collab) {
   const v = c.verdict ?? (c.fits ? 'fits' : 'no')
+  if (v === 'fits' && c.colourOnly?.length) return 'warn'
   return v === 'fits' ? 'ok' : v === 'no' ? 'bad' : 'warn'
+}
+
+const bandRank = (k: string) => {
+  const i = ['H', 'O', 'S', 'R', 'G', 'B', 'L'].indexOf(k)
+  return i < 0 ? 100 : i
+}
+const byBand = (a: string, b: string) => bandRank(a) - bandRank(b) || a.localeCompare(b)
+
+function framesText(f: CollabFrames) {
+  return f.filters
+    .map((x) => `${x.frames} × ${x.filter} ${x.exposure ? x.exposure + ' s' : 'unknown length'}`)
+    .join(', ')
+}
+
+function nightsText(f: CollabFrames) {
+  if (!f.nights) return 'no night recorded'
+  const span = f.firstNight === f.lastNight ? f.firstNight : `${f.firstNight} to ${f.lastNight}`
+  return `${f.nights} · ${span}`
+}
+
+function stackedText(st: { filter: string; frames: number }[]) {
+  if (!st.length) return 'none in a master yet'
+  return 'in masters: ' + st.map((x) => `${x.frames} ${x.filter}`).join(', ')
+}
+
+function projectName(f: CollabFrames) {
+  return f.name || "Not in Starfront's list now"
 }
 
 const minAlt = computed(() =>
@@ -145,9 +181,8 @@ function tone(c: Criterion) {
 }
 
 function goals(c: Collab) {
-  const order = ['H', 'O', 'S', 'R', 'G', 'B', 'L']
   return Object.keys(c.goals)
-    .sort((a, b) => order.indexOf(a) - order.indexOf(b))
+    .sort(byBand)
     .map((k) => {
       const goal = c.goals[k]!
       const done = c.progress[k] ?? 0
@@ -306,6 +341,8 @@ function bestMonths(c: Collab) {
         </span>
       </template>
     </PageHead>
+
+    <CollabSwitchCard />
 
     <p v-if="loading" class="empty">Loading collaborations…</p>
     <p v-if="view?.error" class="badge warn" style="align-self: flex-start">
@@ -747,10 +784,77 @@ function bestMonths(c: Collab) {
       </div>
     </section>
 
+    <section v-if="view" aria-labelledby="frames-h" class="card" style="gap: 0.875rem">
+      <div class="spread">
+        <h2 id="frames-h">Your frames shot for collabs</h2>
+        <span v-if="view.frames?.length" class="xsmall muted"
+          >{{ view.frames.length }} {{ view.frames.length === 1 ? 'collab' : 'collabs' }}</span
+        >
+      </div>
+      <p class="small muted" style="margin: 0; max-width: 80ch">
+        Frames your telescope shoots for a collab are yours. They stay with your other lights under
+        the target NINA names after the collab, and are scored, stacked and previewed like any
+        light. Each one also carries the collab and panel it was shot for, from the Starfront
+        headers NINA writes into the frame.
+      </p>
+      <p v-if="view.framesError" class="badge warn" style="align-self: flex-start">
+        Could not list them: {{ view.framesError }}
+      </p>
+      <p v-else-if="!view.frames?.length" class="empty">
+        No frames shot for a collab yet. They show here once a light with the Starfront headers is
+        indexed.
+      </p>
+      <div v-else class="scroll-x" style="border: 1px solid var(--border); border-radius: 0.5rem">
+        <table class="dgrid num">
+          <thead>
+            <tr>
+              <th scope="col">Collab</th>
+              <th scope="col">Nights</th>
+              <th scope="col">Frames</th>
+              <th scope="col">Stacks</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="f in view.frames" :key="f.project">
+              <td style="min-width: 12rem">
+                <div style="font-weight: 600">{{ projectName(f) }}</div>
+                <div class="xsmall muted">{{ f.project }}</div>
+              </td>
+              <td style="white-space: nowrap">{{ nightsText(f) }}</td>
+              <td style="min-width: 12rem">
+                {{ f.frames }} {{ f.frames === 1 ? 'frame' : 'frames' }} · {{ hours(f.hours) }}
+                <div class="xsmall muted">{{ framesText(f) }}</div>
+              </td>
+              <td style="min-width: 14rem">
+                <div v-for="t in f.targets" :key="t.object">
+                  <RouterLink
+                    :to="'/object/' + encodeURIComponent(t.object)"
+                    class="lnk"
+                    style="text-decoration: underline"
+                    >{{ t.object }}</RouterLink
+                  >
+                  <span class="xsmall muted">
+                    · {{ t.frames }} {{ t.frames === 1 ? 'frame' : 'frames' }} ·
+                    {{ stackedText(t.stacked) }}</span
+                  >
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="xsmall muted" style="margin: 0; max-width: 80ch">
+        Other telescopes' frames are never stored with yours. Starfront does not hand them out
+        today; if they are ever pulled, they go under
+        <code>{{ view.sharedPrefix || 'starfront-shared/' }}</code
+        >, kept apart from your targets and stacks, and the stacker never indexes them as your
+        frames.
+      </p>
+    </section>
+
     <p class="small muted note">
-      Joining needs a Starfront sign-in — not set up. Taking part would mean a Discord sign-in to
-      the Starfront guild and an enrolled telescope; ask Starfront before any client but theirs
-      reports.
+      Joining and reporting happen in NINA's Starfront plugin, not on this page. This page only
+      reads Starfront's public list and turns the collab on or off in NINA.
     </p>
   </main>
 </template>
@@ -800,7 +904,7 @@ function bestMonths(c: Collab) {
 }
 .goal {
   display: grid;
-  grid-template-columns: 4.5rem 1fr 8rem;
+  grid-template-columns: minmax(4.5rem, max-content) 1fr 8rem;
   gap: 0.75rem;
   align-items: center;
 }
