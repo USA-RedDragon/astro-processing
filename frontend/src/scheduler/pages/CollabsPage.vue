@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import PageHead from '../components/PageHead.vue'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { API_BASE, query } from '../api/client'
+import SurveyImage from '../components/SurveyImage.vue'
+import { snapFov } from '../cutout'
 import {
   MONTHS,
   decText,
@@ -187,24 +188,16 @@ function region(c: Collab) {
   const fw = fr?.w ?? 0
   const fh = fr?.h ?? 0
   const diag = Math.max(Math.hypot(fw, fh), Math.hypot(r.width, r.height))
-  const s = 240 / diag
+  const fov = snapFov((400 * diag) / 240)
+  const s = 400 / fov
   return {
     rw: r.width * s,
     rh: r.height * s,
     fw: fw * s,
     fh: fh * s,
     rot: r.rotation || 0,
-    fov: 400 / s,
+    fov,
   }
-}
-
-function skyHref(c: Collab): string {
-  const r = c.region
-  return (
-    API_BASE +
-    '/sky/cutout' +
-    query({ ra: r.ra, dec: r.dec, fov: region(c).fov, rotation: 0, width: 800, height: 560 })
-  )
 }
 
 function crit(c: Collab) {
@@ -398,13 +391,12 @@ function bestMonths(c: Collab) {
         >
           <svg viewBox="0 0 400 280" role="img" :aria-label="regionLabel(c)" class="sky">
             <rect x="0" y="0" width="400" height="280" fill="var(--sky)" />
-            <image
-              :href="skyHref(c)"
-              x="0"
-              y="0"
-              width="400"
-              height="280"
-              preserveAspectRatio="xMidYMid slice"
+            <SurveyImage
+              :ra="c.region.ra"
+              :dec="c.region.dec"
+              :fov="region(c).fov"
+              :width="400"
+              :height="280"
             />
             <rect
               :x="200 - region(c).rw / 2"

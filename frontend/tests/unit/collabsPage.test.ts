@@ -41,9 +41,18 @@ function collab(id: string, status: string) {
   };
 }
 
-async function render() {
-  const body = { enabled: true, open: [collab('a', 'open')], closed: [collab('b', 'closed')], closedTotal: 1, rig: null };
-  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })));
+async function render(open = [collab('a', 'open')]) {
+  const body = { enabled: true, open, closed: [collab('b', 'closed')], closedTotal: 1, rig: null };
+  vi.stubGlobal('fetch', vi.fn(async (u: string) =>
+    String(u).includes('/sky/cutout')
+      ? ({
+        status: 200,
+        ok: true,
+        headers: new Headers(),
+        blob: async () => new Blob([new Uint8Array([0xff, 0xd8, 0xff])]),
+      } as unknown as Response)
+      : new Response(JSON.stringify(body), { headers: { 'content-type': 'application/json' } })));
+  vi.stubGlobal('URL', Object.assign(class extends URL {}, { createObjectURL: () => 'blob:sky', revokeObjectURL: () => {} }));
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: '/collabs', component: CollabsPage }] });
   router.push('/collabs');
   await router.isReady();
@@ -76,6 +85,24 @@ describe('CollabsPage', () => {
     await nextTick();
     const rows = [...el.querySelectorAll('table .crit li')].map((li) => li.textContent ?? '');
     expect(rows.some((t) => t.includes('Frames per visit'))).toBe(true);
+    app.unmount();
+  });
+
+  it('asks for a survey image wide enough for a 30° region and never shows a broken image', async () => {
+    const wide = { ...collab('w', 'open'), region: { ra: 83.8, dec: -1.5, width: 30.76, height: 31.84, rotation: 0 } };
+    const { el, app } = await render([wide]);
+    await new Promise((r) => setTimeout(r, 0));
+    await nextTick();
+    const asked = (fetch as unknown as { mock: { calls: [string][] } }).mock.calls
+      .map(([u]) => new URL(String(u), 'http://x'))
+      .filter((u) => u.pathname.endsWith('/sky/cutout'));
+    expect(asked.length).toBeGreaterThan(0);
+    const fov = Number(asked[0]!.searchParams.get('fov'));
+    expect(fov).toBeGreaterThanOrEqual(73.8);
+    expect(fov).toBeLessThanOrEqual(180);
+    const hrefs = [...el.querySelectorAll('svg.sky image')].map((i) => i.getAttribute('href') ?? '');
+    expect(hrefs.length).toBeGreaterThan(0);
+    expect(hrefs.every((h) => h.startsWith('blob:'))).toBe(true);
     app.unmount();
   });
 });

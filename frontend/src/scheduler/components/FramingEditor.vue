@@ -165,7 +165,7 @@ watch(
 )
 onUnmounted(() => clearTimeout(timer))
 
-const { url, state, retryIn } = useCutout(() => cut.value)
+const { url, state } = useCutout(() => cut.value)
 const shown = ref<CutoutParams | null>(null)
 watch(url, () => (shown.value = cut.value))
 const basis = computed(() => shown.value ?? cut.value)
@@ -352,9 +352,7 @@ const pathTimes = computed(() => {
             text-anchor="middle"
             class="msg"
           >
-            The sky survey is rate-limiting requests{{
-              retryIn ? `; retrying in ${retryIn} s` : ''
-            }}.
+            Waiting for the sky survey; the image fills in by itself.
           </text>
           <text
             v-else-if="state === 'failed'"

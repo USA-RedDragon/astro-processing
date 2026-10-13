@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useCutout } from '../cutout'
+import { snapFov, useCutout } from '../cutout'
 
 const props = defineProps<{
   ra: number
@@ -15,10 +15,7 @@ const W = 160
 const H = 100
 const el = ref<Element | null>(null)
 const fov = computed(() =>
-  Math.min(
-    30,
-    Math.max(0.1, 1.5 * Math.max(props.sizeDeg, props.frame?.w ?? 0, props.frame?.h ?? 0)),
-  ),
+  snapFov(Math.max(0.1, 1.5 * Math.max(props.sizeDeg, props.frame?.w ?? 0, props.frame?.h ?? 0))),
 )
 const { url, state } = useCutout(
   () => ({ ra: props.ra, dec: props.dec, fov: fov.value, width: W, height: H }),

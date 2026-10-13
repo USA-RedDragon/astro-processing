@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { onUnmounted, ref, watch } from 'vue'
-import { API_BASE, query } from '../api/client'
+import { ref } from 'vue'
+import { snapFov, useCutout } from '../cutout'
 
 const props = defineProps<{
   ra: number
@@ -12,66 +12,30 @@ const props = defineProps<{
   alt: string
 }>()
 
-const url = ref('')
-const state = ref<'loading' | 'ready' | 'limited' | 'failed'>('loading')
-const retryAfter = ref(0)
-let ctrl: AbortController | undefined
-
-async function load() {
-  ctrl?.abort()
-  ctrl = new AbortController()
-  state.value = 'loading'
-  const src =
-    API_BASE +
-    '/sky/cutout' +
-    query({
-      ra: props.ra,
-      dec: props.dec,
-      fov: props.fov,
-      rotation: props.rotation ?? 0,
-      width: props.width ?? 320,
-      height: props.height ?? 214,
-    })
-  try {
-    const res = await fetch(src, { signal: ctrl.signal })
-    if (res.status === 429) {
-      retryAfter.value = Number(res.headers.get('Retry-After')) || 0
-      state.value = 'limited'
-      return
-    }
-    if (!res.ok) {
-      state.value = 'failed'
-      return
-    }
-    const blob = await res.blob()
-    if (url.value) URL.revokeObjectURL(url.value)
-    url.value = URL.createObjectURL(blob)
-    state.value = 'ready'
-  } catch (e) {
-    if (!(e instanceof DOMException && e.name === 'AbortError')) state.value = 'failed'
-  }
-}
-
-watch(() => [props.ra, props.dec, props.fov, props.rotation, props.width, props.height], load, {
-  immediate: true,
-})
-
-onUnmounted(() => {
-  ctrl?.abort()
-  if (url.value) URL.revokeObjectURL(url.value)
-})
+const el = ref<Element | null>(null)
+const { url, state } = useCutout(
+  () => ({
+    ra: props.ra,
+    dec: props.dec,
+    fov: snapFov(props.fov),
+    rotation: props.rotation ?? 0,
+    width: props.width ?? 320,
+    height: props.height ?? 214,
+  }),
+  el,
+)
 </script>
 
 <template>
-  <figure class="cutout" :style="{ aspectRatio: `${width ?? 320} / ${height ?? 214}` }">
+  <figure ref="el" class="cutout" :style="{ aspectRatio: `${width ?? 320} / ${height ?? 214}` }">
     <img v-if="state === 'ready'" :src="url" :alt="alt" />
     <figcaption v-else class="xsmall muted">
       {{
-        state === 'loading'
-          ? 'Loading the sky image…'
+        state === 'failed'
+          ? 'The sky survey image is not available.'
           : state === 'limited'
-            ? `The sky survey is rate-limiting requests${retryAfter ? `; try again in ${retryAfter} s` : ''}.`
-            : 'The sky survey image is not available.'
+            ? 'Waiting for the sky survey; the image fills in by itself.'
+            : 'Loading the sky image…'
       }}
     </figcaption>
   </figure>

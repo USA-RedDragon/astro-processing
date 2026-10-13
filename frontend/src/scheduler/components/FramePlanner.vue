@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { rigSource } from '../api/discover'
-import { API_BASE, query } from '../api/client'
+import SurveyImage from './SurveyImage.vue'
+import { snapFov } from '../cutout'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { chooseLayout } from '../addTarget'
 import { frame, project, type Framing, type FramingOption, type SkyPoint } from '../api/mosaics'
@@ -56,7 +57,6 @@ const framing = ref<Framing | null>(null)
 const loading = ref(false)
 const error = ref('')
 const survey = ref(true)
-const surveyFailed = ref(false)
 
 function initialGrid(): { rows: number; cols: number; brick: boolean } | null {
   if (props.cols && props.rows)
@@ -117,7 +117,6 @@ watch(
     rotation.value = props.rotation ?? null
     wantGrid.value = initialGrid()
     layoutId.value = ''
-    surveyFailed.value = false
     schedule()
   },
   { immediate: true },
@@ -176,8 +175,8 @@ const view = computed(() => {
   let ext = Math.max(major * 1.15, rig?.widthDeg ?? 0, 0.25)
   for (const [x, y] of pts)
     ext = Math.max(ext, Math.abs(x) * 2 * 1.1, Math.abs(y) * 2 * 1.1 * (W / H))
-  const scale = W / ext
-  return { scale, fovDeg: ext }
+  const fov = snapFov(ext)
+  return { scale: W / fov, fovDeg: fov }
 })
 
 function toSvg(p: SkyPoint): [number, number] {
@@ -210,20 +209,6 @@ const outline = computed(() => {
   const min = (o.minorArcmin / 60) * s
   return { rx: Math.max(3, min / 2), ry: Math.max(3, maj / 2), pa: o.pa }
 })
-
-const surveyUrl = computed(
-  () =>
-    API_BASE +
-    '/sky/cutout' +
-    query({
-      ra: props.object.ra.toFixed(5),
-      dec: props.object.dec.toFixed(5),
-      fov: Math.min(30, Math.max(0.01, view.value.fovDeg)).toFixed(3),
-      rotation: 0,
-      width: W,
-      height: H,
-    }),
-)
 
 const basisText = computed(() => {
   const f = framing.value
@@ -303,27 +288,16 @@ function useSuggested() {
     <div class="row" style="gap: 1.5rem; align-items: flex-start">
       <svg :viewBox="`0 0 ${W} ${H}`" role="img" :aria-label="skyLabel" class="sky">
         <rect x="0" y="0" :width="W" :height="H" fill="var(--sky)" />
-        <image
-          v-if="survey && !surveyFailed"
-          :href="surveyUrl"
-          x="0"
-          y="0"
+        <SurveyImage
+          v-if="survey"
+          :ra="object.ra"
+          :dec="object.dec"
+          :fov="view.fovDeg"
           :width="W"
           :height="H"
-          preserveAspectRatio="none"
-          opacity="0.85"
-          @error="surveyFailed = true"
+          :pixels="1"
+          :opacity="0.85"
         />
-        <text
-          v-if="survey && surveyFailed"
-          :x="W / 2"
-          :y="H - 12"
-          text-anchor="middle"
-          font-size="12"
-          fill="var(--muted-foreground)"
-        >
-          The sky survey image is not available right now.
-        </text>
         <ellipse
           :cx="W / 2"
           :cy="H / 2"
