@@ -144,6 +144,7 @@ export interface Run {
   blocks: PlanBlock[]
   pick?: PlanBlock
   reason?: string
+  held?: string
   subs: number
 }
 
@@ -163,6 +164,7 @@ export function runs(blocks: PlanBlock[] | null | undefined): Run[] {
       last.end = Math.max(last.end, e)
       last.blocks.push(b)
       last.reason = b.reason || last.reason
+      last.held = last.held || b.held || undefined
       last.subs += b.count ?? 0
       continue
     }
@@ -177,6 +179,7 @@ export function runs(blocks: PlanBlock[] | null | undefined): Run[] {
       blocks: [b],
       pick: b.picked ? b : undefined,
       reason: b.reason,
+      held: b.held || undefined,
       subs: b.count ?? 0,
     })
   }
@@ -279,6 +282,7 @@ export interface PickRow {
   totalText: string
   runner: string
   ends: string
+  held: string
 }
 
 export function pickTable(blocks: PlanBlock[] | null | undefined): {
@@ -310,6 +314,7 @@ export function pickTable(blocks: PlanBlock[] | null | undefined): {
         ? `${p.runner_up.target_name} · ${pair ? pair[1] : p.runner_up.total.toFixed(2)}`
         : '—',
       ends: r.reason ? `${capitalise(r.reason)} at ${clock(r.end)}` : `Until ${clock(r.end)}`,
+      held: r.held ? `Held its turn at ${r.held}.` : '',
     })
   }
   return { columns, rows }
@@ -906,6 +911,8 @@ export function waitingFor(
   )
 }
 
+export const HELD_BY_RUNNING = 'the running target scored within 1% and kept its turn'
+
 export type LeftOutKind = 'outscored' | 'later' | 'conditions' | 'complete' | 'hidden' | 'other'
 
 export const LEFT_OUT_KINDS: { kind: LeftOutKind; label: string; colour: string }[] = [
@@ -919,6 +926,7 @@ export const LEFT_OUT_KINDS: { kind: LeftOutKind; label: string; colour: string 
 
 const KIND_BY_REASON: Record<string, LeftOutKind> = {
   'lower score': 'outscored',
+  [HELD_BY_RUNNING]: 'outscored',
   'not yet visible': 'later',
   'before meridian window': 'later',
   'clipped by meridian flip safety': 'later',
@@ -970,6 +978,14 @@ export function leftOutView(l: LeftOut): LeftOutView {
   const span = l.at ? (l.until && l.until !== l.at ? `${hm(l.at)}–${clock(l.until)}` : clock(l.at)) : ''
   let why: string
   if (
+    reason === HELD_BY_RUNNING &&
+    l.winner_name &&
+    l.total !== undefined &&
+    l.winner_total !== undefined
+  ) {
+    const [t, w] = scorePair(l.total, l.winner_total)
+    why = `Scored ${t}, but ${l.winner_name} (${w}) was running and kept its turn because the gap was within 1%, at ${clock(l.at)}`
+  } else if (
     reason === 'lower score' &&
     l.winner_name &&
     l.total !== undefined &&

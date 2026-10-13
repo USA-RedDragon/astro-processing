@@ -425,7 +425,7 @@ function bars(p: Preview | null, order: Map<number, number>): Bar[] {
       sub: r.wait ? '' : [project, score].filter(Boolean).join(' · '),
       title: r.wait
         ? `Wait ${hm(r.start)}–${clock(r.end)}`
-        : `${r.target_name} ${hm(r.start)}–${clock(r.end)}${r.reason ? ' · ' + r.reason : ''}`,
+        : `${r.target_name} ${hm(r.start)}–${clock(r.end)}${r.reason ? ' · ' + r.reason : ''}${r.held ? ' · held its turn at ' + r.held : ''}`,
       targetId: r.wait ? undefined : r.target_id,
       start: r.start,
       end: r.end,
@@ -1184,7 +1184,10 @@ const balance = computed(() => mosaicBalance(preview.value, whatIf.value, projec
                   {{ p.totalText }}
                 </td>
                 <td class="muted runner">{{ p.runner }}</td>
-                <td class="muted ends">{{ p.ends }}</td>
+                <td class="muted ends">
+                  {{ p.ends }}
+                  <div v-if="p.held" class="xsmall">{{ p.held }}</div>
+                </td>
               </tr>
             </tbody>
           </table>

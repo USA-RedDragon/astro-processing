@@ -20,6 +20,7 @@ import {
   leftOutView,
   noChanceTonight,
   pickTable,
+  HELD_BY_RUNNING,
   planDiff,
   planSummary,
   raHms,
@@ -186,6 +187,18 @@ describe('summary and pick table', () => {
     expect(rows[0].runner).toBe('B · 0.60')
     expect(rows[0].ends).toMatch(/^Sets at /)
     expect(rows[1].runner).toBe('—')
+  })
+
+  it('shows where the running target held its turn inside its run', () => {
+    const held = '02:17: M 15 scored only 0.04% higher (1.8596 vs 1.8588), and a switch needs more than 1%, so Sharpless 216 kept running'
+    const { rows } = pickTable([
+      block({ start: t(1), end: t(2), target_id: 1, target_name: 'Sharpless 216', picked: true, total: 1.9 }),
+      block({ start: t(2), end: t(3), target_id: 1, target_name: 'Sharpless 216', held }),
+      block({ start: t(3), end: t(4), target_id: 1, target_name: 'Sharpless 216', held: '03:00: later' }),
+    ])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].held).toBe(`Held its turn at ${held}.`)
+    expect(pickTable(plan.blocks).rows.every((r) => r.held === '')).toBe(true)
   })
 
   it('shows rule weights as the multiplier the totals use', () => {
@@ -534,6 +547,18 @@ describe('left out', () => {
   it('gives the span of the main reason', () => {
     const v = leftOutView({ target_name: 'NGC 7000', reason: 'moon avoidance', at: at(2), until: at(6) })
     expect(v.why).toMatch(/^Moon avoidance, \d\d:\d\d–\d\d:\d\d C[DS]T$/)
+  })
+  it('names the running target that held a close challenger off', () => {
+    const v = leftOutView({
+      target_name: 'M 15',
+      reason: HELD_BY_RUNNING,
+      at: at(7, 17),
+      total: 1.85959,
+      winner_total: 1.85883,
+      winner_name: 'Sharpless 216',
+    })
+    expect(v.kind).toBe('outscored')
+    expect(v.why).toMatch(/^Scored 1\.860, but Sharpless 216 \(1\.859\) was running and kept its turn because the gap was within 1%, at \d\d:\d\d C[DS]T$/)
   })
   it('maps every planner reason to a kind', () => {
     expect(leftOutKind('lower score')).toBe('outscored')

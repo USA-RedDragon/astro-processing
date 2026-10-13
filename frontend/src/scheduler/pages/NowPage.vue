@@ -1006,6 +1006,9 @@ const cross = (x: number, y: number, r: number) =>
               </div>
             </div>
             <p v-else class="empty" style="padding: 0">The scheduler did not send its scores.</p>
+            <p v-if="st.score_note" class="small" style="margin: 0.75rem 0 0">
+              Kept at the last re-plan: {{ st.score_note }}.
+            </p>
           </div>
         </template>
         <template v-else>

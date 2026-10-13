@@ -85,6 +85,7 @@ export interface SchedulerStatus {
   activity_since?: string | null
   scores?: RuleScore[] | null
   score_total?: number | null
+  score_note?: string | null
   skips?: SchedulerSkip[] | null
   pending?: { id: string; kind: string; received_at?: string }[] | null
   last_plan_at?: string
@@ -118,6 +119,7 @@ export interface PlanBlock {
   total?: number | null
   runner_up?: { target_name: string; total: number } | null
   reason?: string
+  held?: string | null
 }
 
 export interface LeftOutReason {
