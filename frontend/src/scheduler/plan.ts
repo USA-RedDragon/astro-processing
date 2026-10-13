@@ -9,6 +9,7 @@ import type {
   SchedProject,
   SchedulerExposure,
   SchedulerTarget,
+  SkipOverride,
   TonightSub,
   Twilight,
 } from './api/scheduler'
@@ -738,6 +739,31 @@ export function subChart(
 
 export function ticksBefore(ticks: ChartTick[], x: number): ChartTick[] {
   return ticks.filter((t) => t.pos < x)
+}
+
+export function skipOverride(t: SchedulerTarget, wholeProject: boolean, minutes: number): SkipOverride {
+  return wholeProject
+    ? { entity: 'skip', id: t.project_id, field: 'project', value: minutes }
+    : { entity: 'skip', id: t.target_id, field: 'target', value: minutes }
+}
+
+// SkipOutcome is what the scheduler does once a skip of t applies, read from a
+// simulation that applied the skip: it picks another target, it waits and comes
+// back to the skipped one when the skip ends, or it images nothing else.
+export type SkipOutcome = { kind: 'pick' | 'back'; run: Run } | { kind: 'nothing' }
+
+// skipOutcome reads the simulation's first imaging run. A plugin that does not
+// apply skip overrides gives null, as its plan ignores the skip.
+export function skipOutcome(
+  p: Preview | null | undefined,
+  t: SchedulerTarget,
+  wholeProject: boolean,
+): SkipOutcome | null {
+  if (!p?.override_kinds?.includes('skip')) return null
+  const r = runs(p.blocks).find((x) => !x.wait)
+  if (!r) return { kind: 'nothing' }
+  const same = wholeProject ? r.project_id === t.project_id : r.target_id === t.target_id
+  return { kind: same ? 'back' : 'pick', run: r }
 }
 
 export function skipPayload(t: SchedulerTarget, wholeProject: boolean, minutes: number) {

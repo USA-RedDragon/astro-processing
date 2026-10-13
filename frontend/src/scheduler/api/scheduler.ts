@@ -170,6 +170,15 @@ export interface Override {
   value: number
 }
 
+// A skip the plugin's simulation applies when the running exposure ends, as a
+// skip sent now would; value is minutes, or 0 for the rest of the night.
+export interface SkipOverride {
+  entity: 'skip'
+  id: number
+  field: 'target' | 'project'
+  value: number
+}
+
 export interface SchedPlan {
   id: number
   guid: string | null
@@ -425,7 +434,7 @@ export const getPreview = (night: Night = 'tonight', fresh = false) =>
 
 export const postPreview = (
   night: Night,
-  overrides: Override[],
+  overrides: (Override | SkipOverride)[],
   weights: Record<string, number> = {},
 ) => api.post<Preview>('/scheduler/preview', { night, overrides, weights })
 

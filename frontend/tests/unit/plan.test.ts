@@ -27,6 +27,8 @@ import {
   runs,
   scale,
   signedHours,
+  skipOverride,
+  skipOutcome,
   skipPayload,
   stepDecimals,
   scorePair,
@@ -364,6 +366,42 @@ describe('commands', () => {
     expect(pausePayload('park', 'after', '')).toEqual({ mount: 'park', resume_after_minutes: 30 })
     expect(pausePayload('track', 'at', '03:00')).toEqual({ mount: 'track', resume_at: '03:00' })
     expect(pausePayload('track', 'manual', '03:00')).toEqual({ mount: 'track' })
+  })
+
+  it('builds skip overrides for the simulation', () => {
+    const target = { project_id: 78, project_name: '161P/Hartley-IRAS', target_id: 168, target_name: '161P/Hartley-IRAS' }
+    expect(skipOverride(target, false, 60)).toEqual({ entity: 'skip', id: 168, field: 'target', value: 60 })
+    expect(skipOverride(target, true, 0)).toEqual({ entity: 'skip', id: 78, field: 'project', value: 0 })
+  })
+
+  it('reads what a skip leads to from the simulation that applied it', () => {
+    const target = { project_id: 78, project_name: '161P/Hartley-IRAS', target_id: 168, target_name: '161P/Hartley-IRAS' }
+    const block = (h: number, m: number, id: number, project: number, name: string, extra = {}) => ({
+      start: t(h, m),
+      end: t(h, m + 10),
+      wait: false,
+      target_id: id,
+      project_id: project,
+      target_name: name,
+      picked: true,
+      ...extra,
+    })
+    const p = {
+      override_kinds: ['project', 'ruleweight', 'skip'],
+      blocks: [block(7, 17, 216, 40, 'Sharpless 216', { total: 1.871 }), block(7, 57, 15, 30, 'M 15')],
+    }
+    const pick = skipOutcome(p, target, false)
+    expect(pick?.kind).toBe('pick')
+    if (pick?.kind !== 'pick') return
+    expect(pick.run.target_name).toBe('Sharpless 216')
+    expect(pick.run.pick?.total).toBe(1.871)
+    expect(skipOutcome({ ...p, override_kinds: ['project', 'ruleweight'] }, target, false)).toBeNull()
+    expect(skipOutcome(null, target, false)).toBeNull()
+    expect(skipOutcome({ ...p, blocks: [] }, target, false)).toEqual({ kind: 'nothing' })
+    const wait = { start: t(7, 17), end: t(8, 17), wait: true }
+    expect(skipOutcome({ ...p, blocks: [wait, block(8, 17, 168, 78, '161P/Hartley-IRAS')] }, target, false)?.kind).toBe('back')
+    expect(skipOutcome({ ...p, blocks: [block(7, 17, 169, 78, 'Other panel')] }, target, true)?.kind).toBe('back')
+    expect(skipOutcome({ ...p, blocks: [block(7, 17, 169, 78, 'Other panel')] }, target, false)?.kind).toBe('pick')
   })
 
   it('labels history entries', () => {

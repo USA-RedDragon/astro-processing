@@ -10,6 +10,7 @@ import {
   getMoon,
   getPreview,
   getTonightSubs,
+  postPreview,
   type Conditions,
   type MoonNight,
   type Preview,
@@ -35,6 +36,8 @@ import {
   raHms,
   runFilters,
   runs,
+  skipOverride,
+  skipOutcome,
   skipPayload,
   subChart,
   ticksBefore,
@@ -44,6 +47,7 @@ import {
 } from '../plan'
 import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../shell'
 import { activityLine } from '../activity'
+import { latestOnly } from '../latest'
 import PageHead from '../components/PageHead.vue'
 import AutofocusPanel from '../components/AutofocusPanel.vue'
 import MoonKeepNote from '../components/MoonKeepNote.vue'
@@ -204,7 +208,7 @@ onMounted(() => {
     onEvent('preview', tonights),
     onEvent('subs', tonights),
     onEvent('command', (e: { data?: CommandRecord }) => {
-      if (e.data?.status === 'applied') loadPreview()
+      if (e.data?.status === 'applied' || e.data?.status === 'pending') loadPreview()
     }),
     onChange(['acquiredimage'], soon),
     onChange(['project', 'target', 'exposureplan'], loadPreview, 10000),
@@ -651,16 +655,41 @@ const applyWhen = computed(() => whenApplies())
 const activityNow = computed(() =>
   state.value === 'imaging' && !exposure.value ? activityLine(st.value, shell.now) : '',
 )
-const nextTarget = computed(() => {
+
+// afterSkip is the scheduler's own simulation with the skip applied where it
+// applies, at the end of the current exposure, so it names the target the
+// scheduler then picks rather than the next run in tonight's plan.
+const afterSkip = ref<Preview | null>(null)
+const afterSkipState = ref<'idle' | 'loading' | 'failed'>('idle')
+const afterSkipReq = latestOnly()
+
+async function simulateSkip() {
   const t = target.value
-  return t ? upcoming.value.find((x) => !x.wait && x.target_id !== t.target_id) : undefined
-})
-const nextProject = computed(() => {
+  if (!skipOpen.value || !t) return
+  const current = afterSkipReq.next()
+  afterSkip.value = null
+  afterSkipState.value = 'loading'
+  try {
+    const minutes = skipFor.value === '60' ? 60 : 0
+    const p = await postPreview('tonight', [skipOverride(t, skipWhole.value, minutes)])
+    if (!current()) return
+    afterSkip.value = p
+    afterSkipState.value = 'idle'
+  } catch {
+    if (!current()) return
+    afterSkipState.value = 'failed'
+  }
+}
+
+watch([skipOpen, skipFor, skipWhole, () => target.value?.target_id], simulateSkip)
+
+const skipNext = computed(() => {
   const t = target.value
-  return t ? upcoming.value.find((x) => !x.wait && x.project_id !== t.project_id) : undefined
+  return t ? skipOutcome(afterSkip.value, t, skipWhole.value) : null
 })
-const nextTargetScore = computed(() => {
-  const v = nextTarget.value?.pick?.total
+const skipNextScore = computed(() => {
+  const n = skipNext.value
+  const v = n && n.kind === 'pick' ? n.run.pick?.total : undefined
   return v !== null && v !== undefined ? v.toFixed(2) : ''
 })
 
@@ -1532,12 +1561,25 @@ const cross = (x: number, y: number, r: number) =>
             >The {{ filterName(exposure.filter) }} sub in progress is kept.
           </template>
           Then the scheduler drops the {{ target.is_mosaic ? 'panel' : 'target' }} and picks again.
-          <template v-if="nextTarget">
-            If tonight's plan holds, that is <strong class="fg">{{ nextTarget.target_name }}</strong
-            ><template v-if="nextTargetScore"> (score {{ nextTargetScore }})</template>.
+          <template v-if="afterSkipState === 'loading'">Simulating the pick after the skip.</template>
+          <template v-else-if="afterSkipState === 'failed'">
+            The pick after the skip could not be simulated.
           </template>
-          <template v-if="target.is_mosaic && nextProject && nextProject !== nextTarget">
-            Skip the whole mosaic to move on to {{ nextProject.target_name }}.</template
+          <template v-else-if="skipNext?.kind === 'pick'">
+            Simulated with this skip, it picks
+            <strong class="fg">{{ skipNext.run.target_name }}</strong
+            ><template v-if="skipNextScore"> (score {{ skipNextScore }})</template> at
+            {{ hm(skipNext.run.start) }}.
+          </template>
+          <template v-else-if="skipNext?.kind === 'back'">
+            Simulated with this skip, it picks nothing else and returns to
+            {{ skipNext.run.target_name }} at {{ hm(skipNext.run.start) }}.
+          </template>
+          <template v-else-if="skipNext?.kind === 'nothing'">
+            Simulated with this skip, it images nothing else tonight.
+          </template>
+          <template v-if="target.is_mosaic && !skipWhole">
+            Skip the whole mosaic to move on from all its panels.</template
           >
         </p>
         <fieldset class="plain">
