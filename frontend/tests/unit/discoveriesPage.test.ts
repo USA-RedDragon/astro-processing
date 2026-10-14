@@ -76,6 +76,23 @@ const button = (el: HTMLElement, text: string) =>
   [...el.querySelectorAll('button')].find((b) => b.textContent?.trim().startsWith(text))
 
 describe('DiscoveriesPage', () => {
+  it('says it is loading, not that nothing changed, while the night is still on its way', async () => {
+    let release: () => void = () => {}
+    const pending = new Promise<void>((r) => (release = r))
+    const base = stacker()
+    const { el, app } = await render(async (url, init) => {
+      if (new URL(url, 'http://x').pathname === '/api/v1/discoveries/runs') await pending
+      return base(url, init)
+    }, '/discoveries?night=2025-02-28')
+    expect(el.textContent).toContain('Loading discoveries')
+    expect(el.textContent).not.toContain('No changes found')
+    release()
+    await settle()
+    await settle()
+    expect(el.textContent).not.toContain('Loading discoveries')
+    app.unmount()
+  })
+
   it('shows the newest night with chips, summary, cards and movers', async () => {
     const { el, app, router } = await render(stacker())
     expect((el.querySelector('#disc-night') as HTMLSelectElement).value).toBe('2025-02-28')

@@ -107,7 +107,10 @@ async function loadNight() {
   candidates.value = c ?? []
 }
 
+let loadSeq = 0
+
 async function load() {
+  const seq = ++loadSeq
   loading.value = true
   try {
     const n = await getDiscoveryNights()
@@ -118,7 +121,7 @@ async function load() {
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
   syncQuery()
 }
@@ -196,7 +199,7 @@ const selected = computed<DiscoveryCandidate | null>(() => {
 })
 
 const pageState = computed(() => {
-  if (loading.value && !nights.value.length && !runs.value.length) return 'loading'
+  if (loading.value && !runs.value.length) return 'loading'
   if (error.value && !runs.value.length && !nights.value.length) return 'error'
   if (!night.value) return 'none'
   return 'ready'
