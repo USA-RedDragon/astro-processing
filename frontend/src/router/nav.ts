@@ -82,6 +82,12 @@ export const navGroups: NavGroup[] = [
         names: ['sky-events'],
       },
       {
+        to: '/discoveries',
+        label: 'Discoveries',
+        note: 'Changes, variables and asteroids found each night',
+        names: ['discoveries'],
+      },
+      {
         to: '/collabs',
         label: 'Collabs',
         note: 'Starfront collaborations and fit',

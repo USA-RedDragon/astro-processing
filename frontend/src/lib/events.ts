@@ -24,8 +24,9 @@ export interface LiveEvent {
   // preview, master and mosaic come from the stacker, frames when it indexes
   // new files, subs when it measures or triages a target's lights; data
   // from the backend when scheduler tables change; scheduler and command
-  // carry the observatory scheduler's state and commands in data.
-  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'subs' | 'data' | 'scheduler' | 'command';
+  // carry the observatory scheduler's state and commands in data; discovery
+  // when the stacker finishes comparing a night (key is the night).
+  type: 'preview' | 'master' | 'mosaic' | 'frames' | 'subs' | 'data' | 'scheduler' | 'command' | 'discovery';
   object?: string;
   filter?: string;
   key?: string;

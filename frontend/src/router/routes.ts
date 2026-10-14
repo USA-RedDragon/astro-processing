@@ -69,6 +69,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'Collabs' },
   },
   {
+    path: '/discoveries',
+    name: 'discoveries',
+    component: () => import('../scheduler/pages/DiscoveriesPage.vue'),
+    meta: { title: 'Discoveries' },
+  },
+  {
     path: '/mosaics',
     name: 'mosaics',
     component: () => import('../scheduler/pages/MosaicsPage.vue'),
