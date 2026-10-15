@@ -58,9 +58,9 @@ describe('classes', () => {
 
   it('names the galaxy a possible nova or supernova sits in', () => {
     const m31 = [{ catalog: 'galaxy', name: 'M 31', sep_arcsec: 900 }]
-    expect(matchText(candidate({ class: 'nova_candidate', matches: m31 }))).toBe('No catalogued star, inside M 31')
-    expect(matchText(candidate({ class: 'supernova_candidate', matches: m31 }))).toBe('No catalogued star, inside M 31')
-    expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe('No catalogued star, inside a galaxy')
+    expect(matchText(candidate({ class: 'nova_candidate', matches: m31 }))).toBe('No cataloged star, inside M 31')
+    expect(matchText(candidate({ class: 'supernova_candidate', matches: m31 }))).toBe('No cataloged star, inside M 31')
+    expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe('No cataloged star, inside a galaxy')
   })
 
   it('counts each chip', () => {
@@ -115,9 +115,9 @@ describe('magnitude text', () => {
     expect(deltaText(candidate({ sign: -1, delta_mag: 1.66, ref_mag: null, gaia_g: null }))).toBe('faded source')
   })
 
-  it('names the catalogued star or says there is none', () => {
+  it('names the cataloged star or says there is none', () => {
     expect(starText(candidate({ gaia_g: 15.912 }))).toBe('Gaia G 15.91')
-    expect(starText(candidate({ gaia_g: null }))).toBe('no catalogued star')
+    expect(starText(candidate({ gaia_g: null }))).toBe('no cataloged star')
   })
 })
 

@@ -144,7 +144,7 @@ export function deltaText(
 }
 
 export function starText(c: Pick<DiscoveryCandidate, 'gaia_g'>): string {
-  return c.gaia_g === null || c.gaia_g === undefined ? 'no catalogued star' : `Gaia G ${c.gaia_g.toFixed(2)}`
+  return c.gaia_g === null || c.gaia_g === undefined ? 'no cataloged star' : `Gaia G ${c.gaia_g.toFixed(2)}`
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0')
@@ -177,7 +177,7 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
   const of = (cat: string) => m.find((x) => x.catalog === cat)
   switch (c.class) {
     case 'known_variable':
-      return 'Matches a catalogued variable star'
+      return 'Matches a cataloged variable star'
     case 'known_asteroid': {
       const a = of('SkyBoT')
       return a ? `Matches the known asteroid ${a.name}` : 'Matches a known asteroid'
@@ -189,7 +189,7 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
     case 'nova_candidate':
     case 'supernova_candidate': {
       const g = of('galaxy')
-      return g ? `No catalogued star, inside ${g.name}` : 'No catalogued star, inside a galaxy'
+      return g ? `No cataloged star, inside ${g.name}` : 'No cataloged star, inside a galaxy'
     }
     case 'new_variable_candidate':
       return 'Matches nothing known'

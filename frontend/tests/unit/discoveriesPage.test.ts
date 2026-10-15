@@ -110,7 +110,7 @@ describe('DiscoveriesPage', () => {
     expect(cards[0]!.textContent).toContain('0.16 mag brighter')
     expect(cards[0]!.textContent).not.toContain('−0.16')
     expect(cards[1]!.textContent).toContain('not measured')
-    expect(cards[1]!.textContent).toContain('no catalogued star')
+    expect(cards[1]!.textContent).toContain('no cataloged star')
     const detail = el.querySelector('.detail')!
     expect(detail.textContent).toContain('Candidate at 12h 37m 14.1s +14° 26′ 32″')
     expect(detail.textContent).toContain('Variable-star catalog, known asteroids, alert feeds, galaxy catalog')
