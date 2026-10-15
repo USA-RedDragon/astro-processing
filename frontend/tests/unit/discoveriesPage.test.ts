@@ -104,7 +104,8 @@ describe('DiscoveriesPage', () => {
     const cards = el.querySelectorAll('.cand')
     expect(cards).toHaveLength(2)
     expect(cards[0]!.classList.contains('known')).toBe(true)
-    expect(cards[0]!.textContent).toContain('−0.16 mag brighter')
+    expect(cards[0]!.textContent).toContain('0.16 mag brighter')
+    expect(cards[0]!.textContent).not.toContain('−0.16')
     expect(cards[1]!.textContent).toContain('not measured')
     expect(cards[1]!.textContent).toContain('no catalogued star')
     const detail = el.querySelector('.detail')!

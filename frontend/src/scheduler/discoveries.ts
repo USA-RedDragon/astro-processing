@@ -112,20 +112,26 @@ function signed(v: number, digits: number): string {
   return (v < 0 ? '−' : '+') + s
 }
 
-/** deltaText says how the night compares with the reference; long adds "than the reference". */
+/**
+ * deltaText says how the night compares with the reference; long adds "than
+ * the reference". A change with no measurable source in the reference (no
+ * reference magnitude) is a new or faded source, never a magnitude change
+ * against nothing.
+ */
 export function deltaText(
-  c: Pick<DiscoveryCandidate, 'delta_mag' | 'night_mag'>,
+  c: Pick<DiscoveryCandidate, 'delta_mag' | 'night_mag' | 'ref_mag' | 'sign'>,
   long = false,
 ): string {
   const d = c.delta_mag
-  if (d !== null && d !== undefined) {
-    const v = signed(d, 2)
+  const onSource = c.ref_mag !== null && c.ref_mag !== undefined
+  if (onSource && d !== null && d !== undefined) {
     if (Number(Math.abs(d).toFixed(2)) === 0) return long ? 'no change from the reference' : 'no change'
     const word = d < 0 ? 'brighter' : 'fainter'
-    return `${v} mag ${word}${long ? ' than the reference' : ''}`
+    return `${Math.abs(d).toFixed(2)} mag ${word}${long ? ' than the reference' : ''}`
   }
+  if (c.sign < 0) return 'faded source'
   if (c.night_mag !== null && c.night_mag !== undefined) return `new source, G≈${c.night_mag.toFixed(1)}`
-  return 'not measured'
+  return onSource ? 'not measured' : 'new source'
 }
 
 export function starText(c: Pick<DiscoveryCandidate, 'gaia_g'>): string {

@@ -79,14 +79,20 @@ describe('classes', () => {
 
 describe('magnitude text', () => {
   it('says brighter or fainter than the reference', () => {
-    expect(deltaText(candidate({ delta_mag: -0.158 }), true)).toBe('−0.16 mag brighter than the reference')
-    expect(deltaText(candidate({ delta_mag: 0.33 }))).toBe('+0.33 mag fainter')
+    expect(deltaText(candidate({ delta_mag: -0.158 }), true)).toBe('0.16 mag brighter than the reference')
+    expect(deltaText(candidate({ delta_mag: 0.33 }))).toBe('0.33 mag fainter')
     expect(deltaText(candidate({ delta_mag: 0.001 }))).toBe('no change')
   })
 
   it('falls back to the night magnitude, then to not measured', () => {
     expect(deltaText(candidate({ delta_mag: null, night_mag: 19.43 }))).toBe('new source, G≈19.4')
     expect(deltaText(candidate({ delta_mag: null, night_mag: null }))).toBe('not measured')
+  })
+
+  it('calls a change with nothing in the reference a new or faded source, not a magnitude change', () => {
+    expect(deltaText(candidate({ delta_mag: -4.91, ref_mag: null, gaia_g: null, night_mag: 20.4 }))).toBe('new source, G≈20.4')
+    expect(deltaText(candidate({ delta_mag: -1.3, ref_mag: null, gaia_g: null, night_mag: null }))).toBe('new source')
+    expect(deltaText(candidate({ sign: -1, delta_mag: 1.66, ref_mag: null, gaia_g: null }))).toBe('faded source')
   })
 
   it('names the catalogued star or says there is none', () => {
