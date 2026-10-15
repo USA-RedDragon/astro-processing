@@ -4,6 +4,7 @@ import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-
 import DiscoveriesPage from '@/scheduler/pages/DiscoveriesPage.vue'
 import type { DiscoverySource, DiscoverySourceList } from '@/scheduler/api/discoveries'
 import { cygnus, nova, run } from './fixtures/discoveries'
+import cygnusChecks from './fixtures/checksCygnus.json'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -72,6 +73,13 @@ function stacker(over: Partial<Record<string, unknown>> = {}): Handler {
   let vetted: Partial<DiscoverySource> = {}
   return (url, init) => {
     const p = new URL(url, 'http://x').pathname
+    const checks = /^\/api\/v1\/discoveries\/sources\/(\d+)\/checks$/.exec(p)
+    if (checks) {
+      const none = { source_id: Number(checks[1]), state: 'none', report: null, error: '' }
+      if (init?.method === 'POST')
+        return json({ ...none, ...(over.checks as object), state: 'queued' })
+      return json(over.checks ?? { ...none, requested_at: null, finished_at: null })
+    }
     if (init?.method === 'PUT') {
       const body = JSON.parse(String(init.body))
       vetted = { vetting: body.state, vet_note: body.note, needs_look: !body.state }
@@ -207,6 +215,34 @@ describe('DiscoveriesPage', () => {
     await settle()
     const puts = fetch.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'PUT')
     expect(JSON.parse(String((puts[1]![1] as RequestInit).body)).state).toBe('')
+    app.unmount()
+  })
+
+  it('shows the automatic checks of the picked source and saves nothing on its own', async () => {
+    const { el, app, fetch } = await render(stacker({ checks: cygnusChecks }))
+    const detail = el.querySelector('.detail')!
+    expect(detail.textContent).toContain('Suggested verdict · High confidence')
+    expect(detail.textContent).toContain('Artifact: reference image contaminated')
+    expect(detail.textContent).toContain('Not vetted yet. The suggestion is not saved')
+    expect(detail.textContent).toContain('Report draft: not offered for artifacts')
+    expect(detail.querySelector('#disc-note')).not.toBeNull()
+    expect(detail.querySelectorAll('.nrow')).toHaveLength(3)
+    expect(fetch.mock.calls.some((c) => (c[1] as RequestInit | undefined)?.method === 'PUT')).toBe(
+      false,
+    )
+    ;[...detail.querySelectorAll('button')]
+      .find((b) => b.textContent?.trim() === 'Run again')!
+      .click()
+    await settle()
+    const post = fetch.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST')!
+    expect(String(post[0])).toBe('/api/v1/discoveries/sources/1/checks')
+    expect(detail.textContent).toContain('Running the checks again.')
+    app.unmount()
+  })
+
+  it('offers to run the checks when they have not run', async () => {
+    const { el, app } = await render(stacker())
+    expect(el.querySelector('.detail')!.textContent).toContain('Automatic checks have not run yet.')
     app.unmount()
   })
 

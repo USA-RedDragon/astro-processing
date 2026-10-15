@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
+import VettingPanel from '../components/VettingPanel.vue'
 import {
   getDiscoveryCandidate,
   getDiscoverySource,
@@ -18,13 +19,11 @@ import {
   type Vetting,
 } from '../api/discoveries'
 import {
-  VET_BUTTONS,
   chanceText,
   heldText,
   classLabel,
   deltaText,
   isNight,
-  links,
   moverName,
   nextVetting,
   offsetText,
@@ -64,6 +63,7 @@ import {
 } from '../discoveryInbox'
 import { onChange } from '@/lib/events'
 import { latestOnly } from '../latest'
+import { useSourceChecks } from '../useSourceChecks'
 
 const PAGE = 50
 const RECENT_ROWS = 30
@@ -325,7 +325,8 @@ watch(
 )
 
 const rows = computed(() => (selected.value ? nightRows(selected.value) : []))
-const place = computed(() => (selected.value ? links(selected.value.ra, selected.value.dec) : null))
+const vc = useSourceChecks(() => selected.value?.id ?? null)
+const checkedStar = computed(() => vc.checks.value?.report?.star ?? '')
 const failedText = computed(() => {
   const s = selected.value
   if (!s) return ''
@@ -603,7 +604,7 @@ const pageState = computed(() => {
             </template>
             <template v-else>
               <dt>Star</dt>
-              <dd>{{ starText(selected.best) }}</dd>
+              <dd>{{ checkedStar || starText(selected.best) }}</dd>
             </template>
             <dt>Catalogs</dt>
             <dd>
@@ -622,69 +623,70 @@ const pageState = computed(() => {
               <dd>{{ vettingLabel(selected.vetting) }}</dd>
             </template>
           </dl>
-          <h3 class="sub">Night by night</h3>
-          <div class="nights">
-            <div v-for="r in rows" :key="r.night" class="nrow">
-              <div class="nl">
-                <b>{{ shortNight(r.night) }}</b>
-                <span class="dim small"
-                  >{{ groupsText(r.groups) }} · {{ subsText(r.best)
-                  }}<template v-if="r.lowOnly"> · low confidence</template></span
-                >
-                <span>{{
-                  selected.kind === 'mover' ? groupLabel(r.best.group) : deltaText(r.best)
-                }}</span>
+          <VettingPanel
+            :source="selected"
+            :checks="vc.checks.value"
+            :loading="vc.loading.value"
+            :error="vc.error.value"
+            :run-error="vc.runError.value"
+            :starting="vc.starting.value"
+            :busy="vetBusy > 0"
+            @vet="vet"
+            @run="vc.run"
+            @reload="vc.reload"
+          >
+            <template #note>
+              <p v-if="vetError" class="small bad" role="alert">
+                That did not save: {{ vetError }}
+              </p>
+              <div class="note">
+                <label class="small dim" for="disc-note">Note</label>
+                <textarea
+                  id="disc-note"
+                  v-model="note"
+                  placeholder="Optional, for example the catalog name"
+                  @change="saveNote"
+                />
               </div>
-              <div class="trip sm">
-                <template v-if="r.best.cutouts">
-                  <img
-                    :src="r.best.cutouts.night"
-                    :alt="`${shortNight(r.night)} night`"
-                    loading="lazy"
-                  />
-                  <img
-                    :src="r.best.cutouts.ref"
-                    :alt="`${shortNight(r.night)} reference`"
-                    loading="lazy"
-                  />
-                  <img
-                    :src="r.best.cutouts.diff"
-                    :alt="`${shortNight(r.night)} difference`"
-                    loading="lazy"
-                  />
-                </template>
-                <span v-else class="nocut small dim">no cutouts</span>
+            </template>
+            <template #nights>
+              <h3 class="sub">Night by night</h3>
+              <div class="nights">
+                <div v-for="r in rows" :key="r.night" class="nrow">
+                  <div class="nl">
+                    <b>{{ shortNight(r.night) }}</b>
+                    <span class="dim small"
+                      >{{ groupsText(r.groups) }} · {{ subsText(r.best)
+                      }}<template v-if="r.lowOnly"> · low confidence</template></span
+                    >
+                    <span>{{
+                      selected.kind === 'mover' ? groupLabel(r.best.group) : deltaText(r.best)
+                    }}</span>
+                  </div>
+                  <div class="trip sm">
+                    <template v-if="r.best.cutouts">
+                      <img
+                        :src="r.best.cutouts.night"
+                        :alt="`${shortNight(r.night)} night`"
+                        loading="lazy"
+                      />
+                      <img
+                        :src="r.best.cutouts.ref"
+                        :alt="`${shortNight(r.night)} reference`"
+                        loading="lazy"
+                      />
+                      <img
+                        :src="r.best.cutouts.diff"
+                        :alt="`${shortNight(r.night)} difference`"
+                        loading="lazy"
+                      />
+                    </template>
+                    <span v-else class="nocut small dim">no cutouts</span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div class="vet" role="group" aria-label="Vet this source" :aria-busy="vetBusy > 0">
-            <button
-              v-for="b in VET_BUTTONS"
-              :key="b.state"
-              type="button"
-              :class="{ primary: selected.vetting === b.state }"
-              :aria-pressed="selected.vetting === b.state"
-              @click="vet(b.state)"
-            >
-              {{ b.label }}
-            </button>
-          </div>
-          <p v-if="vetError" class="small bad" role="alert">That did not save: {{ vetError }}</p>
-          <div class="note">
-            <label class="small dim" for="disc-note">Note</label>
-            <textarea
-              id="disc-note"
-              v-model="note"
-              placeholder="Optional, for example the catalog name"
-              @change="saveNote"
-            />
-          </div>
-          <div v-if="place" class="small links">
-            Open this spot in
-            <a :href="place.aladin" target="_blank" rel="noopener noreferrer">Aladin</a> ·
-            <a :href="place.vsx" target="_blank" rel="noopener noreferrer">VSX</a> ·
-            <a :href="place.simbad" target="_blank" rel="noopener noreferrer">SIMBAD</a>
-          </div>
+            </template>
+          </VettingPanel>
         </aside>
       </div>
 
@@ -753,6 +755,8 @@ const pageState = computed(() => {
   --nova: oklch(0.55 0.16 25);
   --nova-bg: oklch(0.95 0.04 25);
   --d-sel: oklch(0.62 0.15 250);
+  --pt: oklch(0.55 0.13 250);
+  --model: oklch(0.6 0.15 55);
 }
 .dark .disc {
   --d-card: oklch(0.18 0.005 285.8);
@@ -765,6 +769,8 @@ const pageState = computed(() => {
   --nova: oklch(0.78 0.13 25);
   --nova-bg: oklch(0.32 0.07 25);
   --d-sel: oklch(0.7 0.14 250);
+  --pt: oklch(0.75 0.12 250);
+  --model: oklch(0.8 0.13 65);
 }
 .dim {
   color: var(--muted-foreground);
@@ -841,7 +847,6 @@ input {
   opacity: 0.75;
 }
 .chip:focus-visible,
-.vet button:focus-visible,
 .src:focus-visible,
 tbody tr:focus-visible {
   outline: 2px solid var(--d-sel);
@@ -1021,10 +1026,15 @@ tbody tr:focus-visible {
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 @media (max-width: 980px) {
   .detail {
     position: static;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 .detail h2 {
@@ -1071,25 +1081,6 @@ dd {
   font-size: 13px;
   min-width: 0;
 }
-.vet {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-}
-.vet button {
-  font: inherit;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--foreground);
-  cursor: pointer;
-}
-.vet button.primary {
-  background: var(--primary);
-  color: var(--primary-foreground);
-  border-color: var(--primary);
-}
 .note {
   display: flex;
   flex-direction: column;
@@ -1100,14 +1091,8 @@ textarea {
   min-height: 56px;
   resize: vertical;
 }
-.detail > p {
+.detail p.bad {
   margin: 0;
-}
-.links a {
-  color: var(--known);
-}
-.links a:hover {
-  text-decoration: underline;
 }
 .recent {
   margin-top: 28px;
