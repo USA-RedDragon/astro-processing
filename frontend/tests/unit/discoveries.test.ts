@@ -177,8 +177,9 @@ describe('summary', () => {
   })
 
   it('names what was checked in plain words', () => {
-    expect(sourceWords(['VSX', 'SkyBoT', 'ALeRCE', 'Fink', 'TNS', 'galaxies'])).toEqual([
+    expect(sourceWords(['VSX', 'SIMBAD', 'SkyBoT', 'ALeRCE', 'Fink', 'TNS', 'galaxies'])).toEqual([
       'variable-star catalog',
+      'star database',
       'known asteroids',
       'alert feeds',
       'galaxy catalog',

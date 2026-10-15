@@ -201,6 +201,7 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
 
 const CATALOG_WORDS: Record<string, string> = {
   VSX: 'variable-star catalog',
+  SIMBAD: 'star database',
   SkyBoT: 'known asteroids',
   ALeRCE: 'alert feeds',
   Fink: 'alert feeds',
