@@ -9,6 +9,7 @@ import {
   deltaText,
   edgeOf,
   links,
+  matchLines,
   matchText,
   moverName,
   nextVetting,
@@ -152,6 +153,24 @@ describe('words', () => {
       'alert feeds',
       'galaxy catalog',
     ])
+  })
+
+  it('names the survey variable star catalogs in plain words', () => {
+    expect(sourceWords(['VSX', 'SIMBAD', 'Gaia DR3 variability', 'ATLAS variables', 'ZTF variables', 'ASAS-SN variables'])).toEqual([
+      'variable-star catalog',
+      'star database',
+      'Gaia variable stars',
+      'ATLAS variable stars',
+      'ZTF variable stars',
+      'ASAS-SN variable stars',
+    ])
+    expect(
+      matchLines(
+        candidate({
+          matches: [{ catalog: 'ZTF variables', name: 'ZTFJ004000.00+410000.0', type: 'EW', sep_arcsec: 1.2 }],
+        }),
+      ),
+    ).toEqual(['ZTFJ004000.00+410000.0 (EW), ZTF variable stars, 1.2″ away'])
   })
 
   it('labels nights', () => {
