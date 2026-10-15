@@ -54,6 +54,14 @@ describe('source cards', () => {
     expect(catalogText(cygnus({ checked: ['SkyBoT'] }))).toBe('Variable-star catalog not checked')
   })
 
+  it('says when a variable-star catalog could not be checked', () => {
+    const s = cygnus({ checked: ['VSX', 'SkyBoT'], failed: ['ATLAS variables'] })
+    expect(catalogText(s)).toMatch(
+      /^Not in the variable-star catalogs checked; .+ could not be checked$/,
+    )
+    expect(catalogText(s)).not.toContain('any variable-star catalog')
+  })
+
   it('names an alert-feed match once', () => {
     const matches = [{ catalog: 'ALeRCE', name: 'ZTF18abildix', sep_arcsec: 0.2 }]
     const s = cygnus({

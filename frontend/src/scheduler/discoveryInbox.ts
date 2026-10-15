@@ -6,7 +6,23 @@ import type {
   SourceView,
 } from './api/discoveries'
 import { filterColor } from './api/planning'
-import { deltaText, matchText, moverName, rateText, starText, tnsMatch } from './discoveries'
+import {
+  deltaText,
+  matchText,
+  moverName,
+  rateText,
+  sourceWords,
+  starText,
+  tnsMatch,
+} from './discoveries'
+
+const VARIABLE_CATALOGS = [
+  'VSX',
+  'Gaia DR3 variability',
+  'ATLAS variables',
+  'ZTF variables',
+  'ASAS-SN variables',
+]
 
 export const VIEWS: { key: SourceView; label: string }[] = [
   { key: 'look', label: 'Needs a look' },
@@ -186,7 +202,7 @@ export function changeText(s: DiscoverySource): string {
 
 /** catalogText says what the catalogues know of the spot, in plain words. */
 export function catalogText(
-  s: Pick<DiscoverySource, 'class' | 'best' | 'checked' | 'kind'>,
+  s: Pick<DiscoverySource, 'class' | 'best' | 'checked' | 'failed' | 'kind'>,
 ): string {
   const m = s.best.matches ?? []
   if (s.kind === 'mover') return matchText(s.best)
@@ -204,11 +220,14 @@ export function catalogText(
       : ''
     out.push(`Inside ${galaxy.name}${sep}`)
   }
-  out.push(
-    s.checked.includes('VSX')
-      ? 'not in any variable-star catalog'
-      : 'variable-star catalog not checked',
-  )
+  const ok = VARIABLE_CATALOGS.filter((c) => s.checked.includes(c))
+  const missed = VARIABLE_CATALOGS.filter((c) => (s.failed ?? []).includes(c) && !ok.includes(c))
+  if (!ok.length) out.push('variable-star catalog not checked')
+  else if (missed.length)
+    out.push(
+      `not in the variable-star catalogs checked; ${sourceWords(missed).join(', ')} could not be checked`,
+    )
+  else out.push('not in any variable-star catalog')
   return cap(out.join(' · '))
 }
 
