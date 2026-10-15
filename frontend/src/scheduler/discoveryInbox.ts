@@ -193,8 +193,9 @@ export function catalogText(
   const galaxy = m.find((x) => x.catalog === 'galaxy')
   if (s.class === 'known_transient' && tnsMatch(s.best)?.note) return matchText(s.best)
   if (s.class.startsWith('known_')) {
+    const text = matchText(s.best)
     const named = m.find((x) => x.catalog !== 'galaxy')
-    return named ? `${matchText(s.best)}: ${named.name}` : matchText(s.best)
+    return named && !text.includes(named.name) ? `${text}: ${named.name}` : text
   }
   const out: string[] = []
   if (galaxy) {

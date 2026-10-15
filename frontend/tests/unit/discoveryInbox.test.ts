@@ -54,6 +54,23 @@ describe('source cards', () => {
     expect(catalogText(cygnus({ checked: ['SkyBoT'] }))).toBe('Variable-star catalog not checked')
   })
 
+  it('names an alert-feed match once', () => {
+    const matches = [{ catalog: 'ALeRCE', name: 'ZTF18abildix', sep_arcsec: 0.2 }]
+    const s = cygnus({
+      class: 'known_transient',
+      best: candidate({ class: 'known_transient', matches }),
+    })
+    expect(catalogText(s)).toBe('Already in the alert feeds as ZTF18abildix')
+    const v = cygnus({
+      class: 'known_variable',
+      best: candidate({
+        class: 'known_variable',
+        matches: [{ catalog: 'VSX', name: 'V0123 Cyg', sep_arcsec: 1 }],
+      }),
+    })
+    expect(catalogText(v)).toBe('Matches a cataloged variable star: V0123 Cyg')
+  })
+
   it('keeps the low-confidence group out of a night with a confident one', () => {
     const rows = nightRows(cygnus())
     expect(rows.map((r) => r.night)).toEqual(['2026-10-07', '2026-10-06', '2026-10-05'])
