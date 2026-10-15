@@ -145,6 +145,14 @@ const button = (el: HTMLElement, text: string) =>
     | undefined
 
 describe('DiscoveryReportPage', () => {
+  it('colors a possible nova pill as the Discoveries page does', async () => {
+    const { el, done } = await render(stacker({ rep: report({ class: 'nova_candidate' }) }))
+    const pill = el.querySelector('.pill')!
+    expect(pill.textContent).toContain('Possible nova')
+    expect([...pill.classList]).toEqual(['pill', 'new', 'nova'])
+    done()
+  })
+
   it('shows the header, cutouts, facts, checks and TNS fields from the report', async () => {
     const { el, done } = await render(stacker())
     expect(el.querySelector('h1')!.textContent).toContain('Report a discovery')

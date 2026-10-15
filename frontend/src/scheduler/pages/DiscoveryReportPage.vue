@@ -18,8 +18,8 @@ import {
   CHECK_MARKS,
   REPORT_TABS,
   classLabel,
-  edgeOf,
   nightLabel,
+  pillOf,
   reportTab,
   type ReportTab,
 } from '../discoveries'
@@ -273,7 +273,7 @@ watch(id, load, { immediate: true })
     <div v-else-if="report" class="rgrid">
       <aside class="detail" aria-label="Candidate">
         <div class="meta">
-          <span class="pill" :class="edgeOf(report.class)">{{ classLabel(report.class) }}</span>
+          <span class="pill" :class="pillOf(report.class)">{{ classLabel(report.class) }}</span>
           <span v-if="detail" class="snr">{{ detail.snr.toFixed(1) }}σ</span>
         </div>
         <div class="big">
