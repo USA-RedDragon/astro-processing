@@ -4,6 +4,7 @@ import type {
   DiscoveryCandidate,
   DiscoveryMatch,
   DiscoveryReport,
+  DiscoveryRun,
   DiscoveryStatus,
   LightPoint,
   Vetting,
@@ -158,6 +159,8 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
 const CATALOG_WORDS: Record<string, string> = {
   VSX: 'variable-star catalog',
   SIMBAD: 'star database',
+  ZTF: 'ZTF light curves',
+  night: 'the same change on another night',
   SkyBoT: 'known asteroids',
   ALeRCE: 'alert feeds',
   Fink: 'alert feeds',
@@ -165,6 +168,30 @@ const CATALOG_WORDS: Record<string, string> = {
   galaxies: 'galaxy catalog',
   galaxy: 'galaxy catalog',
   track: 'moving objects in the subs',
+}
+
+/** chanceText says what the night's chance checks found, in plain words. */
+export function chanceText(
+  run: Pick<DiscoveryRun, 'mover_null' | 'change_null'> | null | undefined,
+): string {
+  const parts: string[] = []
+  const c = run?.change_null
+  if (c && c.subs > 0) {
+    parts.push(
+      c.found === 0
+        ? 'Comparing the night with itself found no false changes'
+        : `Comparing the night with itself found ${c.found} false ${c.found === 1 ? 'change' : 'changes'}, the strongest ${c.max_snr.toFixed(1)}σ; a new variable must be stronger`,
+    )
+  }
+  const m = run?.mover_null
+  if (m) {
+    parts.push(
+      m.max_hits === 0
+        ? 'Shuffling the subs in time linked no false movers'
+        : `Shuffling the subs in time linked false movers of up to ${m.max_hits} detections; a mover needs more`,
+    )
+  }
+  return parts.length ? parts.join('. ') + '.' : 'not measured'
 }
 
 /** sourceWords turns the names of what was checked into plain words, once each. */

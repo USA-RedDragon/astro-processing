@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LightPoint } from '@/scheduler/api/discoveries'
 import { candidate } from './fixtures/discoveries'
 import {
+  chanceText,
   chartOf,
   classLabel,
   decText,
@@ -52,20 +53,38 @@ describe('classes', () => {
 
   it('names the galaxy a possible nova or supernova sits in', () => {
     const m31 = [{ catalog: 'galaxy', name: 'M 31', sep_arcsec: 900 }]
-    expect(matchText(candidate({ class: 'nova_candidate', matches: m31 }))).toBe('No cataloged star, inside M 31')
-    expect(matchText(candidate({ class: 'supernova_candidate', matches: m31 }))).toBe('No cataloged star, inside M 31')
-    expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe('No cataloged star, inside a galaxy')
+    expect(matchText(candidate({ class: 'nova_candidate', matches: m31 }))).toBe(
+      'No cataloged star, inside M 31',
+    )
+    expect(matchText(candidate({ class: 'supernova_candidate', matches: m31 }))).toBe(
+      'No cataloged star, inside M 31',
+    )
+    expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe(
+      'No cataloged star, inside a galaxy',
+    )
   })
 
   it('names a mover by its asteroid match', () => {
-    expect(moverName(candidate({ kind: 'mover', class: 'unknown_mover', matches: [] }))).toBe('Unknown')
-    expect(moverName(candidate({ kind: 'mover', class: 'known_asteroid', matches: [{ catalog: 'SkyBoT', name: 'Randoross', sep_arcsec: 1.5 }] }))).toBe('Randoross')
+    expect(moverName(candidate({ kind: 'mover', class: 'unknown_mover', matches: [] }))).toBe(
+      'Unknown',
+    )
+    expect(
+      moverName(
+        candidate({
+          kind: 'mover',
+          class: 'known_asteroid',
+          matches: [{ catalog: 'SkyBoT', name: 'Randoross', sep_arcsec: 1.5 }],
+        }),
+      ),
+    ).toBe('Randoross')
   })
 })
 
 describe('magnitude text', () => {
   it('says brighter or fainter than the reference', () => {
-    expect(deltaText(candidate({ delta_mag: -0.158 }), true)).toBe('0.16 mag brighter than the reference')
+    expect(deltaText(candidate({ delta_mag: -0.158 }), true)).toBe(
+      '0.16 mag brighter than the reference',
+    )
     expect(deltaText(candidate({ delta_mag: 0.33 }))).toBe('0.33 mag fainter')
     expect(deltaText(candidate({ delta_mag: 0.001 }))).toBe('no change')
   })
@@ -76,9 +95,15 @@ describe('magnitude text', () => {
   })
 
   it('calls a change with nothing in the reference a new or faded source, not a magnitude change', () => {
-    expect(deltaText(candidate({ delta_mag: -4.91, ref_mag: null, gaia_g: null, night_mag: 20.4 }))).toBe('new source, G≈20.4')
-    expect(deltaText(candidate({ delta_mag: -1.3, ref_mag: null, gaia_g: null, night_mag: null }))).toBe('new source')
-    expect(deltaText(candidate({ sign: -1, delta_mag: 1.66, ref_mag: null, gaia_g: null }))).toBe('faded source')
+    expect(
+      deltaText(candidate({ delta_mag: -4.91, ref_mag: null, gaia_g: null, night_mag: 20.4 })),
+    ).toBe('new source, G≈20.4')
+    expect(
+      deltaText(candidate({ delta_mag: -1.3, ref_mag: null, gaia_g: null, night_mag: null })),
+    ).toBe('new source')
+    expect(deltaText(candidate({ sign: -1, delta_mag: 1.66, ref_mag: null, gaia_g: null }))).toBe(
+      'faded source',
+    )
   })
 
   it('names the cataloged star or says there is none', () => {
@@ -98,7 +123,9 @@ describe('positions', () => {
 
   it('builds the outside links in decimal degrees', () => {
     const l = links(189.30894, -14.5)
-    expect(l.aladin).toBe('https://aladin.cds.unistra.fr/AladinLite/?target=189.30894%20-14.5&fov=0.1')
+    expect(l.aladin).toBe(
+      'https://aladin.cds.unistra.fr/AladinLite/?target=189.30894%20-14.5&fov=0.1',
+    )
     expect(l.vsx).toBe(
       'https://www.aavso.org/vsx/index.php?view=results.submit1&ql=1&coords=189.30894+-14.5&format=d&size=10&unit=3',
     )
@@ -132,9 +159,16 @@ describe('words', () => {
   })
 
   it('shows the running comparison only', () => {
-    expect(statusText({ state: 'running', object: 'M 31', night: '2026-10-13', stage: 'saving', queued: 0, done_in_pass: 0 })).toBe(
-      'Comparing M 31 Oct 13 2026: saving',
-    )
+    expect(
+      statusText({
+        state: 'running',
+        object: 'M 31',
+        night: '2026-10-13',
+        stage: 'saving',
+        queued: 0,
+        done_in_pass: 0,
+      }),
+    ).toBe('Comparing M 31 Oct 13 2026: saving')
     expect(statusText({ state: 'idle', queued: 0, done_in_pass: 0 })).toBe('')
   })
 })
@@ -193,16 +227,53 @@ describe('a TNS match from the local copy', () => {
       name: 'AT 2026acsi',
       sep_arcsec: 0.3,
       note: 'already known: AT 2026acsi (nova candidate, XOSS, Sep 22)',
-      tns: { name: 'AT 2026acsi', group: 'XOSS', discovered: '2026-09-22T15:50:24Z', early_data: early },
+      tns: {
+        name: 'AT 2026acsi',
+        group: 'XOSS',
+        discovered: '2026-09-22T15:50:24Z',
+        early_data: early,
+      },
     },
   ]
   it('says it is already known, and early data when we have it', () => {
-    expect(matchText(candidate({ class: 'known_transient', matches: tns(false) }))).toBe('Already known: AT 2026acsi (nova candidate, XOSS, Sep 22)')
+    expect(matchText(candidate({ class: 'known_transient', matches: tns(false) }))).toBe(
+      'Already known: AT 2026acsi (nova candidate, XOSS, Sep 22)',
+    )
     expect(matchText(candidate({ class: 'known_transient', matches: tns(true) }))).toBe(
       'Already known: AT 2026acsi (nova candidate, XOSS, Sep 22) · Early data: you have measurements from before its discovery; worth sending to TNS as photometry',
     )
     const alerce = [{ catalog: 'ALeRCE', name: 'ZTF26a', sep_arcsec: 1 }]
-    expect(matchText(candidate({ class: 'known_transient', matches: alerce }))).toBe('Already in the alert feeds as ZTF26a')
+    expect(matchText(candidate({ class: 'known_transient', matches: alerce }))).toBe(
+      'Already in the alert feeds as ZTF26a',
+    )
   })
 })
 
+describe('chanceText', () => {
+  it('says what the null tests found in plain words', () => {
+    expect(
+      chanceText({
+        change_null: { subs: 51, found: 2, max_snr: 8.46 },
+        mover_null: { tracks: 0.33, max_hits: 6 },
+      }),
+    ).toBe(
+      'Comparing the night with itself found 2 false changes, the strongest 8.5σ; a new variable must be stronger. Shuffling the subs in time linked false movers of up to 6 detections; a mover needs more.',
+    )
+    expect(
+      chanceText({
+        change_null: { subs: 14, found: 0, max_snr: 0 },
+        mover_null: { tracks: 0, max_hits: 0 },
+      }),
+    ).toBe(
+      'Comparing the night with itself found no false changes. Shuffling the subs in time linked no false movers.',
+    )
+    expect(chanceText(null)).toBe('not measured')
+  })
+
+  it('names the ZTF check and confirming nights in plain words', () => {
+    expect(sourceWords(['ZTF', 'night'])).toEqual([
+      'ZTF light curves',
+      'the same change on another night',
+    ])
+  })
+})

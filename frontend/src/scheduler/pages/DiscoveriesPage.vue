@@ -19,6 +19,7 @@ import {
 } from '../api/discoveries'
 import {
   VET_BUTTONS,
+  chanceText,
   classLabel,
   deltaText,
   isNight,
@@ -705,7 +706,10 @@ const pageState = computed(() => {
                 <td class="num" :class="{ dim: depthText(r) === 'not measured' }">
                   {{ depthText(r) }}
                 </td>
-                <td :class="{ dim: r.state !== 'done' }">{{ runResult(r) }}</td>
+                <td :class="{ dim: r.state !== 'done' }">
+                  {{ runResult(r) }}
+                  <span v-if="r.state === 'done'" class="block dim small">{{ chanceText(r) }}</span>
+                </td>
               </tr>
             </tbody>
           </table>

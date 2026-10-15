@@ -55,6 +55,8 @@ export interface DiscoveryRun {
   mid_time: string | null
   finished_at: string | null
   seconds: number
+  mover_null?: { tracks: number; max_hits: number }
+  change_null?: { subs: number; found: number; max_snr: number }
 }
 
 /** TnsEntry is what the local TNS copy says about a known object. */
