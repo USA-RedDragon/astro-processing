@@ -26,6 +26,7 @@ export function isChip(v: unknown): v is Chip {
 }
 
 const NEW_CLASSES: ReadonlySet<string> = new Set([
+  'nova_candidate',
   'supernova_candidate',
   'new_variable_candidate',
   'unknown_mover',
@@ -35,6 +36,7 @@ const CLASS_LABELS: Record<CandidateClass, string> = {
   known_variable: 'Known variable',
   known_asteroid: 'Known asteroid',
   known_transient: 'Known transient',
+  nova_candidate: 'Possible nova',
   supernova_candidate: 'Possible supernova',
   new_variable_candidate: 'New variable?',
   unknown_mover: 'Unknown mover',
@@ -49,6 +51,11 @@ export function edgeOf(c: string): Edge {
   if (c.startsWith('known_')) return 'known'
   if (NEW_CLASSES.has(c)) return 'new'
   return 'low'
+}
+
+/** pillOf lists the CSS classes of a class pill: the edge, plus its own color where the class has one. */
+export function pillOf(c: string): string[] {
+  return c === 'nova_candidate' ? [edgeOf(c), 'nova'] : [edgeOf(c)]
 }
 
 export function needsLook(c: Pick<DiscoveryCandidate, 'class' | 'vetting'>): boolean {
@@ -177,6 +184,7 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
       const a = m.find((x) => ['ALeRCE', 'Fink', 'TNS'].includes(x.catalog))
       return a ? `Already in the alert feeds as ${a.name}` : 'Already in the alert feeds'
     }
+    case 'nova_candidate':
     case 'supernova_candidate': {
       const g = of('galaxy')
       return g ? `No catalogued star, inside ${g.name}` : 'No catalogued star, inside a galaxy'

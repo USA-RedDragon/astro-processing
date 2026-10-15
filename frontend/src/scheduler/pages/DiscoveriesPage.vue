@@ -39,6 +39,7 @@ import {
   nightChoices,
   nightLabel,
   offsetText,
+  pillOf,
   positionText,
   presenceText,
   rateText,
@@ -406,7 +407,7 @@ function saveNote() {
                 <span v-else class="nocut small dim">no cutouts</span>
               </span>
               <span class="meta">
-                <span class="pill" :class="edgeOf(c.class)">{{ classLabel(c.class) }}</span>
+                <span class="pill" :class="pillOf(c.class)">{{ classLabel(c.class) }}</span>
                 <span class="snr">{{ c.snr.toFixed(1) }}σ</span>
               </span>
               <span class="line">
@@ -455,7 +456,7 @@ function saveNote() {
           <dl>
             <dt>Class</dt>
             <dd>
-              <span class="pill" :class="edgeOf(selected.class)">{{ classLabel(selected.class) }}</span>
+              <span class="pill" :class="pillOf(selected.class)">{{ classLabel(selected.class) }}</span>
             </dd>
             <dt>Signal</dt>
             <dd>{{ selected.snr.toFixed(1) }}σ in the difference</dd>
@@ -584,6 +585,8 @@ function saveNote() {
   --new-bg: oklch(0.95 0.05 145);
   --low: oklch(0.55 0.02 285);
   --low-bg: oklch(0.95 0.003 285);
+  --nova: oklch(0.55 0.18 340);
+  --nova-bg: oklch(0.95 0.04 340);
   --d-sel: oklch(0.62 0.15 250);
 }
 .dark .disc {
@@ -594,6 +597,8 @@ function saveNote() {
   --new-bg: oklch(0.3 0.07 145);
   --low: oklch(0.75 0.02 285);
   --low-bg: oklch(0.28 0.01 285);
+  --nova: oklch(0.8 0.14 340);
+  --nova-bg: oklch(0.3 0.08 340);
   --d-sel: oklch(0.7 0.14 250);
 }
 .dim {
@@ -793,6 +798,10 @@ textarea {
 .pill.new {
   color: var(--new);
   background: var(--new-bg);
+}
+.pill.nova {
+  color: var(--nova);
+  background: var(--nova-bg);
 }
 .snr {
   font-weight: 600;

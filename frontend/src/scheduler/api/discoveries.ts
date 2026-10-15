@@ -6,6 +6,7 @@ export type CandidateClass =
   | 'known_variable'
   | 'known_asteroid'
   | 'known_transient'
+  | 'nova_candidate'
   | 'supernova_candidate'
   | 'new_variable_candidate'
   | 'unknown_mover'

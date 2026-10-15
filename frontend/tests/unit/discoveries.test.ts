@@ -11,11 +11,13 @@ import {
   edgeOf,
   inChip,
   links,
+  matchText,
   movers,
   moverName,
   nextVetting,
   nightChoices,
   nightLabel,
+  pillOf,
   raText,
   sourceWords,
   starText,
@@ -38,12 +40,27 @@ describe('classes', () => {
     expect(edgeOf('known_asteroid')).toBe('known')
     expect(edgeOf('known_transient')).toBe('known')
     expect(edgeOf('low_confidence')).toBe('low')
+    expect(edgeOf('nova_candidate')).toBe('new')
     expect(edgeOf('supernova_candidate')).toBe('new')
     expect(edgeOf('new_variable_candidate')).toBe('new')
     expect(edgeOf('unknown_mover')).toBe('new')
+    expect(classLabel('nova_candidate')).toBe('Possible nova')
     expect(classLabel('supernova_candidate')).toBe('Possible supernova')
     expect(classLabel('new_variable_candidate')).toBe('New variable?')
     expect(classLabel('known_transient')).toBe('Known transient')
+  })
+
+  it('gives a possible nova its own pill color and the supernova pill the edge color', () => {
+    expect(pillOf('nova_candidate')).toEqual(['new', 'nova'])
+    expect(pillOf('supernova_candidate')).toEqual(['new'])
+    expect(pillOf('known_variable')).toEqual(['known'])
+  })
+
+  it('names the galaxy a possible nova or supernova sits in', () => {
+    const m31 = [{ catalog: 'galaxy', name: 'M 31', sep_arcsec: 900 }]
+    expect(matchText(candidate({ class: 'nova_candidate', matches: m31 }))).toBe('No catalogued star, inside M 31')
+    expect(matchText(candidate({ class: 'supernova_candidate', matches: m31 }))).toBe('No catalogued star, inside M 31')
+    expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe('No catalogued star, inside a galaxy')
   })
 
   it('counts each chip', () => {
@@ -54,8 +71,10 @@ describe('classes', () => {
       candidate({ id: 4, class: 'new_variable_candidate', vetting: 'real' }),
       candidate({ id: 5, class: 'unknown_mover', kind: 'mover' }),
       candidate({ id: 6, class: 'known_variable', vetting: 'known' }),
+      candidate({ id: 7, class: 'nova_candidate' }),
     ]
-    expect(chipCounts(list)).toEqual({ all: 6, look: 2, known: 2, low: 1, vetted: 2 })
+    expect(chipCounts(list)).toEqual({ all: 7, look: 3, known: 2, low: 1, vetted: 2 })
+    expect(inChip(list[6]!, 'look')).toBe(true)
     expect(inChip(list[3]!, 'look')).toBe(false)
     expect(inChip(list[4]!, 'look')).toBe(true)
   })
@@ -69,8 +88,9 @@ describe('classes', () => {
       candidate({ id: 5, kind: 'mover', class: 'unknown_mover', body_v: null, snr: 7 }),
       candidate({ id: 6, kind: 'mover', class: 'known_asteroid', body_v: 17.5 }),
       candidate({ id: 7, snr: 30 }),
+      candidate({ id: 8, class: 'nova_candidate', snr: 7.5 }),
     ]
-    expect(cards(list).map((c) => c.id)).toEqual([3, 5, 7, 1, 2])
+    expect(cards(list).map((c) => c.id)).toEqual([3, 8, 5, 7, 1, 2])
     expect(movers(list).map((c) => c.id)).toEqual([5, 6, 4])
     expect(moverName(list[4]!)).toBe('Unknown')
     expect(moverName(candidate({ kind: 'mover', class: 'known_asteroid', matches: [{ catalog: 'SkyBoT', name: 'Randoross', sep_arcsec: 1.5 }] }))).toBe('Randoross')
@@ -139,11 +159,12 @@ describe('summary', () => {
     ]
     const list = [
       candidate({ class: 'supernova_candidate' }),
+      candidate({ class: 'nova_candidate' }),
       candidate({ class: 'known_asteroid', kind: 'mover' }),
       candidate({ class: 'unknown_mover', kind: 'mover', vetting: 'artifact' }),
     ]
     expect(summarize(runs, list)).toEqual({
-      look: 1,
+      look: 2,
       knownVariables: 0,
       low: 0,
       knownAsteroids: 1,
