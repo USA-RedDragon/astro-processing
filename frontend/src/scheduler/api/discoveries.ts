@@ -380,3 +380,82 @@ export const sendFollowupToTns = (id: number) =>
   api.post<TnsSendReply>(reportPath(id) + '/tns-followup-send')
 
 export const reportBundleUrl = (id: number) => API_BASE + reportPath(id) + '/bundle.zip'
+
+export type CheckStatus = 'pass' | 'fail' | 'skip'
+export type ChecksState = 'none' | 'queued' | 'running' | 'done' | 'failed'
+export type Confidence = 'high' | 'medium' | 'low'
+
+export interface VetCheck {
+  id: string
+  name: string
+  status: CheckStatus
+  evidence: string
+}
+
+export interface VetGroup {
+  id: string
+  name: string
+  checks: VetCheck[]
+}
+
+export interface VetSuggestion {
+  state: Exclude<Vetting, ''>
+  say: string
+  why: string
+  confidence: Confidence
+}
+
+export interface VetChartPoint {
+  x: number
+  y: number
+  err?: number
+}
+
+export interface VetChart {
+  id: string
+  title: string
+  sub: string
+  x_label: string
+  y_label: string
+  x_unit: 'hours' | 'phase' | 'year'
+  y_unit: 'dmag' | 'mag'
+  x0: number
+  x1: number
+  y0: number
+  y1: number
+  x_ticks: number[]
+  y_ticks: number[]
+  points: VetChartPoint[] | null
+  line?: [number, number][] | null
+  refs?: { y: number; style: 'base' | 'fade' }[] | null
+  vref?: number | null
+  legend?: { style: 'dot' | 'line' | 'dash'; label: string }[] | null
+  empty?: string
+}
+
+export interface VetReport {
+  version: number
+  source_id: number
+  ran_at: string
+  star: string
+  suggestion: VetSuggestion
+  groups: VetGroup[] | null
+  charts: VetChart[] | null
+  ephemeris?: Record<string, unknown> | null
+  pending?: string[] | null
+}
+
+export interface SourceChecks {
+  source_id: number
+  state: ChecksState
+  report: VetReport | null
+  error: string
+  requested_at: string | null
+  finished_at: string | null
+}
+
+export const getSourceChecks = (id: number) =>
+  api.get<SourceChecks>(`/discoveries/sources/${id}/checks`)
+
+export const runSourceChecks = (id: number) =>
+  api.post<SourceChecks>(`/discoveries/sources/${id}/checks`)
