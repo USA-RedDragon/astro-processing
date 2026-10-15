@@ -23,7 +23,10 @@ async function render(handler: Handler, path = '/discoveries') {
   vi.stubGlobal('fetch', fetch)
   const router: Router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/discoveries', component: DiscoveriesPage }],
+    routes: [
+      { path: '/discoveries', component: DiscoveriesPage },
+      { path: '/discoveries/report/:id', component: { render: () => null } },
+    ],
   })
   router.push(path)
   await router.isReady()
@@ -113,6 +116,7 @@ describe('DiscoveriesPage', () => {
     expect(detail.textContent).toContain('Variable-star catalog, known asteroids, alert feeds, galaxy catalog')
     expect(detail.querySelectorAll('.chart circle')).toHaveLength(2)
     expect(detail.querySelector('a[href^="https://simbad"]')).not.toBeNull()
+    expect(detail.querySelector('a.report')!.getAttribute('href')).toBe('/discoveries/report/11')
     const rows = el.querySelectorAll('.movers tbody tr')
     expect(rows).toHaveLength(1)
     expect(rows[0]!.textContent).toContain('Randoross')

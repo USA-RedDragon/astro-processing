@@ -525,6 +525,7 @@ function saveNote() {
             <a :href="place.aladin" target="_blank" rel="noopener noreferrer">Aladin</a> ·
             <a :href="place.vsx" target="_blank" rel="noopener noreferrer">VSX</a> ·
             <a :href="place.simbad" target="_blank" rel="noopener noreferrer">SIMBAD</a>
+            <RouterLink :to="`/discoveries/report/${selected.id}`" class="btn sm report">Report</RouterLink>
           </div>
         </aside>
       </div>
@@ -918,6 +919,13 @@ textarea {
 }
 .links a:hover {
   text-decoration: underline;
+}
+.links .report {
+  margin-left: 8px;
+  color: var(--foreground);
+}
+.links .report:hover {
+  text-decoration: none;
 }
 .movers {
   margin-top: 28px;

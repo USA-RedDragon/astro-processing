@@ -85,7 +85,7 @@ export const navGroups: NavGroup[] = [
         to: '/discoveries',
         label: 'Discoveries',
         note: 'Changes, variables and asteroids found each night',
-        names: ['discoveries'],
+        names: ['discoveries', 'discovery-report'],
       },
       {
         to: '/collabs',

@@ -1,7 +1,9 @@
 import type {
   CandidateClass,
   DiscoveryCandidate,
+  CheckState,
   DiscoveryNight,
+  DiscoveryReport,
   DiscoveryRun,
   DiscoveryStatus,
   LightPoint,
@@ -464,3 +466,24 @@ export function offsetText(v: number | null | undefined): string {
 export function vmagText(v: number | null | undefined): string {
   return num(v) ? v.toFixed(1) : 'not measured'
 }
+
+export type ReportTab = 'tns' | 'mpc' | 'vsx'
+
+export const REPORT_TABS: { key: ReportTab; label: string }[] = [
+  { key: 'tns', label: 'TNS (supernova or nova)' },
+  { key: 'mpc', label: 'Minor Planet Center' },
+  { key: 'vsx', label: 'Variable star (VSX)' },
+]
+
+/**
+ * reportTab picks the tab a report opens on: the one the candidate's kind and
+ * class point to when that draft applies, else the first draft that applies.
+ */
+export function reportTab(r: Pick<DiscoveryReport, 'kind' | 'class' | 'tns' | 'mpc' | 'vsx'>): ReportTab {
+  const want: ReportTab =
+    r.kind === 'mover' ? 'mpc' : r.class === 'new_variable_candidate' ? 'vsx' : 'tns'
+  if (r[want].applies) return want
+  return REPORT_TABS.find((t) => r[t.key].applies)?.key ?? want
+}
+
+export const CHECK_MARKS: Record<CheckState, string> = { ok: '✓', todo: '!', wait: '…', bad: '✕' }

@@ -1,4 +1,4 @@
-import { api, query } from './client'
+import { API_BASE, api, query } from './client'
 
 export type RunState = 'queued' | 'running' | 'done' | 'failed' | 'skipped'
 export type Vetting = '' | 'real' | 'artifact' | 'known' | 'unsure'
@@ -160,3 +160,110 @@ export const setDiscoveryVetting = (id: number, state: Vetting, note: string) =>
   api.put<DiscoveryCandidate>(`/discoveries/candidates/${id}/vetting`, { state, note })
 
 export const getDiscoveryStatus = () => api.get<DiscoveryStatus>('/discoveries/status')
+
+export type ReportKind = 'change' | 'mover'
+export type CheckState = 'ok' | 'todo' | 'wait' | 'bad'
+export type SpotState = 'none' | 'queued' | 'measuring' | 'done' | 'failed'
+
+export interface ReportField {
+  key: string
+  label: string
+  value: string
+  source: string
+  missing?: boolean
+}
+
+export interface ReportCheck {
+  key: string
+  state: CheckState
+  title: string
+  detail: string
+  link?: string
+  link_text?: string
+}
+
+export interface EarlierNight {
+  night: string
+  filter: string
+  subs: number
+  result: string
+  hit?: boolean
+}
+
+export interface TnsDraft {
+  applies: boolean
+  fields: ReportField[]
+  earlier: EarlierNight[]
+  earlier_note: string
+  copy_text: string
+  can_send: boolean
+  send_reason?: string
+  name?: string
+  name_link?: string
+  sent_at?: string
+  sent_reply?: string
+}
+
+export interface MpcDraft {
+  applies: boolean
+  reason?: string
+  code: string
+  psv?: string
+  xml?: string
+}
+
+export interface VsxPoint {
+  time: string
+  filter: string
+  mag: number
+  mag_err?: number
+}
+
+export interface VsxDraft {
+  applies: boolean
+  position: string
+  type_guess: string
+  range: string
+  points: VsxPoint[]
+}
+
+export interface SpotMeasure {
+  state: SpotState
+  error?: string
+  measured_at?: string
+}
+
+export interface DiscoveryReport {
+  candidate_id: number
+  object: string
+  night: string
+  class: CandidateClass
+  kind: ReportKind
+  ra: string
+  dec: string
+  facts: ReportField[]
+  checks: ReportCheck[]
+  tns: TnsDraft
+  mpc: MpcDraft
+  vsx: VsxDraft
+  spot: SpotMeasure
+}
+
+export interface TnsSendReply {
+  report_id: string | number
+  name?: string
+}
+
+const reportPath = (id: number) => `/discoveries/candidates/${id}/report`
+
+export const getDiscoveryReport = (id: number) => api.get<DiscoveryReport>(reportPath(id))
+
+export const measureDiscoverySpot = (id: number, again = false) =>
+  api.post<SpotMeasure>(reportPath(id) + '/measure' + query({ again: again ? 1 : undefined }))
+
+export const setTnsName = (id: number, name: string) =>
+  api.put<DiscoveryReport>(reportPath(id) + '/tns-name', { name })
+
+export const sendToTns = (id: number) => api.post<TnsSendReply>(reportPath(id) + '/tns-send')
+
+export const reportBundleUrl = (id: number) => API_BASE + reportPath(id) + '/bundle.zip'
