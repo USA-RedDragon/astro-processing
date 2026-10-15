@@ -194,15 +194,15 @@ describe('DiscoveriesPage', () => {
   it('vets the whole source and clears it on a second click', async () => {
     const { el, app, fetch } = await render(stacker())
     const real = () =>
-      [...el.querySelectorAll('.vet button')].find(
-        (b) => b.textContent?.trim() === 'Real change',
+      [...el.querySelectorAll('.vet button')].find((b) =>
+        b.textContent?.trim().startsWith('Real'),
       ) as HTMLButtonElement
     real().click()
     await settle()
     const put = fetch.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'PUT')!
     expect(String(put[0])).toBe('/api/v1/discoveries/sources/1/vetting')
     expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({ state: 'real', note: '' })
-    expect(real().classList.contains('primary')).toBe(true)
+    expect(real().getAttribute('aria-pressed')).toBe('true')
     real().click()
     await settle()
     const puts = fetch.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'PUT')

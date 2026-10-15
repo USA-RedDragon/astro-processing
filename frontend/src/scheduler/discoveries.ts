@@ -256,7 +256,7 @@ export function nextVetting(current: Vetting, clicked: Vetting): Vetting {
 }
 
 export const VET_BUTTONS: { state: Exclude<Vetting, ''>; label: string }[] = [
-  { state: 'real', label: 'Real change' },
+  { state: 'real', label: 'Real' },
   { state: 'artifact', label: 'Artifact' },
   { state: 'known', label: 'Already known' },
   { state: 'unsure', label: 'Not sure' },
