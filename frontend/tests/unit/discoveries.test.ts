@@ -65,6 +65,22 @@ describe('classes', () => {
     )
   })
 
+  it('says when ZTF confirms or rejects a change on a star', () => {
+    const ztf = (type: string) => [{ catalog: 'ZTF', name: 'ZTF light curve', type, sep_arcsec: 0 }]
+    expect(
+      matchText(candidate({ class: 'new_variable_candidate', matches: ztf('variable') })),
+    ).toBe('No catalog lists it; its ZTF light curve varies this much too')
+    expect(matchText(candidate({ class: 'new_variable_candidate', matches: [] }))).toBe(
+      'Matches nothing known',
+    )
+    expect(matchText(candidate({ class: 'low_confidence', matches: ztf('flat') }))).toBe(
+      'Its ZTF light curve stays flat; likely ours',
+    )
+    expect(matchText(candidate({ class: 'low_confidence', matches: [] }))).toBe(
+      'Held back: weak, or not confirmed by another night, filter or ZTF',
+    )
+  })
+
   it('names a mover by its asteroid match', () => {
     expect(moverName(candidate({ kind: 'mover', class: 'unknown_mover', matches: [] }))).toBe(
       'Unknown',
@@ -156,7 +172,16 @@ describe('words', () => {
   })
 
   it('names the survey variable star catalogs in plain words', () => {
-    expect(sourceWords(['VSX', 'SIMBAD', 'Gaia DR3 variability', 'ATLAS variables', 'ZTF variables', 'ASAS-SN variables'])).toEqual([
+    expect(
+      sourceWords([
+        'VSX',
+        'SIMBAD',
+        'Gaia DR3 variability',
+        'ATLAS variables',
+        'ZTF variables',
+        'ASAS-SN variables',
+      ]),
+    ).toEqual([
       'variable-star catalog',
       'star database',
       'Gaia variable stars',
@@ -167,7 +192,14 @@ describe('words', () => {
     expect(
       matchLines(
         candidate({
-          matches: [{ catalog: 'ZTF variables', name: 'ZTFJ004000.00+410000.0', type: 'EW', sep_arcsec: 1.2 }],
+          matches: [
+            {
+              catalog: 'ZTF variables',
+              name: 'ZTFJ004000.00+410000.0',
+              type: 'EW',
+              sep_arcsec: 1.2,
+            },
+          ],
         }),
       ),
     ).toEqual(['ZTFJ004000.00+410000.0 (EW), ZTF variable stars, 1.2″ away'])

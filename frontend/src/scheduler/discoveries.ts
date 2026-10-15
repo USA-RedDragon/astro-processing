@@ -147,11 +147,15 @@ export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): str
       return g ? `No cataloged star, inside ${g.name}` : 'No cataloged star, inside a galaxy'
     }
     case 'new_variable_candidate':
-      return 'Matches nothing known'
+      return m.some((x) => x.catalog === 'ZTF' && x.type === 'variable')
+        ? 'No catalog lists it; its ZTF light curve varies this much too'
+        : 'Matches nothing known'
     case 'unknown_mover':
       return 'Moves across the subs; matches no known asteroid'
     case 'low_confidence':
-      return 'Faint; at the noise floor'
+      return m.some((x) => x.catalog === 'ZTF' && x.type === 'flat')
+        ? 'Its ZTF light curve stays flat; likely ours'
+        : 'Held back: weak, or not confirmed by another night, filter or ZTF'
   }
   return ''
 }
