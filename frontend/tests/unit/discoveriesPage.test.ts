@@ -245,4 +245,44 @@ describe('DiscoveriesPage', () => {
     expect(down.el.textContent).toContain('The stacker did not answer: stacker restarting')
     down.app.unmount()
   })
+  it('opens the source of a candidate from an old link', async () => {
+    const base = stacker()
+    const { el, app, router } = await render((url, init) => {
+      if (new URL(url, 'http://x').pathname === '/api/v1/discoveries/candidates/15111')
+        return json({ ...cygnus().nights[2]!.candidates[0], source_id: 77 })
+      return base(url, init)
+    }, '/discoveries?candidate=15111')
+    await settle()
+    expect(router.currentRoute.value.query.source).toBe('77')
+    expect(el.querySelector('.detail h2')!.textContent).toContain('Deep link')
+    app.unmount()
+  })
+
+  it('keeps the card picked after a note saves for the one before', async () => {
+    const { el, app, router } = await render(stacker())
+    const box = el.querySelector('#disc-note') as HTMLTextAreaElement
+    box.value = 'slow fade'
+    box.dispatchEvent(new Event('input'))
+    box.dispatchEvent(new Event('change'))
+    ;(el.querySelectorAll('.src')[1] as HTMLElement).click()
+    await settle()
+    await settle()
+    expect(router.currentRoute.value.query.source).toBe('2')
+    expect(el.querySelector('.detail h2')!.textContent).toContain('Andromeda')
+    app.unmount()
+  })
+
+  it('says an unknown mover has no prediction to be offset from', async () => {
+    const mover = cygnus({
+      id: 9,
+      kind: 'mover',
+      class: 'unknown_mover',
+      best: { ...cygnus().best, kind: 'mover', class: 'unknown_mover', offset_arcsec: null },
+    })
+    const { el, app } = await render(stacker({ sources: page([mover]) }))
+    const detail = el.querySelector('.detail')!
+    expect(detail.textContent).toContain('None: it matches no known asteroid')
+    expect(detail.textContent).not.toContain('from the predicted position')
+    app.unmount()
+  })
 })

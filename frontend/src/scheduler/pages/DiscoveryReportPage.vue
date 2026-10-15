@@ -140,11 +140,9 @@ onUnmounted(() => {
 })
 
 const backLink = computed(() => {
-  const q = new URLSearchParams()
-  const night = report.value?.night ?? detail.value?.night
-  if (night) q.set('night', night)
-  q.set('candidate', String(id.value))
-  return '/discoveries?' + q.toString()
+  const source = detail.value?.source_id
+  if (source) return `/discoveries?source=${source}`
+  return `/discoveries?candidate=${id.value}`
 })
 
 const subline = computed(() => {
@@ -351,8 +349,8 @@ watch(id, load, { immediate: true })
         >
           <template v-if="report.tns.applies">
             <p class="dim small lead">
-              The fields for a TNS discovery report, filled from your data. Check them, then copy them
-              into the TNS form or send them with your TNS key.
+              The fields for a TNS discovery report, filled from your data. Check them, then copy
+              them into the TNS form or send them with your TNS key.
             </p>
             <div class="fields">
               <div v-for="f in report.tns.fields" :key="f.key" class="f">
@@ -374,9 +372,13 @@ watch(id, load, { immediate: true })
                 Measure again
               </button>
             </div>
-            <p v-if="measuring" class="small dim" role="status">Measuring earlier nights at this spot…</p>
+            <p v-if="measuring" class="small dim" role="status">
+              Measuring earlier nights at this spot…
+            </p>
             <p v-else-if="report.spot.state === 'failed'" class="small bad" role="alert">
-              Measuring earlier nights failed{{ report.spot.error ? ': ' + report.spot.error : '.' }}
+              Measuring earlier nights failed{{
+                report.spot.error ? ': ' + report.spot.error : '.'
+              }}
             </p>
             <p v-if="spotError" class="small bad" role="alert">
               Could not start measuring: {{ spotError }}
@@ -395,11 +397,7 @@ watch(id, load, { immediate: true })
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="(e, i) in report.tns.earlier"
-                    :key="i"
-                    :class="{ hit: e.hit }"
-                  >
+                  <tr v-for="(e, i) in report.tns.earlier" :key="i" :class="{ hit: e.hit }">
                     <td>{{ nightLabel(e.night) }}</td>
                     <td>{{ e.filter }}</td>
                     <td class="num">{{ e.subs }}</td>
@@ -409,7 +407,10 @@ watch(id, load, { immediate: true })
               </table>
             </div>
             <p v-else-if="!measuring" class="small dim">No earlier nights listed.</p>
-            <p v-if="report.tns.earlier_note || report.spot.measured_at" class="small dim note-line">
+            <p
+              v-if="report.tns.earlier_note || report.spot.measured_at"
+              class="small dim note-line"
+            >
               {{ report.tns.earlier_note }}
               <span v-if="report.spot.measured_at" class="block">
                 Measured {{ when(report.spot.measured_at) }}
@@ -454,16 +455,19 @@ watch(id, load, { immediate: true })
             </div>
             <p v-if="sendReply" class="small good" role="status">
               TNS took the report: report {{ sendReply.report_id
-              }}<template v-if="sendReply.name">, name {{ sendReply.name }}</template>.
+              }}<template v-if="sendReply.name">, name {{ sendReply.name }}</template
+              >.
             </p>
-            <p v-if="sendError" class="small bad" role="alert">TNS did not take it: {{ sendError }}</p>
+            <p v-if="sendError" class="small bad" role="alert">
+              TNS did not take it: {{ sendError }}
+            </p>
             <p v-if="report.tns.sent_at" class="small dim">
               Sent {{ when(report.tns.sent_at)
               }}<template v-if="report.tns.sent_reply">: {{ report.tns.sent_reply }}</template>
             </p>
             <p class="small dim">
-              Nothing is sent until you press Send. After you report, paste the name TNS gives it (for
-              example AT 2026xyz) here and the page links to it.
+              Nothing is sent until you press Send. After you report, paste the name TNS gives it
+              (for example AT 2026xyz) here and the page links to it.
             </p>
             <div class="f2">
               <label for="rep-tns-name" class="small dim">TNS name after reporting</label>
@@ -477,20 +481,28 @@ watch(id, load, { immediate: true })
                   @keydown.enter.prevent="saveName"
                   @blur="saveName"
                 />
-                <button type="button" class="btn sm" :disabled="nameBusy" @click="saveName">Save</button>
+                <button type="button" class="btn sm" :disabled="nameBusy" @click="saveName">
+                  Save
+                </button>
               </div>
               <p v-if="report.tns.name_link && report.tns.name" class="small">
-                <a :href="report.tns.name_link" target="_blank" rel="noopener noreferrer" class="ext">{{
-                  report.tns.name
-                }}</a>
+                <a
+                  :href="report.tns.name_link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="ext"
+                  >{{ report.tns.name }}</a
+                >
                 on TNS
               </p>
-              <p v-if="nameError" class="small bad" role="alert">That did not save: {{ nameError }}</p>
+              <p v-if="nameError" class="small bad" role="alert">
+                That did not save: {{ nameError }}
+              </p>
             </div>
           </template>
           <p v-else class="small dim">
-            TNS takes supernovae and novae. This candidate does not look like one, so there is no TNS
-            report to fill in.
+            TNS takes supernovae and novae. This candidate does not look like one, so there is no
+            TNS report to fill in.
           </p>
         </div>
 
@@ -507,8 +519,12 @@ watch(id, load, { immediate: true })
             </p>
             <div class="f code">
               <span class="l">Observatory code</span>
-              <div class="v" :class="{ missing: !report.mpc.code }">{{ report.mpc.code || 'Not set' }}</div>
-              <span v-if="!report.mpc.code && report.mpc.reason" class="src">{{ report.mpc.reason }}</span>
+              <div class="v" :class="{ missing: !report.mpc.code }">
+                {{ report.mpc.code || 'Not set' }}
+              </div>
+              <span v-if="!report.mpc.code && report.mpc.reason" class="src">{{
+                report.mpc.reason
+              }}</span>
             </div>
             <div class="spread">
               <h3 class="sub">ADES PSV</h3>
@@ -538,7 +554,10 @@ watch(id, load, { immediate: true })
             <p v-else class="small dim">Not available.</p>
           </template>
           <p v-else class="small dim">
-            {{ report.mpc.reason || 'The Minor Planet Center takes moving objects. This candidate does not move.' }}
+            {{
+              report.mpc.reason ||
+              'The Minor Planet Center takes moving objects. This candidate does not move.'
+            }}
           </p>
         </div>
 
@@ -550,7 +569,9 @@ watch(id, load, { immediate: true })
           :hidden="tab !== 'vsx'"
         >
           <template v-if="report.vsx.applies">
-            <p class="dim small lead">The details for a new entry in the AAVSO variable star index.</p>
+            <p class="dim small lead">
+              The details for a new entry in the AAVSO variable star index.
+            </p>
             <dl class="facts">
               <dt>Position</dt>
               <dd class="mono">{{ report.vsx.position }}</dd>

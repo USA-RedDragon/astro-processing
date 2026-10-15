@@ -69,17 +69,25 @@ function parts(night: string): { y: number; m: number; d: number } | null {
   return x ? { y: Number(x[1]), m: Number(x[2]), d: Number(x[3]) } : null
 }
 
-/** shortNight turns "2026-10-05" into "Oct 5". */
-export function shortNight(night: string): string {
+/** shortNight turns "2026-10-05" into "Oct 5", adding the year when asked. */
+export function shortNight(night: string, year = false): string {
   const p = parts(night)
-  return p ? `${MONTHS[p.m - 1]} ${p.d}` : night
+  if (!p) return night
+  return `${MONTHS[p.m - 1]} ${p.d}${year ? ` ${p.y}` : ''}`
+}
+
+/** sinceNight names a night, with its year when that is not the current year. */
+export function sinceNight(night: string, now = new Date()): string {
+  return shortNight(night, parts(night)?.y !== now.getUTCFullYear())
 }
 
 /** nightList names nights in order, the month once per run of the same month: "Oct 5, 6, 7". */
 export function nightList(nights: string[]): string {
   const sorted = [...nights].sort()
+  const years = new Set(sorted.map((n) => parts(n)?.y)).size > 1
   if (sorted.length > 4)
-    return `${shortNight(sorted[0]!)} to ${shortNight(sorted[sorted.length - 1]!)}`
+    return `${shortNight(sorted[0]!, years)} to ${shortNight(sorted[sorted.length - 1]!, years)}`
+  if (years) return sorted.map((n) => shortNight(n, true)).join(', ')
   const out: string[] = []
   let month = -1
   for (const n of sorted) {
@@ -172,7 +180,7 @@ export function changeText(s: DiscoverySource): string {
   if (rows.length <= 3) {
     return cap(rows.map((r) => `${deltaText(r.best)} on ${shortNight(r.night)}`).join(', '))
   }
-  const up = all.filter((c) => (c.delta_mag ?? -c.sign) < 0).length
+  const up = all.filter((c) => (measured(c) ? (c.delta_mag as number) < 0 : c.sign > 0)).length
   return `Changed on ${rows.length} nights: brighter on ${up}, fainter on ${rows.length - up}`
 }
 
@@ -245,7 +253,8 @@ const SPARK_X1 = 238
 /**
  * sparkOf plots each night's change from the reference, brighter up, one
  * dot per filter group in its color. Low-confidence groups are left out on
- * a night with a confident one, and a change with no measured size is not
+ * a night with a confident one, and a change with no size measured against a
+ * star in the reference is not
  * drawn.
  */
 export function sparkOf(s: DiscoverySource): Spark | null {
@@ -255,8 +264,7 @@ export function sparkOf(s: DiscoverySource): Spark | null {
     const n = s.nights.find((x) => x.night === r.night)!
     for (const c of n.candidates) {
       if (r.lowOnly || c.class !== 'low_confidence') {
-        if (typeof c.delta_mag === 'number' && Number.isFinite(c.delta_mag))
-          pts.push({ night: r.night, c })
+        if (measured(c) && Number.isFinite(c.delta_mag)) pts.push({ night: r.night, c })
       }
     }
   }
@@ -302,8 +310,10 @@ export function runResult(r: DiscoveryRun): string {
   const out: string[] = []
   const look = r.needs_look ?? 0
   if (look) out.push(`${look} ${look === 1 ? 'needs' : 'need'} a look`)
-  const known = (c.known_variable ?? 0) + (c.known_transient ?? 0)
+  const known = c.known_variable ?? 0
   if (known) out.push(`${known} known ${known === 1 ? 'variable' : 'variables'}`)
+  const feeds = c.known_transient ?? 0
+  if (feeds) out.push(`${feeds} already in the alert feeds`)
   const moving = r.tracks
   if (moving) out.push(`${moving} moving ${moving === 1 ? 'object' : 'objects'}`)
   const low = c.low_confidence ?? 0

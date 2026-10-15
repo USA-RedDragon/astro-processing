@@ -100,7 +100,7 @@ function stacker(o: Opts = {}): Handler {
       return json({ report_id: 98765, name: 'AT 2026abc' })
     if (p === '/api/v1/discoveries/candidates/11' && method === 'GET')
       return json({
-        ...candidate({ id: 11, class: 'supernova_candidate', snr: 13.6 }),
+        ...candidate({ id: 11, class: 'supernova_candidate', snr: 13.6, source_id: 5 }),
         cutouts: { night: '/c/n.png', ref: '/c/r.png', diff: '/c/d.png', fits: '/c/f.fits' },
         run: run(),
       })
@@ -158,7 +158,7 @@ describe('DiscoveryReportPage', () => {
     expect(el.querySelector('h1')!.textContent).toContain('Report a discovery')
     expect(el.textContent).toContain('Andromeda · night of Oct 11 2026 · candidate at 00:42:13.912 +41:16:36.13')
     const back = el.querySelector('a[href^="/discoveries?"]') as HTMLAnchorElement
-    expect(back.getAttribute('href')).toBe('/discoveries?night=2026-10-11&candidate=11')
+    expect(back.getAttribute('href')).toBe('/discoveries?source=5')
     expect(el.querySelector('.pill')!.textContent).toContain('Possible supernova')
     expect(el.querySelector('.snr')!.textContent).toBe('13.6σ')
     expect([...el.querySelectorAll('.big figcaption')].map((f) => f.textContent)).toEqual([

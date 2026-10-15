@@ -8,6 +8,7 @@ import {
   nightsLine,
   runResult,
   seenText,
+  sinceNight,
   sinceOf,
   sparkOf,
   starLine,
@@ -66,8 +67,11 @@ describe('source cards', () => {
     expect(spark.points).toHaveLength(4)
     expect(spark.points.every((p) => p.y > 45)).toBe(true)
     expect(spark.labels.map((l) => l.text)).toEqual(['Oct 5', 'Oct 6', 'Oct 7'])
-    const up = sparkOf(nova())!
-    expect(up.points[0]!.y).toBeLessThan(45)
+    const brighter = cygnus({
+      nights: [{ night: '2026-10-07', candidates: [candidate({ delta_mag: -0.3, ref_mag: 15 })] }],
+    })
+    expect(sparkOf(brighter)!.points[0]!.y).toBeLessThan(45)
+    expect(sparkOf(nova())).toBeNull()
     const none = cygnus({
       nights: [{ night: '2026-10-07', candidates: [candidate({ delta_mag: null })] }],
     })
@@ -101,6 +105,9 @@ describe('chips and ranges', () => {
   it('names nights compactly', () => {
     expect(nightList(['2026-10-07', '2026-10-05', '2026-10-06'])).toBe('Oct 5, 6, 7')
     expect(nightList(['2026-09-30', '2026-10-01'])).toBe('Sep 30, Oct 1')
+    expect(nightList(['2025-10-05', '2026-10-07'])).toBe('Oct 5 2025, Oct 7 2026')
+    expect(sinceNight('2025-10-05', new Date('2026-10-14T00:00:00Z'))).toBe('Oct 5 2025')
+    expect(sinceNight('2026-10-05', new Date('2026-10-14T00:00:00Z'))).toBe('Oct 5')
     expect(nightList(['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-09'])).toBe(
       'Oct 1 to Oct 9',
     )
@@ -127,5 +134,8 @@ describe('recent nights', () => {
     expect(subsVsRef(r)).toBe('not compared')
     expect(depthText(r)).toBe('not measured')
     expect(runResult(run({ classes: {}, tracks: 0 }))).toBe('No changes')
+    expect(runResult(run({ classes: { known_transient: 2 }, tracks: 0 }))).toBe(
+      '2 already in the alert feeds',
+    )
   })
 })

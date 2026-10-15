@@ -3,11 +3,13 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import {
+  getDiscoveryCandidate,
   getDiscoverySource,
   getDiscoverySources,
   getDiscoveryStatus,
   getRecentRuns,
   setSourceVetting,
+  type DiscoveryCandidate,
   type DiscoveryRun,
   type DiscoverySource,
   type DiscoveryStatus,
@@ -49,6 +51,7 @@ import {
   nightsLine,
   runResult,
   shortNight,
+  sinceNight,
   sinceOf,
   sparkOf,
   starLine,
@@ -142,6 +145,7 @@ async function loadList() {
     })
     if (!current()) return
     sources.value = page.sources ?? []
+    if (!selectedId.value && sources.value.length) selectedId.value = sources.value[0]!.id
     total.value = page.total
     counts.value = page.counts
     error.value = ''
@@ -172,7 +176,21 @@ watch(
 
 let stopEvents: (() => void) | undefined
 let searchTimer: ReturnType<typeof setTimeout> | undefined
+async function openCandidate(id: number) {
+  try {
+    const c = await getDiscoveryCandidate(id)
+    if (c.source_id && !selectedId.value) {
+      selectedId.value = c.source_id
+      syncQuery()
+    }
+  } catch {
+    syncQuery()
+  }
+}
+
 onMounted(() => {
+  const cand = Number(qs('candidate'))
+  if (cand && !selectedId.value) openCandidate(cand)
   load()
   stopEvents = onChange(['discovery'], load)
 })
@@ -197,6 +215,7 @@ function pickTarget(ev: Event) {
 
 function pickRange(ev: Event) {
   range.value = (ev.target as HTMLSelectElement).value as Range
+  if (night.value && !view.value) view.value = 'look'
   night.value = ''
   refilter(true)
 }
@@ -242,9 +261,21 @@ const pending = computed(
   () => runs.value.filter((r) => r.state === 'queued' || r.state === 'running').length,
 )
 const viewLabel = computed(() => VIEWS.find((v) => v.key === view.value)?.label ?? 'Everything')
+function shownCandidate(s: DiscoverySource): DiscoveryCandidate {
+  if (!night.value) return s.best
+  return nightRows(s).find((r) => r.night === night.value)?.best ?? s.best
+}
+
+function noChart(s: DiscoverySource): string {
+  if (s.kind === 'change' && (s.best.ref_mag === null || s.best.ref_mag === undefined))
+    return 'No star there before, so no change in size to chart'
+  return 'Change size not measured'
+}
+
 const cards = computed(() =>
   sources.value.map((s) => ({
     s,
+    shown: shownCandidate(s),
     spark: sparkOf(s),
     change: changeText(s),
     star: starLine(s),
@@ -255,7 +286,7 @@ const cards = computed(() =>
 const fetched = ref<DiscoverySource | null>(null)
 const selected = computed<DiscoverySource | null>(() => {
   const id = selectedId.value
-  if (!id) return sources.value[0] ?? null
+  if (!id) return null
   return sources.value.find((s) => s.id === id) ?? (fetched.value?.id === id ? fetched.value : null)
 })
 
@@ -269,7 +300,10 @@ watch(
       const s = await getDiscoverySource(id)
       if (current()) fetched.value = s
     } catch {
-      if (current()) selectedId.value = null
+      if (current()) {
+        selectedId.value = null
+        syncQuery()
+      }
     }
   },
   { immediate: true },
@@ -301,35 +335,50 @@ function select(s: DiscoverySource) {
   }
 }
 
-const vetBusy = ref(false)
+const vetBusy = ref(0)
 const vetError = ref('')
+let vetQueue: Promise<void> = Promise.resolve()
 
-async function saveVetting(state: Vetting) {
-  const s = selected.value
-  if (!s) return
-  vetBusy.value = true
-  vetError.value = ''
-  try {
-    const next = await setSourceVetting(s.id, state, note.value)
-    fetched.value = next
-    selectedId.value = next.id
-    const i = sources.value.findIndex((x) => x.id === next.id)
-    if (i >= 0) sources.value[i] = next
-    syncQuery()
-    loadList()
-  } catch (e) {
-    vetError.value = e instanceof Error ? e.message : String(e)
-  } finally {
-    vetBusy.value = false
-  }
+function latest(id: number): DiscoverySource | null {
+  return sources.value.find((x) => x.id === id) ?? (fetched.value?.id === id ? fetched.value : null)
 }
 
-const vet = (state: Vetting) => saveVetting(nextVetting(selected.value?.vetting ?? '', state))
+/**
+ * saveVetting sends one vetting change after any still on its way, so a note
+ * saved on blur and a vet click right after it land in the order they were
+ * made. The state is worked out from the source as it is when the change is
+ * sent.
+ */
+function saveVetting(id: number, state: (cur: DiscoverySource) => Vetting, text: string) {
+  vetBusy.value++
+  vetError.value = ''
+  vetQueue = vetQueue.then(async () => {
+    const cur = latest(id)
+    try {
+      if (!cur) return
+      const next = await setSourceVetting(id, state(cur), text)
+      if (fetched.value?.id === id) fetched.value = next
+      else if (selectedId.value === id) fetched.value = next
+      const i = sources.value.findIndex((x) => x.id === id)
+      if (i >= 0) sources.value[i] = next
+      loadList()
+    } catch (e) {
+      vetError.value = e instanceof Error ? e.message : String(e)
+    } finally {
+      vetBusy.value--
+    }
+  })
+}
+
+function vet(clicked: Vetting) {
+  const s = selected.value
+  if (s) saveVetting(s.id, (cur) => nextVetting(cur.vetting, clicked), note.value)
+}
 
 function saveNote() {
   const s = selected.value
   if (!s || note.value.trim() === (s.vet_note ?? '')) return
-  saveVetting(s.vetting)
+  saveVetting(s.id, (cur) => cur.vetting, note.value)
 }
 
 const emptyText = computed(() => {
@@ -418,7 +467,7 @@ const pageState = computed(() => {
           <div class="sec">
             {{ viewLabel }}<template v-if="night"> · {{ shortNight(night) }}</template> ·
             {{
-              view === 'look' || view === ''
+              view === 'look' || view === 'movers' || view === ''
                 ? 'needs a look first, then the newest change'
                 : 'newest change first'
             }}
@@ -433,10 +482,10 @@ const pageState = computed(() => {
             @click="select(c.s)"
           >
             <span class="trip">
-              <template v-if="c.s.best.cutouts">
-                <img :src="c.s.best.cutouts.night" alt="night" loading="lazy" />
-                <img :src="c.s.best.cutouts.ref" alt="reference" loading="lazy" />
-                <img :src="c.s.best.cutouts.diff" alt="difference" loading="lazy" />
+              <template v-if="c.shown.cutouts">
+                <img :src="c.shown.cutouts.night" alt="night" loading="lazy" />
+                <img :src="c.shown.cutouts.ref" alt="reference" loading="lazy" />
+                <img :src="c.shown.cutouts.diff" alt="difference" loading="lazy" />
               </template>
               <span v-else class="nocut small dim">no cutouts</span>
             </span>
@@ -488,7 +537,7 @@ const pageState = computed(() => {
               <span v-else-if="c.s.kind === 'mover'" class="small dim">
                 {{ c.s.best.present_in }} subs · V {{ vmagText(c.s.best.body_v) }}
               </span>
-              <span v-else class="small dim">Change size not measured</span>
+              <span v-else class="small dim">{{ noChart(c.s) }}</span>
             </span>
           </button>
           <p v-if="!sources.length" class="empty">{{ loading ? 'Loading.' : emptyText }}</p>
@@ -522,10 +571,16 @@ const pageState = computed(() => {
               </dd>
               <dt>Rate</dt>
               <dd>{{ rateText(selected.best.rate_arcsec_per_min) }}</dd>
-              <dt>Offset</dt>
-              <dd>{{ offsetText(selected.best.offset_arcsec) }} from the predicted position</dd>
-              <dt>V mag</dt>
-              <dd>{{ vmagText(selected.best.body_v) }}</dd>
+              <template v-if="selected.class === 'known_asteroid'">
+                <dt>Offset</dt>
+                <dd>{{ offsetText(selected.best.offset_arcsec) }} from the predicted position</dd>
+                <dt>V mag</dt>
+                <dd>{{ vmagText(selected.best.body_v) }}</dd>
+              </template>
+              <template v-else>
+                <dt>Prediction</dt>
+                <dd>None: it matches no known asteroid</dd>
+              </template>
             </template>
             <template v-else>
               <dt>Star</dt>
@@ -541,7 +596,7 @@ const pageState = computed(() => {
               {{ selected.nights_seen }} of the {{ selected.nights_compared }}
               {{ selected.nights_compared === 1 ? 'night' : 'nights' }} this field was compared
               since
-              {{ shortNight(selected.first_seen) }}
+              {{ sinceNight(selected.first_seen) }}
             </dd>
             <template v-if="selected.vetting">
               <dt>Vetted</dt>
@@ -583,14 +638,13 @@ const pageState = computed(() => {
               </div>
             </div>
           </div>
-          <div class="vet" role="group" aria-label="Vet this source">
+          <div class="vet" role="group" aria-label="Vet this source" :aria-busy="vetBusy > 0">
             <button
               v-for="b in VET_BUTTONS"
               :key="b.state"
               type="button"
               :class="{ primary: selected.vetting === b.state }"
               :aria-pressed="selected.vetting === b.state"
-              :disabled="vetBusy"
               @click="vet(b.state)"
             >
               {{ b.label }}
@@ -636,12 +690,14 @@ const pageState = computed(() => {
               <tr
                 v-for="r in recent"
                 :key="r.id"
-                tabindex="0"
                 :class="{ on: night === r.night && target === r.object }"
                 @click="openRun(r)"
-                @keydown.enter="openRun(r)"
               >
-                <td>{{ shortNight(r.night) }}</td>
+                <td>
+                  <button type="button" class="linkish" @click.stop="openRun(r)">
+                    {{ shortNight(r.night) }}
+                  </button>
+                </td>
                 <td>
                   {{ r.object }} <span class="dim small">{{ groupLabel(r.group) }}</span>
                 </td>
@@ -917,6 +973,14 @@ tbody tr:focus-visible {
 }
 .pending {
   margin: 12px 0 0;
+}
+.linkish {
+  all: unset;
+  cursor: pointer;
+  color: var(--known);
+}
+.linkish:focus-visible {
+  outline: 2px solid var(--d-sel);
 }
 .more {
   display: flex;
