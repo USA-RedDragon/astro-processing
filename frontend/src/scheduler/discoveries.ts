@@ -176,6 +176,21 @@ const CATALOG_WORDS: Record<string, string> = {
   galaxies: 'galaxy catalog',
   galaxy: 'galaxy catalog',
   track: 'moving objects in the subs',
+  many: 'new-source count of the night',
+  defect: 'defect-pixel check',
+}
+
+/** heldText warns that a night's new sources were held as likely defects. */
+export function heldText(
+  run: Pick<DiscoveryRun, 'held_many' | 'held_defects'> | null | undefined,
+): string {
+  const many = run?.held_many ?? 0
+  const defects = run?.held_defects ?? 0
+  if (!many && !defects) return ''
+  const parts: string[] = []
+  if (defects) parts.push(`${defects} too sharp in their subs`)
+  if (many) parts.push(`${many} more because the night had too many`)
+  return `Unreliable night for new sources: ${parts.join(', ')}, held as likely defects`
 }
 
 /** chanceText says what the night's chance checks found, in plain words. */

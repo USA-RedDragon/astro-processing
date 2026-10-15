@@ -11,6 +11,7 @@ import {
   links,
   matchLines,
   matchText,
+  heldText,
   moverName,
   nextVetting,
   nightLabel,
@@ -62,6 +63,13 @@ describe('classes', () => {
     )
     expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe(
       'No cataloged star, inside a galaxy',
+    )
+  })
+
+  it('warns of a night whose new sources were held as likely defects', () => {
+    expect(heldText({})).toBe('')
+    expect(heldText({ held_defects: 1620, held_many: 30 })).toBe(
+      'Unreliable night for new sources: 1620 too sharp in their subs, 30 more because the night had too many, held as likely defects',
     )
   })
 

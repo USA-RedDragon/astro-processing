@@ -52,6 +52,8 @@ export interface DiscoveryRun {
   classes: Record<string, number>
   vetted: number
   needs_look?: number
+  held_many?: number
+  held_defects?: number
   mid_time: string | null
   finished_at: string | null
   seconds: number

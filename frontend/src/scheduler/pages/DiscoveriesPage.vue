@@ -20,6 +20,7 @@ import {
 import {
   VET_BUTTONS,
   chanceText,
+  heldText,
   classLabel,
   deltaText,
   isNight,
@@ -726,6 +727,7 @@ const pageState = computed(() => {
                 <td :class="{ dim: r.state !== 'done' }">
                   {{ runResult(r) }}
                   <span v-if="r.state === 'done'" class="block dim small">{{ chanceText(r) }}</span>
+                  <span v-if="heldText(r)" class="block bad small">{{ heldText(r) }}</span>
                 </td>
               </tr>
             </tbody>
