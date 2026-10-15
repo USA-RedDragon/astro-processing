@@ -261,6 +261,19 @@ const live = computed(() => statusText(status.value))
 const pending = computed(
   () => runs.value.filter((r) => r.state === 'queued' || r.state === 'running').length,
 )
+const earlier = computed(() => {
+  const n = counts.value.look_earlier ?? 0
+  if (!n || night.value || range.value === 'all') return ''
+  const what = n === 1 ? 'source needs' : 'sources need'
+  return `${n.toLocaleString('en-US')} more ${what} a look from before ${sinceNight(sinceOf(range.value))}.`
+})
+
+function showAllTime() {
+  range.value = 'all'
+  view.value = 'look'
+  refilter(true)
+}
+
 const viewLabel = computed(() => VIEWS.find((v) => v.key === view.value)?.label ?? 'Everything')
 function shownCandidate(s: DiscoverySource): DiscoveryCandidate {
   if (!night.value) return s.best
@@ -458,6 +471,10 @@ const pageState = computed(() => {
 
     <template v-else>
       <p v-if="error" class="small bad" role="alert">The stacker did not answer: {{ error }}</p>
+      <p v-if="earlier" class="small dim pending">
+        {{ earlier }}
+        <button type="button" class="linkish" @click="showAllTime">Show all time</button>
+      </p>
       <p v-if="pending" class="small dim pending" role="status">
         Still comparing: {{ pending }} {{ pending === 1 ? 'comparison is' : 'comparisons are' }}
         queued or running. The page updates when each one finishes.

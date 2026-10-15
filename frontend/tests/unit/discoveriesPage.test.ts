@@ -150,6 +150,20 @@ describe('DiscoveriesPage', () => {
     app.unmount()
   })
 
+  it('names the sources that need a look from before the range and shows them on a click', async () => {
+    const counts = { ...page().counts, look_earlier: 2 }
+    const { el, app, fetch, router } = await render(stacker({ sources: { ...page(), counts } }))
+    expect(el.textContent).toMatch(/2 more sources need a look from before \w{3} \d+\./)
+    button(el, 'Show all time')!.click()
+    await settle()
+    expect(router.currentRoute.value.query.range).toBe('all')
+    const q = sourceCalls(fetch).at(-1)!.searchParams
+    expect(q.get('since')).toBe('all')
+    expect(q.get('view')).toBe('look')
+    expect(el.textContent).not.toContain('more sources need a look')
+    app.unmount()
+  })
+
   it('opens the night from the morning-report link and lets it go', async () => {
     const { el, app, fetch, router } = await render(stacker(), '/discoveries?night=2026-10-06')
     const q = sourceCalls(fetch)[0]!.searchParams

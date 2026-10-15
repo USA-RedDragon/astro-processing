@@ -195,6 +195,7 @@ export interface SourceCounts {
   low: number
   vetted: number
   all: number
+  look_earlier?: number
 }
 
 export interface DiscoverySourceList {
