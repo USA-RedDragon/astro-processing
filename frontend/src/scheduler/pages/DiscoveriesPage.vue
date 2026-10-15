@@ -467,7 +467,7 @@ const pageState = computed(() => {
           <div class="sec">
             {{ viewLabel }}<template v-if="night"> · {{ shortNight(night) }}</template> ·
             {{
-              view === 'look' || view === 'movers' || view === ''
+              view === 'movers' || view === ''
                 ? 'needs a look first, then the newest change'
                 : 'newest change first'
             }}
@@ -532,7 +532,7 @@ const pageState = computed(() => {
                   {{ l.text }}
                 </text>
                 <text x="12" y="12" class="tl">brighter</text>
-                <text x="12" y="78" class="tl">fainter</text>
+                <text x="12" y="70" class="tl">fainter</text>
               </svg>
               <span v-else-if="c.s.kind === 'mover'" class="small dim">
                 {{ c.s.best.present_in }} subs · V {{ vmagText(c.s.best.body_v) }}
