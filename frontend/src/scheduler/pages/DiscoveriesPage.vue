@@ -2,85 +2,112 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
-import DiscoveryChart from '../components/DiscoveryChart.vue'
 import {
-  getDiscoveryCandidate,
-  getDiscoveryCandidates,
-  getDiscoveryNights,
-  getDiscoveryRuns,
+  getDiscoverySource,
+  getDiscoverySources,
   getDiscoveryStatus,
-  setDiscoveryVetting,
-  type DiscoveryCandidate,
-  type DiscoveryDetail,
-  type DiscoveryNight,
+  getRecentRuns,
+  setSourceVetting,
   type DiscoveryRun,
+  type DiscoverySource,
   type DiscoveryStatus,
+  type SourceCounts,
+  type SourceView,
   type Vetting,
 } from '../api/discoveries'
 import {
-  CHIPS,
-  decText,
-  raText,
   VET_BUTTONS,
-  cards,
-  chipCounts,
   classLabel,
   deltaText,
-  edgeOf,
-  inChip,
-  isChip,
   isNight,
   links,
-  matchLines,
-  matchText,
   moverName,
-  movers,
   nextVetting,
-  nightChoices,
-  nightLabel,
   offsetText,
   pillOf,
   positionText,
-  presenceText,
   rateText,
-  runNotes,
   sentence,
   sourceWords,
   starText,
   statusText,
-  summarize,
-  targets,
   vettingLabel,
   vmagText,
-  type Chip,
 } from '../discoveries'
+import {
+  RANGES,
+  VIEWS,
+  catalogText,
+  changeText,
+  countText,
+  depthText,
+  groupLabel,
+  groupsText,
+  isRange,
+  isView,
+  nightRows,
+  nightsLine,
+  runResult,
+  shortNight,
+  sinceOf,
+  sparkOf,
+  starLine,
+  subsText,
+  subsVsRef,
+  targetsOf,
+  type Range,
+} from '../discoveryInbox'
 import { onChange } from '@/lib/events'
 import { latestOnly } from '../latest'
 
+const PAGE = 200
+const RECENT_ROWS = 30
+
 const route = useRoute()
 const router = useRouter()
-
 const qs = (k: string) => (typeof route.query[k] === 'string' ? (route.query[k] as string) : '')
 
 const night = ref(isNight(qs('night')) ? qs('night') : '')
 const target = ref(qs('target'))
-const chip = ref<Chip>(isChip(qs('show')) ? (qs('show') as Chip) : 'all')
-const selectedId = ref<number | null>(Number(qs('candidate')) || null)
+const range = ref<Range>(isRange(qs('range')) ? (qs('range') as Range) : '30')
+const search = ref(qs('q'))
+const view = ref<SourceView | ''>(
+  isView(qs('show'))
+    ? (qs('show') as SourceView)
+    : qs('show') === 'all' || night.value
+      ? ''
+      : 'look',
+)
+const selectedId = ref<number | null>(Number(qs('source')) || null)
+const limit = ref(PAGE)
 
-const nights = ref<DiscoveryNight[]>([])
+const sources = ref<DiscoverySource[]>([])
+const total = ref(0)
+const counts = ref<SourceCounts>({
+  look: 0,
+  known: 0,
+  movers: 0,
+  new_movers: 0,
+  low: 0,
+  vetted: 0,
+  all: 0,
+})
 const runs = ref<DiscoveryRun[]>([])
-const candidates = ref<DiscoveryCandidate[]>([])
 const status = ref<DiscoveryStatus | null>(null)
 const error = ref('')
 const loading = ref(true)
-const nightReq = latestOnly()
+const loaded = ref(false)
+const listReq = latestOnly()
 
 function syncQuery() {
   const q: Record<string, string> = {}
   if (night.value) q.night = night.value
   if (target.value) q.target = target.value
-  if (chip.value !== 'all') q.show = chip.value
-  if (selectedId.value) q.candidate = String(selectedId.value)
+  if (range.value !== '30') q.range = range.value
+  if (search.value.trim()) q.q = search.value.trim()
+  const defaultView = night.value ? '' : 'look'
+  if (view.value !== defaultView) q.show = view.value || 'all'
+  if (selectedId.value) q.source = String(selectedId.value)
   router.replace({ query: q })
 }
 
@@ -92,48 +119,43 @@ async function loadStatus() {
   }
 }
 
-async function loadNight() {
-  const current = nightReq.next()
-  if (!night.value) {
+async function loadRuns() {
+  try {
+    const since = night.value ? undefined : sinceOf(range.value)
+    runs.value = (await getRecentRuns(since === 'all' ? undefined : since)) ?? []
+  } catch {
     runs.value = []
-    candidates.value = []
-    return
   }
-  const [r, c] = await Promise.all([
-    getDiscoveryRuns(night.value),
-    getDiscoveryCandidates(night.value, target.value || undefined),
-  ])
-  if (!current()) return
-  runs.value = r ?? []
-  candidates.value = c ?? []
 }
 
-let loadSeq = 0
-
-async function load() {
-  const seq = ++loadSeq
+async function loadList() {
+  const current = listReq.next()
   loading.value = true
   try {
-    const n = await getDiscoveryNights()
-    nights.value = n ?? []
-    if (!night.value && nights.value.length) night.value = nights.value[0]!.night
-    await Promise.all([loadNight(), loadStatus()])
+    const page = await getDiscoverySources({
+      object: target.value || undefined,
+      since: night.value ? undefined : sinceOf(range.value),
+      night: night.value || undefined,
+      q: search.value.trim() || undefined,
+      view: view.value,
+      limit: limit.value,
+    })
+    if (!current()) return
+    sources.value = page.sources ?? []
+    total.value = page.total
+    counts.value = page.counts
     error.value = ''
+    loaded.value = true
   } catch (e) {
+    if (!current()) return
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
-    if (seq === loadSeq) loading.value = false
+    if (current()) loading.value = false
   }
-  syncQuery()
 }
 
-async function reloadNight() {
-  try {
-    await loadNight()
-    error.value = ''
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e)
-  }
+function load() {
+  return Promise.all([loadList(), loadRuns(), loadStatus()])
 }
 
 let statusTimer: ReturnType<typeof setInterval> | undefined
@@ -149,6 +171,7 @@ watch(
 )
 
 let stopEvents: (() => void) | undefined
+let searchTimer: ReturnType<typeof setTimeout> | undefined
 onMounted(() => {
   load()
   stopEvents = onChange(['discovery'], load)
@@ -156,106 +179,122 @@ onMounted(() => {
 onUnmounted(() => {
   stopEvents?.()
   if (statusTimer) clearInterval(statusTimer)
+  if (searchTimer) clearTimeout(searchTimer)
 })
 
-function pickNight(ev: Event) {
-  night.value = (ev.target as HTMLSelectElement).value
+function refilter(all = false) {
+  limit.value = PAGE
   selectedId.value = null
   syncQuery()
-  reloadNight()
+  if (all) load()
+  else loadList()
 }
 
 function pickTarget(ev: Event) {
   target.value = (ev.target as HTMLSelectElement).value
-  selectedId.value = null
-  syncQuery()
-  reloadNight()
+  refilter()
 }
 
-function pickChip(c: Chip) {
-  chip.value = c
-  syncQuery()
+function pickRange(ev: Event) {
+  range.value = (ev.target as HTMLSelectElement).value as Range
+  night.value = ''
+  refilter(true)
 }
 
-const nightList = computed(() => nightChoices(nights.value, night.value))
-const targetList = computed(() => {
-  const list = targets(runs.value)
-  if (target.value && !list.includes(target.value)) list.push(target.value)
-  return list
-})
-const shownRuns = computed(() =>
-  target.value ? runs.value.filter((r) => r.object === target.value) : runs.value,
+function typed() {
+  if (searchTimer) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => refilter(), 350)
+}
+
+function pickView(v: SourceView) {
+  view.value = view.value === v ? '' : v
+  refilter()
+}
+
+function clearNight() {
+  night.value = ''
+  if (!view.value) view.value = 'look'
+  refilter(true)
+}
+
+function openRun(r: DiscoveryRun) {
+  night.value = r.night
+  target.value = r.object
+  view.value = ''
+  refilter()
+  if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' })
+}
+
+function more() {
+  limit.value += PAGE
+  loadList()
+}
+
+const targetList = computed(() => targetsOf(runs.value, target.value))
+const recent = computed(() =>
+  (target.value ? runs.value.filter((r) => r.object === target.value) : runs.value).slice(
+    0,
+    RECENT_ROWS,
+  ),
 )
-const notes = computed(() => runNotes(shownRuns.value))
-const summary = computed(() => summarize(shownRuns.value, candidates.value))
-const grid = computed(() => cards(candidates.value))
-const counts = computed(() => chipCounts(grid.value))
-const shown = computed(() => grid.value.filter((c) => inChip(c, chip.value)))
-const moving = computed(() => movers(candidates.value))
-const unknownMovers = computed(() => moving.value.filter((c) => c.class === 'unknown_mover').length)
 const live = computed(() => statusText(status.value))
+const pending = computed(
+  () => runs.value.filter((r) => r.state === 'queued' || r.state === 'running').length,
+)
+const viewLabel = computed(() => VIEWS.find((v) => v.key === view.value)?.label ?? 'Everything')
+const cards = computed(() =>
+  sources.value.map((s) => ({
+    s,
+    spark: sparkOf(s),
+    change: changeText(s),
+    star: starLine(s),
+    nights: nightsLine(s),
+  })),
+)
 
-const selected = computed<DiscoveryCandidate | null>(() => {
-  return candidates.value.find((c) => c.id === selectedId.value) ?? shown.value[0] ?? null
+const fetched = ref<DiscoverySource | null>(null)
+const selected = computed<DiscoverySource | null>(() => {
+  const id = selectedId.value
+  if (!id) return sources.value[0] ?? null
+  return sources.value.find((s) => s.id === id) ?? (fetched.value?.id === id ? fetched.value : null)
 })
 
-const pageState = computed(() => {
-  if (loading.value && !runs.value.length) return 'loading'
-  if (error.value && !runs.value.length && !nights.value.length) return 'error'
-  if (!night.value) return 'none'
-  return 'ready'
-})
-
-const detail = ref<DiscoveryDetail | null>(null)
-const detailError = ref('')
-const detailLoading = ref(false)
 const detailReq = latestOnly()
-
 watch(
-  () => selected.value?.id,
-  async (id) => {
+  [selectedId, sources],
+  async ([id]) => {
+    if (!id || sources.value.some((s) => s.id === id) || fetched.value?.id === id) return
     const current = detailReq.next()
-    detail.value = null
-    detailError.value = ''
-    if (!id) return
-    detailLoading.value = true
     try {
-      const d = await getDiscoveryCandidate(id)
-      if (!current()) return
-      detail.value = d
-    } catch (e) {
-      if (!current()) return
-      detailError.value = e instanceof Error ? e.message : String(e)
-    } finally {
-      if (current()) detailLoading.value = false
+      const s = await getDiscoverySource(id)
+      if (current()) fetched.value = s
+    } catch {
+      if (current()) selectedId.value = null
     }
   },
   { immediate: true },
 )
 
+const rows = computed(() => (selected.value ? nightRows(selected.value) : []))
+const place = computed(() => (selected.value ? links(selected.value.ra, selected.value.dec) : null))
+const failedText = computed(() => {
+  const s = selected.value
+  if (!s) return ''
+  const ok = sourceWords(s.checked)
+  return sentence(sourceWords(s.failed).filter((w) => !ok.includes(w)))
+})
+
 const note = ref('')
 watch(
-  () => selected.value?.id,
+  () => [selected.value?.id, selected.value?.vet_note],
   () => (note.value = selected.value?.vet_note ?? ''),
   { immediate: true },
 )
 
-const detailRun = computed(() => {
-  const s = selected.value
-  if (!s) return null
-  return runs.value.find((r) => r.id === s.run_id) ?? detail.value?.run ?? null
-})
-const checkedWords = computed(() => sourceWords(detailRun.value?.checked))
-const checkedText = computed(() => sentence(checkedWords.value) || 'not measured')
-const failedText = computed(() =>
-  sentence(sourceWords(detailRun.value?.failed).filter((w) => !checkedWords.value.includes(w))),
-)
-const place = computed(() => (selected.value ? links(selected.value.ra, selected.value.dec) : null))
-
 const panel = ref<HTMLElement | null>(null)
 
-function select(c: DiscoveryCandidate) {
-  selectedId.value = c.id
+function select(s: DiscoverySource) {
+  selectedId.value = s.id
   syncQuery()
   if (typeof window !== 'undefined' && window.matchMedia?.('(max-width: 980px)').matches) {
     panel.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -265,19 +304,19 @@ function select(c: DiscoveryCandidate) {
 const vetBusy = ref(false)
 const vetError = ref('')
 
-function replace(next: DiscoveryCandidate) {
-  const i = candidates.value.findIndex((c) => c.id === next.id)
-  if (i >= 0) candidates.value[i] = { ...candidates.value[i]!, ...next }
-  if (detail.value?.id === next.id) detail.value = { ...detail.value, ...next }
-}
-
 async function saveVetting(state: Vetting) {
   const s = selected.value
   if (!s) return
   vetBusy.value = true
   vetError.value = ''
   try {
-    replace(await setDiscoveryVetting(s.id, state, note.value))
+    const next = await setSourceVetting(s.id, state, note.value)
+    fetched.value = next
+    selectedId.value = next.id
+    const i = sources.value.findIndex((x) => x.id === next.id)
+    if (i >= 0) sources.value[i] = next
+    syncQuery()
+    loadList()
   } catch (e) {
     vetError.value = e instanceof Error ? e.message : String(e)
   } finally {
@@ -292,15 +331,70 @@ function saveNote() {
   if (!s || note.value.trim() === (s.vet_note ?? '')) return
   saveVetting(s.vetting)
 }
+
+const emptyText = computed(() => {
+  if (search.value.trim()) return 'Nothing matches that search.'
+  if (counts.value.all === 0) {
+    return night.value
+      ? `Nothing changed on ${shortNight(night.value)}.`
+      : 'Nothing changed on these nights.'
+  }
+  return view.value === 'look'
+    ? 'Nothing needs a look. Pick another group above.'
+    : 'Nothing in this group.'
+})
+
+const pageState = computed(() => {
+  if (!loaded.value && loading.value) return 'loading'
+  if (!loaded.value && error.value) return 'error'
+  return 'ready'
+})
 </script>
 
 <template>
   <main class="page wide disc">
     <PageHead title="Discoveries">
-      Each night is compared with the same field's other nights. Anything that changed and is not a
-      known object waits here for you.
+      Every spot that changed, across all your nights. The same spot seen on several nights is one
+      entry with its history.
       <span v-if="live" class="block xsmall mt-1" role="status">{{ live }}</span>
     </PageHead>
+
+    <div class="bar">
+      <label class="dim small" for="disc-target">Target</label>
+      <select id="disc-target" :value="target" @change="pickTarget">
+        <option value="">All targets</option>
+        <option v-for="t in targetList" :key="t" :value="t">{{ t }}</option>
+      </select>
+      <label class="dim small" for="disc-range">When</label>
+      <select id="disc-range" :value="night ? '' : range" @change="pickRange">
+        <option v-if="night" value="" disabled>Night of {{ shortNight(night) }}</option>
+        <option v-for="r in RANGES" :key="r.key" :value="r.key">{{ r.label }}</option>
+      </select>
+      <input
+        id="disc-find"
+        v-model="search"
+        type="search"
+        placeholder="Search a name or position"
+        aria-label="Search a name or position"
+        @input="typed"
+      />
+    </div>
+    <div class="bar">
+      <button
+        v-for="v in VIEWS"
+        :key="v.key"
+        type="button"
+        class="chip"
+        :aria-pressed="view === v.key"
+        @click="pickView(v.key)"
+      >
+        {{ v.label }} <span class="n">{{ countText(v.key, counts) }}</span>
+      </button>
+      <button v-if="night" type="button" class="chip tag" @click="clearNight">
+        Night of {{ shortNight(night) }} <span aria-hidden="true">×</span
+        ><span class="sr-only">, show all nights</span>
+      </button>
+    </div>
 
     <section v-if="pageState === 'loading'" class="card" role="status">
       <p class="empty" style="padding: 0">Loading discoveries.</p>
@@ -312,192 +406,184 @@ function saveNote() {
       <div><button type="button" class="btn sm" @click="load">Try again</button></div>
     </section>
 
-    <section v-else-if="pageState === 'none'" class="card" role="status">
-      <h2>No nights compared yet</h2>
-      <p class="empty" style="padding: 0">
-        A night is compared with the target's other nights once the target has 3 nights of subs.
-        Results show here after that.
-      </p>
-    </section>
-
     <template v-else>
-      <div class="bar">
-        <span class="pick">
-          <label class="dim small" for="disc-night">Night</label>
-          <select id="disc-night" :value="night" @change="pickNight">
-            <option v-for="n in nightList" :key="n" :value="n">{{ nightLabel(n) }}</option>
-          </select>
-        </span>
-        <span class="pick">
-          <label class="dim small" for="disc-target">Target</label>
-          <select id="disc-target" :value="target" @change="pickTarget">
-            <option value="">All targets</option>
-            <option v-for="t in targetList" :key="t" :value="t">{{ t }}</option>
-          </select>
-        </span>
-        <button
-          v-for="c in CHIPS"
-          :key="c.key"
-          type="button"
-          class="chip"
-          :aria-pressed="chip === c.key"
-          @click="pickChip(c.key)"
-        >
-          {{ c.label }} <span class="n">{{ counts[c.key] }}</span>
-        </button>
-      </div>
-
       <p v-if="error" class="small bad" role="alert">The stacker did not answer: {{ error }}</p>
+      <p v-if="pending" class="small dim pending" role="status">
+        Still comparing: {{ pending }} {{ pending === 1 ? 'comparison is' : 'comparisons are' }}
+        queued or running. The page updates when each one finishes.
+      </p>
 
-      <div v-if="notes.pending || notes.failed.length || notes.skipped.length" class="run-notes small">
-        <p v-if="notes.pending" role="status">
-          Still comparing this night: {{ notes.pending }}
-          {{ notes.pending === 1 ? 'comparison is' : 'comparisons are' }} queued or running. The
-          page updates when each one finishes.
-        </p>
-        <p v-for="f in notes.failed" :key="'f' + f.label">
-          <span class="badge bad">Failed</span> {{ f.label }}: {{ f.reason }}
-        </p>
-        <p v-for="f in notes.skipped" :key="'s' + f.label" class="dim">
-          Skipped {{ f.label }}: {{ f.reason }}
-        </p>
-      </div>
-
-      <div class="summary">
-        <div><span class="v">{{ summary.look }}</span><span class="l">new, needs a look</span></div>
-        <div>
-          <span class="v">{{ summary.knownVariables }}</span
-          ><span class="l">known variables changed</span>
-        </div>
-        <div><span class="v">{{ summary.low }}</span><span class="l">low confidence (5–7σ)</span></div>
-        <div>
-          <span class="v">{{ summary.knownAsteroids }}</span><span class="l">known asteroids crossed</span>
-        </div>
-        <div><span class="v">{{ summary.unknownMovers }}</span><span class="l">unknown movers</span></div>
-        <div>
-          <span class="v">{{ summary.nightSubs }} vs {{ summary.refSubs }}</span
-          ><span class="l">subs: night vs reference</span>
-        </div>
-        <div>
-          <span class="v" :class="{ nm: summary.depth === null }">{{
-            summary.depth === null ? 'not measured' : summary.depth.toFixed(1)
-          }}</span
-          ><span class="l">night depth (Gaia G, 5σ)</span>
-        </div>
-      </div>
-
-      <div class="main">
-        <div>
-          <div v-if="shown.length" class="grid">
-            <button
-              v-for="c in shown"
-              :key="c.id"
-              type="button"
-              class="cand"
-              :class="edgeOf(c.class)"
-              :aria-current="selected?.id === c.id ? 'true' : undefined"
-              @click="select(c)"
-            >
-              <span class="trip">
-                <template v-if="c.cutouts">
-                  <img :src="c.cutouts.night" alt="night" loading="lazy" />
-                  <img :src="c.cutouts.ref" alt="reference" loading="lazy" />
-                  <img :src="c.cutouts.diff" alt="difference" loading="lazy" />
-                </template>
-                <span v-else class="nocut small dim">no cutouts</span>
-              </span>
+      <div class="ibox">
+        <div class="list">
+          <div class="sec">
+            {{ viewLabel }}<template v-if="night"> · {{ shortNight(night) }}</template> ·
+            {{
+              view === 'look' || view === ''
+                ? 'needs a look first, then the newest change'
+                : 'newest change first'
+            }}
+          </div>
+          <button
+            v-for="c in cards"
+            :key="c.s.id"
+            type="button"
+            class="src"
+            :class="pillOf(c.s.class)"
+            :aria-current="selected?.id === c.s.id ? 'true' : undefined"
+            @click="select(c.s)"
+          >
+            <span class="trip">
+              <template v-if="c.s.best.cutouts">
+                <img :src="c.s.best.cutouts.night" alt="night" loading="lazy" />
+                <img :src="c.s.best.cutouts.ref" alt="reference" loading="lazy" />
+                <img :src="c.s.best.cutouts.diff" alt="difference" loading="lazy" />
+              </template>
+              <span v-else class="nocut small dim">no cutouts</span>
+            </span>
+            <span class="mid">
               <span class="meta">
-                <span class="pill" :class="pillOf(c.class)">{{ classLabel(c.class) }}</span>
-                <span class="snr">{{ c.snr.toFixed(1) }}σ</span>
+                <span class="pill" :class="pillOf(c.s.class)">{{ classLabel(c.s.class) }}</span>
+                <span v-if="c.s.vetting" class="small dim"
+                  >Vetted: {{ vettingLabel(c.s.vetting) }}</span
+                >
               </span>
-              <span class="line">
-                <span>{{ deltaText(c) }}</span><span class="dim">{{ starText(c) }}</span>
+              <span class="t">
+                <b>{{ c.s.object }}</b> <span class="mono dim">{{ positionText(c.s) }}</span>
               </span>
-              <span class="line dim mono">
-                <span>{{ raText(c.ra) }}</span><span>{{ decText(c.dec) }}</span>
+              <span>{{ c.change }}</span>
+              <span class="dim small">{{ c.star }}</span>
+              <span class="dim small">{{ c.nights }}</span>
+            </span>
+            <span class="spark">
+              <svg
+                v-if="c.spark"
+                viewBox="0 0 260 90"
+                role="img"
+                :aria-label="`Change on each night, brighter up: ${c.change}`"
+              >
+                <line x1="10" y1="45" x2="250" y2="45" class="ax" stroke-dasharray="3 3" />
+                <circle
+                  v-for="(p, i) in c.spark.points"
+                  :key="i"
+                  :cx="p.x"
+                  :cy="p.y"
+                  r="4.5"
+                  :fill="p.color"
+                >
+                  <title>{{ p.title }}</title>
+                </circle>
+                <text
+                  v-for="l in c.spark.labels"
+                  :key="l.text"
+                  :x="l.x"
+                  y="86"
+                  text-anchor="middle"
+                  class="tl"
+                >
+                  {{ l.text }}
+                </text>
+                <text x="12" y="12" class="tl">brighter</text>
+                <text x="12" y="78" class="tl">fainter</text>
+              </svg>
+              <span v-else-if="c.s.kind === 'mover'" class="small dim">
+                {{ c.s.best.present_in }} subs · V {{ vmagText(c.s.best.body_v) }}
               </span>
-              <span class="line dim small">{{ matchText(c) }}</span>
-              <span v-if="c.vetting" class="line dim small">Vetted: {{ vettingLabel(c.vetting) }}</span>
+              <span v-else class="small dim">Change size not measured</span>
+            </span>
+          </button>
+          <p v-if="!sources.length" class="empty">{{ loading ? 'Loading.' : emptyText }}</p>
+          <div v-if="total > sources.length" class="more">
+            <span class="small dim"
+              >Showing {{ sources.length }} of {{ total.toLocaleString('en-US') }}</span
+            >
+            <button type="button" class="btn sm" :disabled="loading" @click="more">
+              Show more
             </button>
           </div>
-          <p v-else class="empty">
-            {{
-              grid.length
-                ? 'Nothing in this group.'
-                : notes.pending
-                  ? 'Nothing found yet; comparisons are still running.'
-                  : 'No changes found on this night.'
-            }}
-          </p>
         </div>
 
-        <aside v-if="selected" ref="panel" class="detail" aria-label="Selected candidate">
-          <div>
-            <h2>Candidate at {{ positionText(selected) }}</h2>
-            <p class="small dim sub">{{ selected.object }}, {{ selected.group }}</p>
+        <aside v-if="selected" ref="panel" class="detail" aria-label="Selected source">
+          <div class="meta">
+            <span class="pill" :class="pillOf(selected.class)">{{
+              classLabel(selected.class)
+            }}</span>
+            <RouterLink :to="`/discoveries/report/${selected.best.id}`" class="small report"
+              >Report</RouterLink
+            >
           </div>
-          <div class="big">
-            <template v-if="selected.cutouts">
-              <figure>
-                <img :src="selected.cutouts.night" alt="Night image cutout" />
-                <figcaption>Night</figcaption>
-              </figure>
-              <figure>
-                <img :src="selected.cutouts.ref" alt="Reference cutout" />
-                <figcaption>Reference</figcaption>
-              </figure>
-              <figure>
-                <img :src="selected.cutouts.diff" alt="Difference cutout" />
-                <figcaption>Difference</figcaption>
-              </figure>
-            </template>
-            <p v-else class="small dim">No cutouts were saved for this candidate.</p>
-          </div>
+          <h2>{{ selected.object }} · {{ positionText(selected) }}</h2>
           <dl>
-            <dt>Class</dt>
-            <dd>
-              <span class="pill" :class="pillOf(selected.class)">{{ classLabel(selected.class) }}</span>
-            </dd>
-            <dt>Signal</dt>
-            <dd>{{ selected.snr.toFixed(1) }}σ in the difference</dd>
             <template v-if="selected.kind === 'mover'">
+              <dt>Known as</dt>
+              <dd>
+                {{
+                  selected.class === 'unknown_mover' ? 'Nothing known' : moverName(selected.best)
+                }}
+              </dd>
               <dt>Rate</dt>
-              <dd>{{ rateText(selected.rate_arcsec_per_min) }}</dd>
+              <dd>{{ rateText(selected.best.rate_arcsec_per_min) }}</dd>
               <dt>Offset</dt>
-              <dd>{{ offsetText(selected.offset_arcsec) }} from the predicted position</dd>
+              <dd>{{ offsetText(selected.best.offset_arcsec) }} from the predicted position</dd>
               <dt>V mag</dt>
-              <dd>{{ vmagText(selected.body_v) }}</dd>
+              <dd>{{ vmagText(selected.best.body_v) }}</dd>
             </template>
             <template v-else>
-              <dt>Change</dt>
-              <dd>{{ deltaText(selected, true) }}</dd>
               <dt>Star</dt>
-              <dd>{{ starText(selected) }}</dd>
+              <dd>{{ starText(selected.best) }}</dd>
             </template>
-            <dt>Per sub</dt>
-            <dd>{{ presenceText(selected) }}</dd>
-            <template v-if="selected.matches?.length">
-              <dt>Matches</dt>
-              <dd>
-                <span v-for="(m, i) in matchLines(selected)" :key="i" class="block">{{ m }}</span>
-              </dd>
-            </template>
-            <dt>Checked</dt>
+            <dt>Catalogs</dt>
             <dd>
-              {{ checkedText }}
+              {{ catalogText(selected) }}
               <span v-if="failedText" class="block dim">Could not check: {{ failedText }}</span>
             </dd>
+            <dt>Seen</dt>
+            <dd>
+              {{ selected.nights_seen }} of the {{ selected.nights_compared }}
+              {{ selected.nights_compared === 1 ? 'night' : 'nights' }} this field was compared
+              since
+              {{ shortNight(selected.first_seen) }}
+            </dd>
+            <template v-if="selected.vetting">
+              <dt>Vetted</dt>
+              <dd>{{ vettingLabel(selected.vetting) }}</dd>
+            </template>
           </dl>
-          <div class="lc">
-            Brightness in each of the night's subs
-            <p v-if="detailLoading" class="small" role="status">Loading the per-sub measurements.</p>
-            <p v-else-if="detailError" class="small" role="alert">
-              The per-sub measurements did not load: {{ detailError }}
-            </p>
-            <DiscoveryChart v-else-if="detail?.light?.length" :light="detail.light" />
-            <p v-else class="small">Not measured for this candidate.</p>
+          <h3 class="sub">Night by night</h3>
+          <div class="nights">
+            <div v-for="r in rows" :key="r.night" class="nrow">
+              <div class="nl">
+                <b>{{ shortNight(r.night) }}</b>
+                <span class="dim small"
+                  >{{ groupsText(r.groups) }} · {{ subsText(r.best)
+                  }}<template v-if="r.lowOnly"> · low confidence</template></span
+                >
+                <span>{{
+                  selected.kind === 'mover' ? groupLabel(r.best.group) : deltaText(r.best)
+                }}</span>
+              </div>
+              <div class="trip sm">
+                <template v-if="r.best.cutouts">
+                  <img
+                    :src="r.best.cutouts.night"
+                    :alt="`${shortNight(r.night)} night`"
+                    loading="lazy"
+                  />
+                  <img
+                    :src="r.best.cutouts.ref"
+                    :alt="`${shortNight(r.night)} reference`"
+                    loading="lazy"
+                  />
+                  <img
+                    :src="r.best.cutouts.diff"
+                    :alt="`${shortNight(r.night)} difference`"
+                    loading="lazy"
+                  />
+                </template>
+                <span v-else class="nocut small dim">no cutouts</span>
+              </div>
+            </div>
           </div>
-          <div class="vet" role="group" aria-label="Vet this candidate">
+          <div class="vet" role="group" aria-label="Vet this source">
             <button
               v-for="b in VET_BUTTONS"
               :key="b.state"
@@ -525,51 +611,50 @@ function saveNote() {
             <a :href="place.aladin" target="_blank" rel="noopener noreferrer">Aladin</a> ·
             <a :href="place.vsx" target="_blank" rel="noopener noreferrer">VSX</a> ·
             <a :href="place.simbad" target="_blank" rel="noopener noreferrer">SIMBAD</a>
-            <RouterLink :to="`/discoveries/report/${selected.id}`" class="btn sm report">Report</RouterLink>
           </div>
         </aside>
       </div>
 
-      <section class="movers" aria-labelledby="disc-movers">
-        <h3 id="disc-movers">Moving objects</h3>
+      <section class="recent" aria-labelledby="disc-recent">
+        <h3 id="disc-recent">Recent nights</h3>
         <p class="dim small intro">
-          Linked across 5 or more subs.
-          <template v-if="moving.length && !unknownMovers">
-            Every track below matched a known asteroid.
-          </template>
-          Tracks that match nothing show at the top as unknown movers, with astrometry ready for the
-          Minor Planet Center.
+          Each comparison, newest first. Open one to see everything it found, including known
+          objects.
         </p>
-        <div v-if="moving.length" class="tbl">
+        <div v-if="recent.length" class="tbl">
           <table>
             <thead>
               <tr>
-                <th>Known as</th>
-                <th class="num">V mag</th>
-                <th class="num">Subs</th>
-                <th class="num">Rate</th>
-                <th class="num">Offset from prediction</th>
+                <th>Night</th>
+                <th>Target</th>
+                <th class="num">Subs vs reference</th>
+                <th class="num">Depth (G, 5σ)</th>
+                <th>Result</th>
               </tr>
             </thead>
             <tbody>
               <tr
-                v-for="m in moving"
-                :key="m.id"
-                :class="{ unknown: m.class === 'unknown_mover', on: selected?.id === m.id }"
+                v-for="r in recent"
+                :key="r.id"
                 tabindex="0"
-                @click="select(m)"
-                @keydown.enter="select(m)"
+                :class="{ on: night === r.night && target === r.object }"
+                @click="openRun(r)"
+                @keydown.enter="openRun(r)"
               >
-                <td>{{ moverName(m) }}</td>
-                <td class="num">{{ vmagText(m.body_v) }}</td>
-                <td class="num">{{ m.present_in }}</td>
-                <td class="num">{{ rateText(m.rate_arcsec_per_min) }}</td>
-                <td class="num">{{ offsetText(m.offset_arcsec) }}</td>
+                <td>{{ shortNight(r.night) }}</td>
+                <td>
+                  {{ r.object }} <span class="dim small">{{ groupLabel(r.group) }}</span>
+                </td>
+                <td class="num">{{ subsVsRef(r) }}</td>
+                <td class="num" :class="{ dim: depthText(r) === 'not measured' }">
+                  {{ depthText(r) }}
+                </td>
+                <td :class="{ dim: r.state !== 'done' }">{{ runResult(r) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <p v-else class="empty">No moving objects were linked on this night.</p>
+        <p v-else class="empty">No nights compared in this time.</p>
       </section>
     </template>
   </main>
@@ -586,8 +671,8 @@ function saveNote() {
   --new-bg: oklch(0.95 0.05 145);
   --low: oklch(0.55 0.02 285);
   --low-bg: oklch(0.95 0.003 285);
-  --nova: oklch(0.55 0.18 340);
-  --nova-bg: oklch(0.95 0.04 340);
+  --nova: oklch(0.55 0.16 25);
+  --nova-bg: oklch(0.95 0.04 25);
   --d-sel: oklch(0.62 0.15 250);
 }
 .dark .disc {
@@ -598,8 +683,8 @@ function saveNote() {
   --new-bg: oklch(0.3 0.07 145);
   --low: oklch(0.75 0.02 285);
   --low-bg: oklch(0.28 0.01 285);
-  --nova: oklch(0.8 0.14 340);
-  --nova-bg: oklch(0.3 0.08 340);
+  --nova: oklch(0.78 0.13 25);
+  --nova-bg: oklch(0.32 0.07 25);
   --d-sel: oklch(0.7 0.14 250);
 }
 .dim {
@@ -623,14 +708,26 @@ function saveNote() {
 .block {
   display: block;
 }
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 .bar {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
   align-items: center;
-  margin-block: 14px;
+  margin-top: 14px;
+}
+.bar + .bar {
+  margin-top: 10px;
 }
 select,
+input,
 .chip,
 textarea {
   font: inherit;
@@ -641,124 +738,143 @@ textarea {
   padding: 6px 10px;
   max-width: 100%;
 }
-.pick {
-  display: inline-flex;
-  gap: 10px;
-  align-items: center;
+input {
   min-width: 0;
-  max-width: 100%;
+  flex: 1 1 200px;
+  max-width: 320px;
 }
 .chip {
   display: inline-flex;
   gap: 6px;
   align-items: center;
+  cursor: pointer;
 }
 .chip[aria-pressed='true'] {
   background: var(--primary);
   color: var(--primary-foreground);
   border-color: var(--primary);
 }
+.chip.tag {
+  border-style: dashed;
+}
 .chip .n {
   font-variant-numeric: tabular-nums;
   opacity: 0.75;
 }
-.run-notes {
-  margin-bottom: 14px;
-  display: grid;
-  gap: 4px;
+.chip:focus-visible,
+.vet button:focus-visible,
+.src:focus-visible,
+tbody tr:focus-visible {
+  outline: 2px solid var(--d-sel);
 }
-.run-notes p {
-  margin: 0;
-}
-.summary {
-  display: flex;
-  gap: 28px;
-  flex-wrap: wrap;
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--d-card);
-}
-.summary div {
-  display: flex;
-  flex-direction: column;
-}
-.summary .v {
-  font-size: 20px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-.summary .v.nm {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--muted-foreground);
-  line-height: 30px;
-}
-.summary .l {
-  font-size: 12px;
-  color: var(--muted-foreground);
-}
-.main {
+.ibox {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 400px;
   gap: 20px;
-  margin-top: 18px;
+  margin-top: 16px;
   align-items: start;
 }
 @media (max-width: 980px) {
-  .main {
+  .ibox {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr));
-  gap: 12px;
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
 }
-.cand {
+.sec {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.src {
   all: unset;
   box-sizing: border-box;
   cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr) 260px;
+  gap: 14px;
+  align-items: center;
   padding: 10px;
   border: 1px solid var(--border);
+  border-left-width: 4px;
   border-radius: 10px;
   background: var(--d-card);
-  border-left-width: 4px;
   min-width: 0;
 }
-.cand.known {
-  border-left-color: var(--known);
-}
-.cand.low {
-  border-left-color: var(--low);
-}
-.cand.new {
+.src.new {
   border-left-color: var(--new);
 }
-.cand[aria-current='true'] {
+.src.nova {
+  border-left-color: var(--nova);
+}
+.src.known {
+  border-left-color: var(--known);
+}
+.src.low {
+  border-left-color: var(--low);
+}
+.src[aria-current='true'] {
   outline: 2px solid var(--d-sel);
   outline-offset: 1px;
 }
-.cand:focus-visible {
-  outline: 2px solid var(--d-sel);
+@media (max-width: 1200px) {
+  .src {
+    grid-template-columns: 160px minmax(0, 1fr);
+  }
+  .src .spark {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 760px) {
+  .src {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.mid {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.mid .t {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: baseline;
+}
+.spark svg {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  display: block;
+}
+.spark .ax {
+  stroke: var(--muted-foreground);
+  stroke-opacity: 0.5;
+}
+.spark .tl {
+  font-size: 10px;
+  fill: var(--muted-foreground);
 }
 .trip {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 4px;
 }
-.trip img,
-.big img {
+.trip.sm {
+  gap: 3px;
+}
+.trip img {
   width: 100%;
   aspect-ratio: 1;
   image-rendering: pixelated;
   display: block;
   background: var(--muted);
-}
-.trip img {
   border-radius: 4px;
 }
 .nocut {
@@ -770,15 +886,11 @@ textarea {
   border: 1px dashed var(--border);
   border-radius: 4px;
 }
-.meta,
-.line {
+.meta {
   display: flex;
   justify-content: space-between;
-  gap: 0 8px;
+  gap: 8px;
   align-items: center;
-}
-.line {
-  flex-wrap: wrap;
 }
 .pill {
   font-size: 11px;
@@ -786,7 +898,6 @@ textarea {
   letter-spacing: 0.02em;
   padding: 2px 8px;
   border-radius: 99px;
-  border: 0;
 }
 .pill.known {
   color: var(--known);
@@ -804,9 +915,13 @@ textarea {
   color: var(--nova);
   background: var(--nova-bg);
 }
-.snr {
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
+.pending {
+  margin: 12px 0 0;
+}
+.more {
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 .detail {
   position: sticky;
@@ -826,34 +941,16 @@ textarea {
   }
 }
 .detail h2 {
-  font-size: 16px;
+  font-size: 15px;
   margin: 0;
+  overflow-wrap: anywhere;
 }
-.detail .sub {
-  margin: 2px 0 0;
+.detail .meta a {
+  color: var(--known);
 }
-.big {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-.big p {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-.big figure {
-  margin: 0;
-}
-.big img {
-  border-radius: 6px;
-}
-.big figcaption {
-  font-size: 11px;
-  color: var(--muted-foreground);
-  text-align: center;
-  margin-top: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+h3.sub {
+  font-size: 14px;
+  margin: 4px 0 0;
 }
 dl {
   display: grid;
@@ -869,15 +966,23 @@ dd {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.lc {
-  border: 1px dashed var(--border);
-  border-radius: 8px;
-  padding: 10px;
-  font-size: 12px;
-  color: var(--muted-foreground);
+.nights {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.lc p {
-  margin: 4px 0 0;
+.nrow {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.nl {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  min-width: 0;
 }
 .vet {
   display: grid;
@@ -891,15 +996,12 @@ dd {
   border: 1px solid var(--border);
   background: var(--background);
   color: var(--foreground);
+  cursor: pointer;
 }
 .vet button.primary {
   background: var(--primary);
   color: var(--primary-foreground);
   border-color: var(--primary);
-}
-.vet button:focus-visible,
-.chip:focus-visible {
-  outline: 2px solid var(--d-sel);
 }
 .note {
   display: flex;
@@ -920,21 +1022,14 @@ textarea {
 .links a:hover {
   text-decoration: underline;
 }
-.links .report {
-  margin-left: 8px;
-  color: var(--foreground);
-}
-.links .report:hover {
-  text-decoration: none;
-}
-.movers {
+.recent {
   margin-top: 28px;
 }
-.movers h3 {
+.recent h3 {
   font-size: 16px;
   margin: 0 0 8px;
 }
-.movers .intro {
+.recent .intro {
   margin: 0 0 8px;
 }
 .tbl {
@@ -968,10 +1063,6 @@ tbody tr {
 tbody tr:hover,
 tbody tr.on {
   background: oklch(from var(--muted) l c h / 0.6);
-}
-tbody tr.unknown td:first-child {
-  color: var(--new);
-  font-weight: 600;
 }
 tr:last-child td {
   border-bottom: 0;

@@ -51,6 +51,7 @@ export interface DiscoveryRun {
   funnel?: Record<string, Record<string, number>>
   classes: Record<string, number>
   vetted: number
+  needs_look?: number
   mid_time: string | null
   finished_at: string | null
   seconds: number
@@ -121,6 +122,7 @@ export interface DiscoveryCandidate {
   vetting: Vetting
   vet_note: string
   vetted_at: string | null
+  source_id?: number | null
   cutouts: DiscoveryCutouts | null
 }
 
@@ -141,17 +143,71 @@ export interface DiscoveryStatus {
   done_in_pass: number
 }
 
-export const CANDIDATE_LIMIT = 5000
+export type SourceView = 'look' | 'known' | 'movers' | 'low' | 'vetted'
 
-export const getDiscoveryNights = () => api.get<DiscoveryNight[] | null>('/discoveries/nights')
+export interface DiscoverySourceNight {
+  night: string
+  candidates: DiscoveryCandidate[]
+}
 
-export const getDiscoveryRuns = (night: string, object?: string) =>
-  api.get<DiscoveryRun[] | null>('/discoveries/runs' + query({ night, object }))
+export interface DiscoverySource {
+  id: number
+  object: string
+  kind: 'change' | 'mover'
+  class: CandidateClass
+  ra: number
+  dec: number
+  first_seen: string
+  last_seen: string
+  nights_seen: number
+  nights_compared: number
+  needs_look: boolean
+  vetting: Vetting
+  vet_note: string
+  vetted_at: string | null
+  best: DiscoveryCandidate
+  nights: DiscoverySourceNight[]
+  checked: string[]
+  failed: string[]
+}
 
-export const getDiscoveryCandidates = (night: string, object?: string) =>
-  api.get<DiscoveryCandidate[] | null>(
-    '/discoveries/candidates' + query({ night, object, limit: CANDIDATE_LIMIT }),
-  )
+export interface SourceCounts {
+  look: number
+  known: number
+  movers: number
+  new_movers: number
+  low: number
+  vetted: number
+  all: number
+}
+
+export interface DiscoverySourceList {
+  sources: DiscoverySource[]
+  total: number
+  counts: SourceCounts
+  since: string | null
+}
+
+export interface SourceQuery {
+  object?: string
+  since?: string
+  night?: string
+  q?: string
+  view?: SourceView | ''
+  limit?: number
+}
+
+export const getDiscoverySources = (p: SourceQuery) =>
+  api.get<DiscoverySourceList>('/discoveries/sources' + query({ ...p }))
+
+export const getDiscoverySource = (id: number) =>
+  api.get<DiscoverySource>(`/discoveries/sources/${id}`)
+
+export const setSourceVetting = (id: number, state: Vetting, note: string) =>
+  api.put<DiscoverySource>(`/discoveries/sources/${id}/vetting`, { state, note })
+
+export const getRecentRuns = (since: string | undefined, object?: string) =>
+  api.get<DiscoveryRun[] | null>('/discoveries/runs' + query({ since, object }))
 
 export const getDiscoveryCandidate = (id: number) =>
   api.get<DiscoveryDetail>(`/discoveries/candidates/${id}`)

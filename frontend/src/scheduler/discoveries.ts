@@ -1,10 +1,8 @@
 import type {
   CandidateClass,
-  DiscoveryCandidate,
   CheckState,
-  DiscoveryNight,
+  DiscoveryCandidate,
   DiscoveryReport,
-  DiscoveryRun,
   DiscoveryStatus,
   LightPoint,
   Vetting,
@@ -13,19 +11,6 @@ import { filterColor } from './api/planning'
 import { hm } from './format'
 
 export type Edge = 'known' | 'low' | 'new'
-export type Chip = 'all' | 'look' | 'known' | 'low' | 'vetted'
-
-export const CHIPS: { key: Chip; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'look', label: 'Needs a look' },
-  { key: 'known', label: 'Known variables' },
-  { key: 'low', label: 'Low confidence' },
-  { key: 'vetted', label: 'Vetted' },
-]
-
-export function isChip(v: unknown): v is Chip {
-  return CHIPS.some((c) => c.key === v)
-}
 
 const NEW_CLASSES: ReadonlySet<string> = new Set([
   'nova_candidate',
@@ -60,56 +45,6 @@ export function pillOf(c: string): string[] {
   return c === 'nova_candidate' ? [edgeOf(c), 'nova'] : [edgeOf(c)]
 }
 
-export function needsLook(c: Pick<DiscoveryCandidate, 'class' | 'vetting'>): boolean {
-  return NEW_CLASSES.has(c.class) && !c.vetting
-}
-
-export function inChip(c: Pick<DiscoveryCandidate, 'class' | 'vetting'>, chip: Chip): boolean {
-  switch (chip) {
-    case 'look':
-      return needsLook(c)
-    case 'known':
-      return c.class === 'known_variable'
-    case 'low':
-      return c.class === 'low_confidence'
-    case 'vetted':
-      return !!c.vetting
-  }
-  return true
-}
-
-export function chipCounts(list: Pick<DiscoveryCandidate, 'class' | 'vetting'>[]): Record<Chip, number> {
-  const out: Record<Chip, number> = { all: 0, look: 0, known: 0, low: 0, vetted: 0 }
-  for (const c of list) for (const k of CHIPS) if (inChip(c, k.key)) out[k.key]++
-  return out
-}
-
-function rank(c: DiscoveryCandidate): number {
-  if (needsLook(c)) return 0
-  if (c.class === 'low_confidence') return 2
-  return 1
-}
-
-/** cards are the changes plus the movers that matched no known asteroid, most urgent first. */
-export function cards(list: DiscoveryCandidate[]): DiscoveryCandidate[] {
-  return list
-    .filter((c) => c.kind === 'change' || c.class === 'unknown_mover')
-    .sort((a, b) => rank(a) - rank(b) || b.snr - a.snr)
-}
-
-/** movers lists the moving objects, unknown ones first, then the brightest. */
-export function movers(list: DiscoveryCandidate[]): DiscoveryCandidate[] {
-  const v = (c: DiscoveryCandidate) => c.body_v ?? Infinity
-  return list
-    .filter((c) => c.kind === 'mover')
-    .sort(
-      (a, b) =>
-        Number(b.class === 'unknown_mover') - Number(a.class === 'unknown_mover') ||
-        v(a) - v(b) ||
-        b.snr - a.snr,
-    )
-}
-
 export function moverName(c: DiscoveryCandidate): string {
   if (c.class === 'unknown_mover') return 'Unknown'
   return c.matches[0]?.name || 'Unknown'
@@ -134,24 +69,28 @@ export function deltaText(
   const d = c.delta_mag
   const onSource = c.ref_mag !== null && c.ref_mag !== undefined
   if (onSource && d !== null && d !== undefined) {
-    if (Number(Math.abs(d).toFixed(2)) === 0) return long ? 'no change from the reference' : 'no change'
+    if (Number(Math.abs(d).toFixed(2)) === 0)
+      return long ? 'no change from the reference' : 'no change'
     const word = d < 0 ? 'brighter' : 'fainter'
     return `${Math.abs(d).toFixed(2)} mag ${word}${long ? ' than the reference' : ''}`
   }
   if (c.sign < 0) return 'faded source'
-  if (c.night_mag !== null && c.night_mag !== undefined) return `new source, G≈${c.night_mag.toFixed(1)}`
+  if (c.night_mag !== null && c.night_mag !== undefined)
+    return `new source, G≈${c.night_mag.toFixed(1)}`
   return onSource ? 'not measured' : 'new source'
 }
 
 export function starText(c: Pick<DiscoveryCandidate, 'gaia_g'>): string {
-  return c.gaia_g === null || c.gaia_g === undefined ? 'no cataloged star' : `Gaia G ${c.gaia_g.toFixed(2)}`
+  return c.gaia_g === null || c.gaia_g === undefined
+    ? 'no cataloged star'
+    : `Gaia G ${c.gaia_g.toFixed(2)}`
 }
 
 const pad = (n: number, w = 2) => String(n).padStart(w, '0')
 
 /** raText formats right ascension in degrees as "12h 37m 14.1s". */
 export function raText(deg: number): string {
-  const tenths = Math.round((((deg % 360) + 360) % 360) / 15 * 36000) % (24 * 36000)
+  const tenths = Math.round(((((deg % 360) + 360) % 360) / 15) * 36000) % (24 * 36000)
   const h = Math.floor(tenths / 36000)
   const m = Math.floor((tenths % 36000) / 600)
   const s = (tenths % 600) / 10
@@ -233,7 +172,10 @@ export function sentence(words: string[]): string {
 export function matchLines(c: Pick<DiscoveryCandidate, 'matches'>): string[] {
   return (c.matches ?? []).map((m) => {
     const where = CATALOG_WORDS[m.catalog] ?? m.catalog
-    const sep = Number.isFinite(m.sep_arcsec) && m.catalog !== 'track' ? `, ${m.sep_arcsec.toFixed(1)}″ away` : ''
+    const sep =
+      Number.isFinite(m.sep_arcsec) && m.catalog !== 'track'
+        ? `, ${m.sep_arcsec.toFixed(1)}″ away`
+        : ''
     const type = m.type ? ` (${m.type})` : ''
     return `${m.name}${type}, ${where}${sep}`
   })
@@ -242,32 +184,6 @@ export function matchLines(c: Pick<DiscoveryCandidate, 'matches'>): string[] {
 export function presenceText(c: Pick<DiscoveryCandidate, 'present_in' | 'subs_tested'>): string {
   if (!c.subs_tested) return 'not measured'
   return `Present in ${c.present_in} of ${c.subs_tested} subs`
-}
-
-export interface Summary {
-  look: number
-  knownVariables: number
-  low: number
-  knownAsteroids: number
-  unknownMovers: number
-  nightSubs: number
-  refSubs: number
-  depth: number | null
-}
-
-export function summarize(runs: DiscoveryRun[], list: DiscoveryCandidate[]): Summary {
-  const done = runs.filter((r) => r.state === 'done')
-  const depths = done.map((r) => r.depth).filter((d): d is number => d !== null && d !== undefined)
-  return {
-    look: list.filter(needsLook).length,
-    knownVariables: list.filter((c) => c.class === 'known_variable').length,
-    low: list.filter((c) => c.class === 'low_confidence').length,
-    knownAsteroids: list.filter((c) => c.class === 'known_asteroid').length,
-    unknownMovers: list.filter((c) => c.class === 'unknown_mover').length,
-    nightSubs: done.reduce((n, r) => n + r.night_subs, 0),
-    refSubs: done.reduce((n, r) => n + r.ref_subs, 0),
-    depth: depths.length ? Math.max(...depths) : null,
-  }
 }
 
 export function nextVetting(current: Vetting, clicked: Vetting): Vetting {
@@ -309,43 +225,10 @@ export function isNight(v: unknown): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
 }
 
-/** nightChoices keeps the asked-for night in the list even when nothing finished on it yet. */
-export function nightChoices(nights: DiscoveryNight[], wanted: string): string[] {
-  const list = nights.map((n) => n.night)
-  if (wanted && !list.includes(wanted)) {
-    list.push(wanted)
-    list.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
-  }
-  return list
-}
-
-export function targets(runs: Pick<DiscoveryRun, 'object'>[]): string[] {
-  return [...new Set(runs.map((r) => r.object))].sort((a, b) => a.localeCompare(b))
-}
-
 export function statusText(s: DiscoveryStatus | null): string {
   if (!s || s.state !== 'running') return ''
   const what = [s.object, s.night ? nightLabel(s.night) : ''].filter(Boolean).join(' ')
   return `Comparing ${what}${s.stage ? `: ${s.stage}` : ''}`
-}
-
-export interface RunNotes {
-  pending: number
-  failed: { label: string; reason: string }[]
-  skipped: { label: string; reason: string }[]
-}
-
-export function runNotes(runs: DiscoveryRun[]): RunNotes {
-  const label = (r: DiscoveryRun) => `${r.object}, ${r.group}`
-  return {
-    pending: runs.filter((r) => r.state === 'queued' || r.state === 'running').length,
-    failed: runs
-      .filter((r) => r.state === 'failed')
-      .map((r) => ({ label: label(r), reason: r.error || 'no reason given' })),
-    skipped: runs
-      .filter((r) => r.state === 'skipped')
-      .map((r) => ({ label: label(r), reason: r.error || r.stage || 'no reason given' })),
-  }
 }
 
 export interface ChartPoint {
@@ -450,7 +333,9 @@ export function chartOf(light: LightPoint[] | null | undefined): Chart | null {
     bottomLabel: fmt(delta ? hi : lo),
     firstLabel: `first sub ${hm(t0)}`,
     lastLabel: `last sub ${hm(t1)}`,
-    axisLabel: delta ? 'Change from the reference, brighter is up' : 'Flux difference from the reference',
+    axisLabel: delta
+      ? 'Change from the reference, brighter is up'
+      : 'Flux difference from the reference',
     filters: many ? names.map((n) => ({ name: n || 'no filter', colour: filterColor(n) })) : [],
   }
 }
@@ -479,7 +364,9 @@ export const REPORT_TABS: { key: ReportTab; label: string }[] = [
  * reportTab picks the tab a report opens on: the one the candidate's kind and
  * class point to when that draft applies, else the first draft that applies.
  */
-export function reportTab(r: Pick<DiscoveryReport, 'kind' | 'class' | 'tns' | 'mpc' | 'vsx'>): ReportTab {
+export function reportTab(
+  r: Pick<DiscoveryReport, 'kind' | 'class' | 'tns' | 'mpc' | 'vsx'>,
+): ReportTab {
   const want: ReportTab =
     r.kind === 'mover' ? 'mpc' : r.class === 'new_variable_candidate' ? 'vsx' : 'tns'
   if (r[want].applies) return want

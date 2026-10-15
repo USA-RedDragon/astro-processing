@@ -1,28 +1,22 @@
 import { describe, expect, it } from 'vitest'
 import type { LightPoint } from '@/scheduler/api/discoveries'
-import { candidate, run } from './fixtures/discoveries'
+import { candidate } from './fixtures/discoveries'
 import {
-  cards,
   chartOf,
-  chipCounts,
   classLabel,
   decText,
   deltaText,
   edgeOf,
-  inChip,
   links,
   matchText,
-  movers,
   moverName,
   nextVetting,
-  nightChoices,
   nightLabel,
   pillOf,
   raText,
   sourceWords,
   starText,
   statusText,
-  summarize,
 } from '@/scheduler/discoveries'
 
 const light = (over: Partial<LightPoint> = {}): LightPoint => ({
@@ -63,36 +57,8 @@ describe('classes', () => {
     expect(matchText(candidate({ class: 'nova_candidate', matches: [] }))).toBe('No cataloged star, inside a galaxy')
   })
 
-  it('counts each chip', () => {
-    const list = [
-      candidate({ id: 1 }),
-      candidate({ id: 2, class: 'low_confidence' }),
-      candidate({ id: 3, class: 'supernova_candidate' }),
-      candidate({ id: 4, class: 'new_variable_candidate', vetting: 'real' }),
-      candidate({ id: 5, class: 'unknown_mover', kind: 'mover' }),
-      candidate({ id: 6, class: 'known_variable', vetting: 'known' }),
-      candidate({ id: 7, class: 'nova_candidate' }),
-    ]
-    expect(chipCounts(list)).toEqual({ all: 7, look: 3, known: 2, low: 1, vetted: 2 })
-    expect(inChip(list[6]!, 'look')).toBe(true)
-    expect(inChip(list[3]!, 'look')).toBe(false)
-    expect(inChip(list[4]!, 'look')).toBe(true)
-  })
-
-  it('puts changes and unknown movers on cards, the rest of the movers in the table', () => {
-    const list = [
-      candidate({ id: 1, snr: 10 }),
-      candidate({ id: 2, class: 'low_confidence', snr: 6.5 }),
-      candidate({ id: 3, class: 'supernova_candidate', snr: 8 }),
-      candidate({ id: 4, kind: 'mover', class: 'known_asteroid', body_v: 18.5 }),
-      candidate({ id: 5, kind: 'mover', class: 'unknown_mover', body_v: null, snr: 7 }),
-      candidate({ id: 6, kind: 'mover', class: 'known_asteroid', body_v: 17.5 }),
-      candidate({ id: 7, snr: 30 }),
-      candidate({ id: 8, class: 'nova_candidate', snr: 7.5 }),
-    ]
-    expect(cards(list).map((c) => c.id)).toEqual([3, 8, 5, 7, 1, 2])
-    expect(movers(list).map((c) => c.id)).toEqual([5, 6, 4])
-    expect(moverName(list[4]!)).toBe('Unknown')
+  it('names a mover by its asteroid match', () => {
+    expect(moverName(candidate({ kind: 'mover', class: 'unknown_mover', matches: [] }))).toBe('Unknown')
     expect(moverName(candidate({ kind: 'mover', class: 'known_asteroid', matches: [{ catalog: 'SkyBoT', name: 'Randoross', sep_arcsec: 1.5 }] }))).toBe('Randoross')
   })
 })
@@ -150,32 +116,7 @@ describe('vetting', () => {
   })
 })
 
-describe('summary', () => {
-  it('sums subs over the runs and takes the best depth', () => {
-    const runs = [
-      run({ id: 1, night_subs: 16, ref_subs: 48, depth: 20.2 }),
-      run({ id: 2, group: 'H-a', night_subs: 10, ref_subs: 30, depth: 19.1 }),
-      run({ id: 3, state: 'running', night_subs: 99, ref_subs: 99, depth: 25 }),
-    ]
-    const list = [
-      candidate({ class: 'supernova_candidate' }),
-      candidate({ class: 'nova_candidate' }),
-      candidate({ class: 'known_asteroid', kind: 'mover' }),
-      candidate({ class: 'unknown_mover', kind: 'mover', vetting: 'artifact' }),
-    ]
-    expect(summarize(runs, list)).toEqual({
-      look: 2,
-      knownVariables: 0,
-      low: 0,
-      knownAsteroids: 1,
-      unknownMovers: 1,
-      nightSubs: 26,
-      refSubs: 78,
-      depth: 20.2,
-    })
-    expect(summarize([run({ depth: null })], []).depth).toBeNull()
-  })
-
+describe('words', () => {
   it('names what was checked in plain words', () => {
     expect(sourceWords(['VSX', 'SIMBAD', 'SkyBoT', 'ALeRCE', 'Fink', 'TNS', 'galaxies'])).toEqual([
       'variable-star catalog',
@@ -186,13 +127,8 @@ describe('summary', () => {
     ])
   })
 
-  it('labels nights and keeps an asked-for night in the list', () => {
+  it('labels nights', () => {
     expect(nightLabel('2025-02-28')).toBe('Feb 28 2025')
-    const nights = [
-      { night: '2025-03-02', runs: 1, candidates: 1, new: 0 },
-      { night: '2025-02-27', runs: 1, candidates: 1, new: 0 },
-    ]
-    expect(nightChoices(nights, '2025-02-28')).toEqual(['2025-03-02', '2025-02-28', '2025-02-27'])
   })
 
   it('shows the running comparison only', () => {
