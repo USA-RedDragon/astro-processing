@@ -63,7 +63,7 @@ import {
 import { onChange } from '@/lib/events'
 import { latestOnly } from '../latest'
 
-const PAGE = 200
+const PAGE = 50
 const RECENT_ROWS = 30
 
 const route = useRoute()
