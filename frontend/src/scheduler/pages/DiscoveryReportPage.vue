@@ -7,10 +7,12 @@ import {
   getDiscoveryReport,
   measureDiscoverySpot,
   reportBundleUrl,
+  sendFollowupToTns,
   sendToTns,
   setTnsName,
   type DiscoveryDetail,
   type DiscoveryReport,
+  type FollowupPoint,
   type TnsSendReply,
 } from '../api/discoveries'
 import { ApiError } from '../api/client'
@@ -216,6 +218,53 @@ async function sendNow() {
   }
 }
 
+const followup = computed(() => report.value?.tns_followup)
+const fConfirming = ref(false)
+const fSending = ref(false)
+const fReply = ref<TnsSendReply | null>(null)
+const fError = ref('')
+
+function upperFirst(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function pointResult(p: FollowupPoint): string {
+  if (p.mag !== null && p.mag !== undefined) {
+    return p.mag_err !== null && p.mag_err !== undefined
+      ? `${p.mag.toFixed(2)} ± ${p.mag_err.toFixed(2)}`
+      : p.mag.toFixed(2)
+  }
+  if (p.limit !== null && p.limit !== undefined) return `fainter than ${p.limit.toFixed(2)}`
+  return 'not measured'
+}
+
+function askFollowup() {
+  if (!followup.value?.can_send) return
+  fReply.value = null
+  fError.value = ''
+  fConfirming.value = true
+}
+
+async function sendFollowupNow() {
+  if (!fConfirming.value || fSending.value || !followup.value?.can_send) return
+  const want = id.value
+  fSending.value = true
+  fError.value = ''
+  try {
+    const r = await sendFollowupToTns(want)
+    if (want !== id.value) return
+    fReply.value = r
+    fConfirming.value = false
+    showToast({ text: 'Photometry sent to TNS', sub: `Report ${r.report_id}`, tone: 'ok' })
+    refresh()
+  } catch (e) {
+    fError.value = message(e)
+    fConfirming.value = false
+  } finally {
+    fSending.value = false
+  }
+}
+
 async function saveName() {
   const r = report.value
   if (!r || nameBusy.value) return
@@ -348,11 +397,30 @@ watch(id, load, { immediate: true })
           :hidden="tab !== 'tns'"
         >
           <template v-if="report.tns.applies">
-            <p class="dim small lead">
+            <div v-if="report.known" class="tns-known" role="note">
+              <p>
+                <b>{{ upperFirst(report.known.text) }}</b>
+                <a
+                  v-if="report.known.link"
+                  :href="report.known.link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="ext"
+                  >on TNS</a
+                >
+              </p>
+              <template v-if="report.known.early">
+                <p class="good">{{ report.known.early_text }}</p>
+                <ul v-if="report.known.early_basis?.length" class="small dim basis">
+                  <li v-for="(b, i) in report.known.early_basis" :key="i">{{ b }}</li>
+                </ul>
+              </template>
+            </div>
+            <p v-if="!report.known" class="dim small lead">
               The fields for a TNS discovery report, filled from your data. Check them, then copy
               them into the TNS form or send them with your TNS key.
             </p>
-            <div class="fields">
+            <div v-if="!report.known" class="fields">
               <div v-for="f in report.tns.fields" :key="f.key" class="f">
                 <span class="l">{{ f.label }}</span>
                 <div class="v" :class="{ missing: f.missing }">{{ f.value }}</div>
@@ -417,88 +485,180 @@ watch(id, load, { immediate: true })
               </span>
             </p>
 
-            <div class="actions">
-              <button type="button" class="btn primary" @click="copy('tns', report.tns.copy_text)">
-                {{ copied === 'tns' ? 'Copied' : 'Copy for the TNS form' }}
-              </button>
-              <button
-                type="button"
-                class="btn"
-                :disabled="!report.tns.can_send || confirming || sending"
-                :title="report.tns.can_send ? undefined : report.tns.send_reason"
-                @click="askSend"
-              >
-                Send with my TNS key
-              </button>
-              <a class="btn" :href="bundle" download>Save the cutouts and light curve</a>
-            </div>
-            <p v-if="!report.tns.can_send && report.tns.send_reason" class="small dim">
-              Sending is off: {{ report.tns.send_reason }}
-            </p>
-            <div v-if="confirming" class="confirm" role="group" aria-label="Confirm sending">
-              <p class="small">
-                This sends the report to TNS under your TNS key. It is public once TNS takes it.
+            <template v-if="report.known">
+              <h3 class="sub">Photometry for TNS</h3>
+              <p v-if="!followup?.applies" class="small dim">
+                None of your measurements at this spot are from before its discovery, so there is no
+                photometry to send. Measure the earlier nights to check.
               </p>
-              <div class="row">
-                <button type="button" class="btn primary" :disabled="sending" @click="sendNow">
-                  Send to TNS now
+              <template v-else>
+                <p class="dim small lead">
+                  Your measurements at this spot, sent as a report on {{ followup.name }}. TNS adds
+                  them to the existing object.
+                </p>
+                <div v-if="followup.points.length" class="tbl">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Night</th>
+                        <th>Filter</th>
+                        <th class="num">Result</th>
+                        <th>When</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(p, i) in followup.points" :key="i" :class="{ hit: p.early }">
+                        <td>{{ nightLabel(p.night) }}</td>
+                        <td>{{ p.filter }}</td>
+                        <td class="num">{{ pointResult(p) }}</td>
+                        <td>{{ p.early ? 'Before its discovery' : 'After its discovery' }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p v-if="followup.non_detection" class="small dim">
+                  Last time not seen: {{ followup.non_detection }}
+                </p>
+                <div class="actions">
+                  <button
+                    type="button"
+                    class="btn"
+                    :disabled="!followup.can_send || fConfirming || fSending"
+                    :title="followup.can_send ? undefined : followup.send_reason"
+                    @click="askFollowup"
+                  >
+                    Send photometry with my TNS key
+                  </button>
+                  <a class="btn" :href="bundle" download>Save the cutouts and light curve</a>
+                </div>
+                <p v-if="!followup.can_send && followup.send_reason" class="small dim">
+                  Sending is off: {{ followup.send_reason }}
+                </p>
+                <div v-if="fConfirming" class="confirm" role="group" aria-label="Confirm sending">
+                  <p class="small">
+                    This sends your photometry to TNS under your TNS key. It is public once TNS
+                    takes it.
+                  </p>
+                  <div class="row">
+                    <button
+                      type="button"
+                      class="btn primary"
+                      :disabled="fSending"
+                      @click="sendFollowupNow"
+                    >
+                      Send to TNS now
+                    </button>
+                    <button
+                      type="button"
+                      class="btn ghost"
+                      :disabled="fSending"
+                      @click="fConfirming = false"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+                <p v-if="fReply" class="small good" role="status">
+                  TNS took the photometry: report {{ fReply.report_id }}.
+                </p>
+                <p v-if="fError" class="small bad" role="alert">
+                  TNS did not take it: {{ fError }}
+                </p>
+                <p v-if="followup.sent_at" class="small dim">
+                  Sent {{ when(followup.sent_at)
+                  }}<template v-if="followup.sent_reply">: {{ followup.sent_reply }}</template>
+                </p>
+                <p class="small dim">Nothing is sent until you press Send.</p>
+              </template>
+            </template>
+            <template v-else>
+              <div class="actions">
+                <button
+                  type="button"
+                  class="btn primary"
+                  @click="copy('tns', report.tns.copy_text)"
+                >
+                  {{ copied === 'tns' ? 'Copied' : 'Copy for the TNS form' }}
                 </button>
                 <button
                   type="button"
-                  class="btn ghost"
-                  :disabled="sending"
-                  @click="confirming = false"
+                  class="btn"
+                  :disabled="!report.tns.can_send || confirming || sending"
+                  :title="report.tns.can_send ? undefined : report.tns.send_reason"
+                  @click="askSend"
                 >
-                  Cancel
+                  Send with my TNS key
                 </button>
+                <a class="btn" :href="bundle" download>Save the cutouts and light curve</a>
               </div>
-            </div>
-            <p v-if="sendReply" class="small good" role="status">
-              TNS took the report: report {{ sendReply.report_id
-              }}<template v-if="sendReply.name">, name {{ sendReply.name }}</template
-              >.
-            </p>
-            <p v-if="sendError" class="small bad" role="alert">
-              TNS did not take it: {{ sendError }}
-            </p>
-            <p v-if="report.tns.sent_at" class="small dim">
-              Sent {{ when(report.tns.sent_at)
-              }}<template v-if="report.tns.sent_reply">: {{ report.tns.sent_reply }}</template>
-            </p>
-            <p class="small dim">
-              Nothing is sent until you press Send. After you report, paste the name TNS gives it
-              (for example AT 2026xyz) here and the page links to it.
-            </p>
-            <div class="f2">
-              <label for="rep-tns-name" class="small dim">TNS name after reporting</label>
-              <div class="row">
-                <input
-                  id="rep-tns-name"
-                  v-model="nameDraft"
-                  class="input"
-                  placeholder="AT 2026…"
-                  :disabled="nameBusy"
-                  @keydown.enter.prevent="saveName"
-                  @blur="saveName"
-                />
-                <button type="button" class="btn sm" :disabled="nameBusy" @click="saveName">
-                  Save
-                </button>
+              <p v-if="!report.tns.can_send && report.tns.send_reason" class="small dim">
+                Sending is off: {{ report.tns.send_reason }}
+              </p>
+              <div v-if="confirming" class="confirm" role="group" aria-label="Confirm sending">
+                <p class="small">
+                  This sends the report to TNS under your TNS key. It is public once TNS takes it.
+                </p>
+                <div class="row">
+                  <button type="button" class="btn primary" :disabled="sending" @click="sendNow">
+                    Send to TNS now
+                  </button>
+                  <button
+                    type="button"
+                    class="btn ghost"
+                    :disabled="sending"
+                    @click="confirming = false"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
-              <p v-if="report.tns.name_link && report.tns.name" class="small">
-                <a
-                  :href="report.tns.name_link"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="ext"
-                  >{{ report.tns.name }}</a
-                >
-                on TNS
+              <p v-if="sendReply" class="small good" role="status">
+                TNS took the report: report {{ sendReply.report_id
+                }}<template v-if="sendReply.name">, name {{ sendReply.name }}</template
+                >.
               </p>
-              <p v-if="nameError" class="small bad" role="alert">
-                That did not save: {{ nameError }}
+              <p v-if="sendError" class="small bad" role="alert">
+                TNS did not take it: {{ sendError }}
               </p>
-            </div>
+              <p v-if="report.tns.sent_at" class="small dim">
+                Sent {{ when(report.tns.sent_at)
+                }}<template v-if="report.tns.sent_reply">: {{ report.tns.sent_reply }}</template>
+              </p>
+              <p class="small dim">
+                Nothing is sent until you press Send. After you report, paste the name TNS gives it
+                (for example AT 2026xyz) here and the page links to it.
+              </p>
+              <div class="f2">
+                <label for="rep-tns-name" class="small dim">TNS name after reporting</label>
+                <div class="row">
+                  <input
+                    id="rep-tns-name"
+                    v-model="nameDraft"
+                    class="input"
+                    placeholder="AT 2026…"
+                    :disabled="nameBusy"
+                    @keydown.enter.prevent="saveName"
+                    @blur="saveName"
+                  />
+                  <button type="button" class="btn sm" :disabled="nameBusy" @click="saveName">
+                    Save
+                  </button>
+                </div>
+                <p v-if="report.tns.name_link && report.tns.name" class="small">
+                  <a
+                    :href="report.tns.name_link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="ext"
+                    >{{ report.tns.name }}</a
+                  >
+                  on TNS
+                </p>
+                <p v-if="nameError" class="small bad" role="alert">
+                  That did not save: {{ nameError }}
+                </p>
+              </div>
+            </template>
           </template>
           <p v-else class="small dim">
             TNS takes supernovae and novae. This candidate does not look like one, so there is no
@@ -915,6 +1075,21 @@ tr.hit td {
 }
 .note-line {
   margin-top: -6px;
+}
+.tns-known {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.tns-known p {
+  margin: 0;
+}
+.basis {
+  margin: 0;
+  padding-left: 18px;
 }
 .actions {
   display: flex;

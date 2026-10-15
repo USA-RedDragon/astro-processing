@@ -57,6 +57,19 @@ export interface DiscoveryRun {
   seconds: number
 }
 
+/** TnsEntry is what the local TNS copy says about a known object. */
+export interface TnsEntry {
+  name: string
+  type?: string
+  group?: string
+  discovered: string
+  mag?: number | null
+  filter?: string
+  our_class?: string
+  seen?: string
+  early_data?: boolean
+}
+
 export interface DiscoveryMatch {
   catalog: string
   name: string
@@ -64,6 +77,7 @@ export interface DiscoveryMatch {
   sep_arcsec: number
   mag?: number | null
   note?: string
+  tns?: TnsEntry | null
 }
 
 export interface DiscoveryCutouts {
@@ -289,6 +303,39 @@ export interface SpotMeasure {
   measured_at?: string
 }
 
+export interface KnownTns {
+  name: string
+  link?: string
+  text: string
+  discovered: string
+  early: boolean
+  early_text?: string
+  early_basis?: string[]
+}
+
+export interface FollowupPoint {
+  time: string
+  night: string
+  filter: string
+  mag?: number | null
+  mag_err?: number | null
+  limit?: number | null
+  exposure: number
+  early?: boolean
+  note: string
+}
+
+export interface TnsFollowup {
+  applies: boolean
+  name?: string
+  points: FollowupPoint[]
+  non_detection?: string
+  can_send: boolean
+  send_reason?: string
+  sent_at?: string
+  sent_reply?: string
+}
+
 export interface DiscoveryReport {
   candidate_id: number
   object: string
@@ -300,6 +347,8 @@ export interface DiscoveryReport {
   facts: ReportField[]
   checks: ReportCheck[]
   tns: TnsDraft
+  known?: KnownTns | null
+  tns_followup?: TnsFollowup
   mpc: MpcDraft
   vsx: VsxDraft
   spot: SpotMeasure
@@ -321,5 +370,8 @@ export const setTnsName = (id: number, name: string) =>
   api.put<DiscoveryReport>(reportPath(id) + '/tns-name', { name })
 
 export const sendToTns = (id: number) => api.post<TnsSendReply>(reportPath(id) + '/tns-send')
+
+export const sendFollowupToTns = (id: number) =>
+  api.post<TnsSendReply>(reportPath(id) + '/tns-followup-send')
 
 export const reportBundleUrl = (id: number) => API_BASE + reportPath(id) + '/bundle.zip'

@@ -10,6 +10,9 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+const EARLY = 'Early data: you have measurements from before its discovery; worth sending to TNS as photometry'
+const NO_KEY = "Add your TNS bot key in the stacker's settings"
+
 const json = (v: unknown, status = 200) =>
   new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json' } })
 
@@ -98,6 +101,8 @@ function stacker(o: Opts = {}): Handler {
     }
     if (p === '/api/v1/discoveries/candidates/11/report/tns-send' && method === 'POST')
       return json({ report_id: 98765, name: 'AT 2026abc' })
+    if (p === '/api/v1/discoveries/candidates/11/report/tns-followup-send' && method === 'POST')
+      return json({ report_id: 55555 })
     if (p === '/api/v1/discoveries/candidates/11' && method === 'GET')
       return json({
         ...candidate({ id: 11, class: 'supernova_candidate', snr: 13.6, source_id: 5 }),
@@ -394,5 +399,75 @@ describe('DiscoveryReportPage', () => {
     expect(el.textContent).toContain('The stacker did not answer: database is locked')
     expect(button(el, 'Try again')).toBeDefined()
     done()
+  })
+
+  describe('a find TNS already has', () => {
+    const known = (early: boolean, canSend: boolean): Partial<DiscoveryReport> => ({
+      class: 'nova_candidate',
+      known: {
+        name: 'AT 2026acsi',
+        link: 'https://www.wis-tns.org/object/2026acsi',
+        text: 'already known: AT 2026acsi (nova candidate, XOSS, Sep 22)',
+        discovered: '2026-09-22T15:50:24Z',
+        early,
+        early_text: early ? EARLY : undefined,
+        early_basis: early ? ['Night of 2026-09-20, Luminance: seen at 18.90; its TNS discovery is Sep 22 15:50 UT'] : [],
+      },
+      tns_followup: {
+        applies: early,
+        name: 'AT 2026acsi',
+        points: early
+          ? [
+            { time: '2026-09-16T06:00:00Z', night: '2026-09-15', filter: 'Luminance', limit: 19.5, exposure: 360, early: true, note: 'x' },
+            { time: '2026-09-21T06:00:00Z', night: '2026-09-20', filter: 'Luminance', mag: 18.9, mag_err: 0.14, exposure: 360, early: true, note: 'x' },
+          ]
+          : [],
+        non_detection: early ? 'night of 2026-09-15, Luminance, fainter than 19.50' : undefined,
+        can_send: canSend,
+        send_reason: canSend ? undefined : NO_KEY,
+      },
+    })
+
+    it('names it, hides the discovery report and has nothing to send without early data', async () => {
+      const { el, done } = await render(stacker({ rep: report(known(false, false)) }))
+      expect(el.textContent).toContain('Already known: AT 2026acsi (nova candidate, XOSS, Sep 22)')
+      expect(el.querySelector('a[href="https://www.wis-tns.org/object/2026acsi"]')).not.toBeNull()
+      expect(button(el, 'Send with my TNS key')).toBeUndefined()
+      expect(button(el, 'Send photometry with my TNS key')).toBeUndefined()
+      expect(el.textContent).not.toContain('Early data')
+      expect(el.textContent).toContain('no photometry to send')
+      done()
+    })
+
+    it('labels early data and lists the measurements from before its discovery', async () => {
+      const { el, done, fetch } = await render(stacker({ rep: report(known(true, false)) }))
+      expect(el.textContent).toContain(EARLY)
+      expect(el.textContent).toContain('fainter than 19.50')
+      expect(el.textContent).toContain('18.90 ± 0.14')
+      expect(el.textContent).toContain('Last time not seen: night of 2026-09-15, Luminance, fainter than 19.50')
+      expect(el.textContent!.toLowerCase()).not.toMatch(/credit|reported first|first to/)
+      const send = button(el, 'Send photometry with my TNS key')!
+      expect(send.disabled).toBe(true)
+      expect(el.textContent).toContain(`Sending is off: ${NO_KEY}`)
+      send.click()
+      await settle()
+      expect(calls(fetch, 'POST', '/tns-followup-send')).toHaveLength(0)
+      done()
+    })
+
+    it('asks before sending the photometry and posts it once', async () => {
+      const { el, done, fetch } = await render(stacker({ rep: report(known(true, true)) }))
+      button(el, 'Send photometry with my TNS key')!.click()
+      await settle()
+      expect(calls(fetch, 'POST', '/tns-followup-send')).toHaveLength(0)
+      const now = button(el, 'Send to TNS now')!
+      now.click()
+      now.click()
+      await settle()
+      expect(calls(fetch, 'POST', '/tns-followup-send')).toHaveLength(1)
+      expect(calls(fetch, 'POST', '/tns-send')).toHaveLength(0)
+      expect(el.textContent).toContain('TNS took the photometry: report 55555.')
+      done()
+    })
   })
 })

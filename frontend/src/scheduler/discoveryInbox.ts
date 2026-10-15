@@ -6,7 +6,7 @@ import type {
   SourceView,
 } from './api/discoveries'
 import { filterColor } from './api/planning'
-import { deltaText, matchText, moverName, rateText, starText } from './discoveries'
+import { deltaText, matchText, moverName, rateText, starText, tnsMatch } from './discoveries'
 
 export const VIEWS: { key: SourceView; label: string }[] = [
   { key: 'look', label: 'Needs a look' },
@@ -191,6 +191,7 @@ export function catalogText(
   const m = s.best.matches ?? []
   if (s.kind === 'mover') return matchText(s.best)
   const galaxy = m.find((x) => x.catalog === 'galaxy')
+  if (s.class === 'known_transient' && tnsMatch(s.best)?.note) return matchText(s.best)
   if (s.class.startsWith('known_')) {
     const named = m.find((x) => x.catalog !== 'galaxy')
     return named ? `${matchText(s.best)}: ${named.name}` : matchText(s.best)

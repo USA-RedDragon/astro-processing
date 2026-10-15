@@ -2,6 +2,7 @@ import type {
   CandidateClass,
   CheckState,
   DiscoveryCandidate,
+  DiscoveryMatch,
   DiscoveryReport,
   DiscoveryStatus,
   LightPoint,
@@ -110,10 +111,24 @@ export function positionText(c: Pick<DiscoveryCandidate, 'ra' | 'dec'>): string 
   return `${raText(c.ra)} ${decText(c.dec)}`
 }
 
+/** EARLY_TEXT labels a known object we have measurements of from before its TNS discovery. */
+export const EARLY_TEXT =
+  'Early data: you have measurements from before its discovery; worth sending to TNS as photometry'
+
+/** tnsMatch is the candidate's match from the local TNS copy, if any. */
+export function tnsMatch(c: Pick<DiscoveryCandidate, 'matches'>): DiscoveryMatch | undefined {
+  return (c.matches ?? []).find((x) => x.catalog === 'TNS' && x.tns)
+}
+
 /** matchText is the one line on a card that says what the candidate matched. */
 export function matchText(c: Pick<DiscoveryCandidate, 'class' | 'matches'>): string {
   const m = c.matches ?? []
   const of = (cat: string) => m.find((x) => x.catalog === cat)
+  const tns = tnsMatch(c)
+  if (c.class === 'known_transient' && tns?.note) {
+    const known = tns.note.charAt(0).toUpperCase() + tns.note.slice(1)
+    return tns.tns?.early_data ? `${known} · ${EARLY_TEXT}` : known
+  }
   switch (c.class) {
     case 'known_variable':
       return 'Matches a cataloged variable star'

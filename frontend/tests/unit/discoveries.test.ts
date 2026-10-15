@@ -184,3 +184,25 @@ describe('per-sub chart', () => {
     expect(chartOf(null)).toBeNull()
   })
 })
+
+describe('a TNS match from the local copy', () => {
+  const tns = (early: boolean) => [
+    { catalog: 'galaxy', name: 'M 31', type: 'Local Group galaxy', sep_arcsec: 344 },
+    {
+      catalog: 'TNS',
+      name: 'AT 2026acsi',
+      sep_arcsec: 0.3,
+      note: 'already known: AT 2026acsi (nova candidate, XOSS, Sep 22)',
+      tns: { name: 'AT 2026acsi', group: 'XOSS', discovered: '2026-09-22T15:50:24Z', early_data: early },
+    },
+  ]
+  it('says it is already known, and early data when we have it', () => {
+    expect(matchText(candidate({ class: 'known_transient', matches: tns(false) }))).toBe('Already known: AT 2026acsi (nova candidate, XOSS, Sep 22)')
+    expect(matchText(candidate({ class: 'known_transient', matches: tns(true) }))).toBe(
+      'Already known: AT 2026acsi (nova candidate, XOSS, Sep 22) · Early data: you have measurements from before its discovery; worth sending to TNS as photometry',
+    )
+    const alerce = [{ catalog: 'ALeRCE', name: 'ZTF26a', sep_arcsec: 1 }]
+    expect(matchText(candidate({ class: 'known_transient', matches: alerce }))).toBe('Already in the alert feeds as ZTF26a')
+  })
+})
+
