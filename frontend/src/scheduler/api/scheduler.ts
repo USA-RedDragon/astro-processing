@@ -3,7 +3,7 @@ import type { AfStatus } from '../autofocus'
 
 export type Reachability = 'unknown' | 'online' | 'offline' | 'unconfigured'
 
-export type SchedulerState = 'imaging' | 'waiting' | 'paused' | 'idle' | 'stopped'
+export type SchedulerState = 'imaging' | 'waiting' | 'paused' | 'idle' | 'stopped' | 'calibrating'
 
 export type SchedulerActivity =
   | 'preparing'
@@ -90,6 +90,101 @@ export interface SchedulerStatus {
   pending?: { id: string; kind: string; received_at?: string }[] | null
   last_plan_at?: string
   autofocus?: AfStatus | null
+  calibration?: CalibrationStatus | null
+}
+
+export type CalibrationKind = 'cooling' | 'darks' | 'bias' | 'flats' | 'done'
+export type CalibrationPlacement = 'before_wait' | 'while_unsafe' | 'end_of_night' | 'flats'
+export type CalibrationFrameKind = 'darks' | 'bias' | 'flats'
+
+export interface CalibrationCooling {
+  target?: number | null
+  from?: number | null
+  started_at?: string | null
+  ends_at?: string | null
+  rate_c_per_min?: number | null
+  source?: 'sequence' | 'darks' | string | null
+}
+
+export interface CalibrationSetup {
+  combo_key?: string | null
+  exposure?: number | null
+  gain?: number | null
+  offset?: number | null
+  binning?: number | null
+  readout_mode?: string | null
+  set_temp?: number | null
+  filter?: string | null
+  target_name?: string | null
+}
+
+export interface CalibrationSet extends CalibrationSetup {
+  target_id?: number | null
+  session_date?: string | null
+  rotation?: number | null
+  panel_brightness?: number | null
+  frames_total?: number | null
+  frames_before?: number | null
+  frames_done?: number | null
+  index?: number | null
+  count?: number | null
+  started_at?: string | null
+  ends_at?: string | null
+}
+
+export interface CalibrationFrame {
+  number?: number | null
+  seconds?: number | null
+  started_at?: string | null
+  ends_at?: string | null
+}
+
+export type CalibrationQueueStatus = 'taking' | 'next' | 'done' | 'skipped' | 'waiting'
+
+export interface CalibrationQueueItem extends CalibrationSetup {
+  kind?: CalibrationFrameKind | null
+  frames_total?: number | null
+  frames_have?: number | null
+  remaining?: number | null
+  lights_blocked?: number | null
+  lights_scaled?: number | null
+  status?: CalibrationQueueStatus | string | null
+  reason_code?: string | null
+  reason?: string | null
+  planned_start?: string | null
+  planned_end?: string | null
+  fit_frames?: number | null
+}
+
+export interface CalibrationTaken extends CalibrationSetup {
+  kind?: CalibrationFrameKind | null
+  frames?: number | null
+  started_at?: string | null
+  ended_at?: string | null
+}
+
+export interface CalibrationStatus {
+  kind?: CalibrationKind | string | null
+  placement?: CalibrationPlacement | string | null
+  purpose?: 'darks' | 'imaging' | string | null
+  since?: string | null
+  updated_at?: string | null
+  camera?: {
+    connected?: boolean | null
+    temperature?: number | null
+    setpoint?: number | null
+    cooler_power?: number | null
+  } | null
+  ambient?: number | null
+  sun_limit_at?: string | null
+  sun_limit_degrees?: number | null
+  cooling?: CalibrationCooling | null
+  set?: CalibrationSet | null
+  frame?: CalibrationFrame | null
+  queue?: CalibrationQueueItem[] | null
+  taken?: CalibrationTaken[] | null
+  stop?: { at?: string | null; code?: string | null; reason?: string | null } | null
+  log?: { at?: string | null; text?: string | null }[] | null
 }
 
 export interface Twilight {
@@ -374,6 +469,32 @@ export interface CameraReport extends SourceState {
   bin_y?: number
   gain?: number
   pixel_size?: number
+  offset?: number
+  is_exposing?: boolean
+  at_target?: boolean
+}
+
+export interface FlatDeviceReport extends SourceState {
+  connected?: boolean
+  light_on?: boolean
+  brightness?: number
+  brightness_max?: number
+}
+
+export interface FilterWheelReport extends SourceState {
+  connected?: boolean
+  selected_id?: number
+}
+
+export interface LastImageReport extends SourceState {
+  exposure?: number
+  median_adu?: number
+  mean_adu?: number
+  stdev_adu?: number
+  max_adu?: number
+  gain?: number
+  offset?: number
+  temperature?: number
 }
 
 export interface RotatorReport extends SourceState {
@@ -414,6 +535,45 @@ export interface Conditions {
   rotator?: RotatorReport
   power: PowerReport
   sync: SyncReport
+  flat_device?: FlatDeviceReport
+  filter_wheel?: FilterWheelReport
+  last_image?: LastImageReport
+}
+
+export interface CameraHistoryPoint {
+  t: string
+  temperature?: number | null
+  setpoint?: number | null
+  cooler_power?: number | null
+}
+
+export interface CameraHistory {
+  step_seconds?: number
+  points: CameraHistoryPoint[] | null
+}
+
+export interface RecentCalibrationRun {
+  kind: CalibrationFrameKind | string
+  started_at?: string | null
+  ended_at?: string | null
+  target_name?: string | null
+  filter?: string | null
+  exposure?: number | null
+  gain?: number | null
+  offset?: number | null
+  binning?: number | null
+  set_temp?: number | null
+  frames?: number | null
+  clean?: number | null
+  leak?: number | null
+  unchecked?: number | null
+}
+
+export interface RecentCalibration {
+  from?: string
+  to?: string
+  newest_indexed?: string | null
+  runs: RecentCalibrationRun[] | null
 }
 
 export interface MoonNight {
@@ -446,6 +606,12 @@ export const getTonightSubs = (since?: string) =>
   api.get<TonightSubs>('/scheduler/tonight-subs' + query({ since }))
 
 export const getConditions = () => api.get<Conditions>('/scheduler/conditions')
+
+export const getCameraHistory = (minutes = 60) =>
+  api.get<CameraHistory>('/scheduler/conditions/camera-history' + query({ minutes }))
+
+export const getRecentCalibration = (hours = 24) =>
+  api.get<RecentCalibration>('/scheduler/calibration/recent' + query({ hours }))
 
 export const getMoon = (start: string, end: string) =>
   api.get<MoonNight>('/scheduler/moon' + query({ start, end }))

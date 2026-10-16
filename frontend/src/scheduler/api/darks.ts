@@ -21,7 +21,13 @@ export interface DarkBacklogCombo {
   latest_night: string | null
   newest_dark_at: string | null
   requests?: CalibrationRequestRef[] | null
+  targets?: DarkBacklogTarget[] | null
   basis: string | null
+}
+
+export interface DarkBacklogTarget {
+  name: string
+  lights: number
 }
 
 export interface DarkBacklogUnschedulable {
