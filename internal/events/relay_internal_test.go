@@ -101,3 +101,35 @@ func TestRelaySendsLatestSchedulerStateFirst(t *testing.T) {
 	}
 	t.Fatal("stream ended without a message")
 }
+
+// A browser gets the latest background activity snapshot on connect, and
+// it never replaces the stacker's status.
+func TestRelaySendsLatestActivityFirst(t *testing.T) {
+	t.Parallel()
+	relay := NewRelay()
+	relay.dispatch(0, `{"type":"status","workers":[]}`)
+	relay.dispatch(0, `{"type":"activity","time":"t1","data":{"items":[]}}`)
+	relay.dispatch(0, `{"type":"activity","time":"t2","data":{"items":[{"kind":"vetting","state":"running"}]}}`)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	browser := httptest.NewServer(relay)
+	defer browser.Close()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, browser.URL, nil)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	var got []string
+	s := bufio.NewScanner(res.Body)
+	for len(got) < 2 && s.Scan() {
+		if l := s.Text(); strings.HasPrefix(l, "data: ") {
+			got = append(got, l)
+		}
+	}
+	want := []string{`data: {"type":"status","workers":[]}`, `data: {"type":"activity","time":"t2","data":{"items":[{"kind":"vetting","state":"running"}]}}`}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}

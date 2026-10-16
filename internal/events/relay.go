@@ -33,6 +33,7 @@ type Relay struct {
 	recent    []message
 	status    []byte // latest status snapshot, sent to new browsers first
 	scheduler []byte // latest observatory scheduler state, also sent first
+	activity  []byte // latest background activity snapshot, also sent first
 	subs      map[chan []byte]struct{}
 	lastID    uint64
 	done      chan struct{}
@@ -128,6 +129,8 @@ func (r *Relay) dispatch(id uint64, data string) {
 		if len(r.recent) > keep {
 			r.recent = r.recent[len(r.recent)-keep:]
 		}
+	case strings.HasPrefix(data, `{"type":"activity"`):
+		r.activity = msg
 	case strings.Contains(data, `"type":"status"`):
 		r.status = msg
 	case strings.HasPrefix(data, `{"type":"scheduler"`):
@@ -142,9 +145,9 @@ func (r *Relay) dispatch(id uint64, data string) {
 	}
 }
 
-// ServeHTTP streams to a browser: the latest status and scheduler state,
-// the events after its Last-Event-ID, then new messages, with a keepalive
-// every 15 s.
+// ServeHTTP streams to a browser: the latest status, scheduler state and
+// background activity, the events after its Last-Event-ID, then new
+// messages, with a keepalive every 15 s.
 func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	after, _ := strconv.ParseUint(req.Header.Get("Last-Event-ID"), 10, 64)
 	ch := make(chan []byte, 64)
@@ -155,6 +158,9 @@ func (r *Relay) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if r.scheduler != nil {
 		backlog = append(backlog, r.scheduler)
+	}
+	if r.activity != nil {
+		backlog = append(backlog, r.activity)
 	}
 	if after > 0 {
 		for _, m := range r.recent {
