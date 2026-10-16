@@ -3,6 +3,7 @@ import { createApp, nextTick } from 'vue';
 import {
   type ActivityItem,
   bytes,
+  current,
   failure,
   fraction,
   indeterminate,
@@ -72,6 +73,12 @@ describe('activity helpers', () => {
     expect(stateText(item({ done: 1, total: 3 }))).toBe('33%');
     expect(stateText(item({}))).toBe('Running');
     expect(stateText(item({ state: 'queued' }))).toBe('Waiting');
+  });
+
+  it('drops a snapshot not renewed for three minutes', () => {
+    const items = [item({})];
+    expect(current(items, now - 60000, now)).toEqual(items);
+    expect(current(items, now - 4 * 60000, now)).toEqual([]);
   });
 
   it('lists failed, then running, then queued work and hides idle work', () => {

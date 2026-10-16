@@ -49,6 +49,9 @@ func NewRelay() *Relay {
 func (r *Relay) Run(ctx context.Context, url string) {
 	for {
 		err := r.follow(ctx, url)
+		r.mu.Lock()
+		r.activity = nil
+		r.mu.Unlock()
 		if ctx.Err() != nil {
 			return
 		}

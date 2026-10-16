@@ -81,6 +81,15 @@ export function shown(items: ActivityItem[]): ActivityItem[] {
     .map(({ it }) => it);
 }
 
+// STALE_MS is how old a snapshot may be before it is taken to be left over
+// from a stacker that stopped; the stacker sends one at least every minute.
+export const STALE_MS = 3 * 60 * 1000;
+
+// current is the snapshot's items, or none when it is stale.
+export function current(items: ActivityItem[], receivedAt: number, now: number): ActivityItem[] {
+  return now - receivedAt > STALE_MS ? [] : items;
+}
+
 // fraction is done of total as a percentage, or null when nothing
 // measurable is known.
 export function fraction(it: ActivityItem): number | null {

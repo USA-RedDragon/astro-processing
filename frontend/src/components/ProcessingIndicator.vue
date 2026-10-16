@@ -55,6 +55,7 @@ import { Progress } from '@/components/ui/progress';
 import { status, watchStatus } from '@/lib/events';
 import {
   type ActivityItem,
+  current,
   failure,
   fraction,
   indeterminate,
@@ -74,7 +75,8 @@ export default {
   },
   computed: {
     items(): ActivityItem[] {
-      return shown([...stackingItems(this.status.workers, this.status.backlog), ...this.status.activity]);
+      const activity = current(this.status.activity, this.status.activityAt, this.now);
+      return shown([...stackingItems(this.status.workers, this.status.backlog), ...activity]);
     },
     busy(): boolean {
       return this.items.some(isBusy);
@@ -101,7 +103,7 @@ export default {
       return [progressText(it), ...notes(it, this.now)].filter(Boolean).join(' · ');
     },
     barValue(it: ActivityItem): number {
-      return fraction(it) ?? (it.state === 'failed' ? 100 : 0);
+      return fraction(it) ?? 0;
     },
     closeOutside(e: MouseEvent) {
       const root = this.$refs.root as HTMLElement | undefined;

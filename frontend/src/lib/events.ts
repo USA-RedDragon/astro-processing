@@ -41,6 +41,7 @@ export const status = reactive({
   workers: [] as Worker[],
   backlog: null as Backlog | null,
   activity: [] as ActivityItem[],
+  activityAt: 0,
 });
 
 const handlers = new Set<(e: LiveEvent) => void>();
@@ -87,6 +88,7 @@ function connect() {
     }
     if (e.type === 'activity') {
       status.activity = e.data?.items ?? [];
+      status.activityAt = Date.now();
       return;
     }
     handlers.forEach((h) => h(e as LiveEvent));
