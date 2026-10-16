@@ -69,6 +69,8 @@ export interface DarkBacklogPublish {
 export interface DarkBacklog {
   computed_at: string | null
   frames_needed: number | null
+  frames_needed_long?: number | null
+  long_exposure_s?: number | null
   frames_needed_basis: string | null
   set_temp_exact_c: number | null
   session_gap_hours: number | null

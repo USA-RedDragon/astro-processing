@@ -40,7 +40,7 @@
                 <TableHead class="text-right">Lights scaled</TableHead>
                 <TableHead
                   class="text-right"
-                  :title="`Lights with an exact dark set of fewer than ${backlog.frames_needed ?? '?'} clean darks`"
+                  :title="shortSetTitle(backlog)"
                 >
                   Lights on a short set
                 </TableHead>
@@ -207,6 +207,7 @@ import {
   coveredText,
   framesNeededText,
   framesText,
+  shortSetTitle,
   isDarkBacklog,
   newestDarkText,
   num,
@@ -303,6 +304,7 @@ export default {
     newestDarkText,
     num,
     openSetTitle,
+    shortSetTitle,
     publishText,
     readoutText,
     refsText,

@@ -12,6 +12,7 @@ import type {
   Twilight,
 } from './api/scheduler'
 import type { DarkBacklog, DarkBacklogCombo } from './api/darks'
+import { darkRuleText } from '@/lib/darkBacklog'
 import { SITE_TZ, hm, mmss, shortDate } from './format'
 import { capitalise, duration, filterName, ms, type Tone } from './plan'
 import { hasData } from './nowtonight'
@@ -1141,7 +1142,6 @@ function plainUnschedulable(r: string): string {
 export function missingView(b: DarkBacklog | null | undefined, shown = 7): MissingView | null {
   if (!b) return null
   const combos = b.combos ?? []
-  const need = b.frames_needed
   const sum = (f: (c: DarkBacklogCombo) => number | null | undefined) =>
     combos.reduce((a, c) => a + (f(c) ?? 0), 0)
   const blocked = sum((c) => c.lights_blocked)
@@ -1149,7 +1149,14 @@ export function missingView(b: DarkBacklog | null | undefined, shown = 7): Missi
   let summary: string
   if (!combos.length) summary = 'No dark sets are missing.'
   else {
-    summary = `${combos.length} ${combos.length === 1 ? 'set is' : 'sets are'} short of ${fin(need) ? need + ' ' : 'enough '}clean darks.`
+    const rule = darkRuleText(b)
+    const target =
+      rule == null
+        ? 'enough clean darks'
+        : fin(b.frames_needed_long) && fin(b.long_exposure_s)
+          ? `a full set of clean darks (${rule})`
+          : `${rule} clean darks`
+    summary = `${combos.length} ${combos.length === 1 ? 'set is' : 'sets are'} short of ${target}.`
     const parts: string[] = []
     if (blocked > 0) parts.push(`${thousands(blocked)} lights have no dark at all`)
     if (scaled > 0) parts.push(`${thousands(scaled)} use a scaled one`)
@@ -1167,7 +1174,7 @@ export function missingView(b: DarkBacklog | null | undefined, shown = 7): Missi
     return {
       key: c.combo_key,
       set: setLabel(c, 'darks'),
-      have: `${c.frames_have ?? 0} of ${c.frames_needed ?? need ?? '?'}`,
+      have: `${c.frames_have ?? 0} of ${c.frames_needed ?? '?'}`,
       waiting,
       bad,
       latest: dateOnly(c.latest_night, false),

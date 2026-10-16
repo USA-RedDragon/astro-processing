@@ -621,6 +621,20 @@ describe('lower cards', () => {
     expect(missingView(null)).toBeNull()
   })
 
+  it('states the exposure rule when the stacker sends it', () => {
+    const v = missingView({
+      frames_needed: 25,
+      frames_needed_long: 10,
+      long_exposure_s: 120,
+      combos: [combo({ combo_key: 'a', exposure: 300, frames_needed: 10, frames_have: 4 })],
+      unschedulable: [],
+    } as DarkBacklog)!
+    expect(v.summary).toBe(
+      '1 set is short of a full set of clean darks (25 for exposures under 120 s, 10 for 120 s and longer). 556 use a scaled one.',
+    )
+    expect(v.rows[0].have).toBe('4 of 10')
+  })
+
   it('lists recent runs and the light-leak tally', () => {
     const v = recentView({
       newest_indexed: t(12, 4),

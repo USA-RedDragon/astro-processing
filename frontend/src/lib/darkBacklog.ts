@@ -55,9 +55,23 @@ export function visibleCombos(
   return showAll ? sorted : sorted.slice(0, limit)
 }
 
-export function framesNeededText(b: Pick<DarkBacklog, 'frames_needed'>): string {
-  if (b.frames_needed == null) return `Darks needed per combo: ${NOT_RECORDED}.`
-  return `Darks needed per combo: ${fmt(b.frames_needed)}.`
+type DarkRule = Pick<DarkBacklog, 'frames_needed' | 'frames_needed_long' | 'long_exposure_s'>
+
+export function darkRuleText(b: DarkRule): string | null {
+  if (b.frames_needed == null) return null
+  if (b.frames_needed_long == null || b.long_exposure_s == null) return fmt(b.frames_needed)
+  return `${fmt(b.frames_needed)} for exposures under ${fmt(b.long_exposure_s)} s, ${fmt(b.frames_needed_long)} for ${fmt(b.long_exposure_s)} s and longer`
+}
+
+export function framesNeededText(b: DarkRule): string {
+  return `Darks needed per set: ${darkRuleText(b) ?? NOT_RECORDED}.`
+}
+
+export function shortSetTitle(b: DarkRule): string {
+  const rule = darkRuleText(b)
+  if (rule == null) return 'Lights with an exact dark set short of a full set of clean darks'
+  if (b.frames_needed_long == null || b.long_exposure_s == null) return `Lights with an exact dark set of fewer than ${rule} clean darks`
+  return `Lights with an exact dark set short of a full set of clean darks (${rule})`
 }
 
 export function basisText(basis: string | null | undefined): string {

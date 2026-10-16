@@ -8,6 +8,7 @@ import {
   computedText,
   coveredText,
   framesNeededText,
+  shortSetTitle,
   framesText,
   isDarkBacklog,
   newestDarkText,
@@ -76,7 +77,7 @@ describe('dark backlog null handling', () => {
 
   it('says not recorded for header values the stacker did not write', () => {
     const empty = { frames_needed: null, set_temp_exact_c: null, session_gap_hours: null, computed_at: null }
-    expect(framesNeededText(empty)).toBe('Darks needed per combo: not recorded.')
+    expect(framesNeededText(empty)).toBe('Darks needed per set: not recorded.')
     expect(setTempMatchText(empty)).toBe('Set temperature match: not recorded.')
     expect(sessionGapText(empty)).toBe('Session gap: not recorded.')
     expect(computedText(empty)).toBe('Computed: not recorded.')
@@ -139,12 +140,22 @@ describe('dark backlog text', () => {
       set_temp_exact_c: 1,
       session_gap_hours: 36,
     }
-    expect(framesNeededText(b)).toBe('Darks needed per combo: 3.')
+    expect(framesNeededText(b)).toBe('Darks needed per set: 3.')
+    expect(shortSetTitle(b)).toBe('Lights with an exact dark set of fewer than 3 clean darks')
     expect(basisText(b.frames_needed_basis)).toBe('Basis: the median of the darks per set you took before')
     expect(setTempMatchText(b)).toBe('A dark matches a light when their set temperatures are within 1 °C.')
     expect(sessionGapText(b)).toBe(
       'Darks of one setup taken less than 36 h apart form one set; a longer pause starts a new set.',
     )
+  })
+
+  it('states the exposure rule for a full dark set', () => {
+    const b = { frames_needed: 25, frames_needed_long: 10, long_exposure_s: 120 }
+    expect(framesNeededText(b)).toBe('Darks needed per set: 25 for exposures under 120 s, 10 for 120 s and longer.')
+    expect(shortSetTitle(b)).toBe(
+      'Lights with an exact dark set short of a full set of clean darks (25 for exposures under 120 s, 10 for 120 s and longer)',
+    )
+    expect(shortSetTitle({ frames_needed: null })).toBe('Lights with an exact dark set short of a full set of clean darks')
   })
 
   it('lists the covered set temperatures in order', () => {
