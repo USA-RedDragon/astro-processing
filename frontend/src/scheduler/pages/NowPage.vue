@@ -64,6 +64,8 @@ import {
   calibCard,
   cameraPill,
   ninaPill,
+  outsideScheduler,
+  pauseApplies,
   showCalibLower,
 } from '../nowcalib'
 import MoonKeepNote from '../components/MoonKeepNote.vue'
@@ -341,7 +343,8 @@ const skipBlocked = computed(() => {
 const pauseBlocked = computed(() => {
   if (blockedReason.value) return blockedReason.value
   if (st.value.paused || st.value.pause_requested) return 'The scheduler is already paused.'
-  if (state.value !== 'imaging' && state.value !== 'waiting') return 'The scheduler is not running.'
+  if (state.value !== 'imaging' && state.value !== 'waiting' && !pauseApplies(st.value))
+    return 'The scheduler is not running.'
   return ''
 })
 
@@ -354,11 +357,7 @@ const abortSyncClients = computed(() => !!exposure.value?.sync_clients)
 
 const blockedLine = computed(() => {
   if (!skipBlocked.value) return ''
-  if (
-    !blockedReason.value &&
-    (calCard.value === 'cooling' || calCard.value === 'darks' || calCard.value === 'flats')
-  )
-    return CALIBRATION_BLOCKED
+  if (!blockedReason.value && outsideScheduler(calCard.value, st.value)) return CALIBRATION_BLOCKED
   if (!pauseBlocked.value || skipBlocked.value === pauseBlocked.value) return skipBlocked.value
   return skipBlocked.value + ' ' + pauseBlocked.value
 })

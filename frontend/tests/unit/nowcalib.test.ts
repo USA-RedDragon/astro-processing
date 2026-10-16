@@ -22,9 +22,13 @@ import {
   flatFacts,
   flatRows,
   framesGrid,
+  groupTaken,
   matchRun,
   missingView,
   ninaPill,
+  outsideScheduler,
+  pauseApplies,
+  stopText,
   placementText,
   powerTrend,
   queueRows,
@@ -576,7 +580,7 @@ describe('nothing left', () => {
     const v = doneView(cal, conditions())
     expect(v.headline).toBe('Roof closed, no calibration left to take')
     expect(v.why).toBe(
-      'Does not fit before the sun reaches 8° below the horizon at 07:07. The camera is at 7.0 °C.',
+      'Calibration stopped because the sun reaches 8° below the horizon at 07:07. The camera is at 7.0 °C.',
     )
     expect(v.facts[0]).toEqual({ label: 'Darks tonight', value: '2 sets · 45 frames', note: '20:44 to 05:31' })
     expect(v.waits).toEqual([
@@ -646,5 +650,73 @@ describe('lower cards', () => {
     expect(v.headline).toBe('Roof closed, camera cooling')
     expect(v.facts.map((f) => f.value)).toEqual(['−9.8 °C', '−11 °C', '100%', '18.3 °C'])
     expect(unreportedView(null).facts.every((f) => f.value === NOT_MEASURED)).toBe(true)
+  })
+})
+
+describe('contract details', () => {
+  it('shows a cool-down for imaging only until the first exposure', () => {
+    const cal: CalibrationStatus = { kind: 'cooling', purpose: 'imaging' }
+    expect(calibCard(status({ state: 'imaging', calibration: cal }), conditions())).toBe('cooling')
+    expect(
+      calibCard(
+        status({ state: 'imaging', calibration: cal, exposure: { filter: 'L', seconds: 300 } }),
+        conditions(),
+      ),
+    ).toBeNull()
+    expect(ninaPill('cooling', cal, conditions())?.value).toBe('cooling for imaging')
+    expect(showCalibLower('cooling', status({ state: 'imaging', calibration: cal }), conditions())).toBe(
+      false,
+    )
+  })
+
+  it('lets pause apply inside the wait and keeps the outside-the-scheduler line for the rest', () => {
+    const wait = status({ calibration: { kind: 'darks', placement: 'before_wait' } })
+    expect(pauseApplies(wait)).toBe(true)
+    expect(outsideScheduler('darks', wait)).toBe(false)
+    const unsafe = status({ calibration: { kind: 'darks', placement: 'while_unsafe' } })
+    expect(pauseApplies(unsafe)).toBe(false)
+    expect(outsideScheduler('darks', unsafe)).toBe(true)
+    expect(outsideScheduler('flats', status({ calibration: { kind: 'flats', placement: 'end_of_night' } }))).toBe(
+      true,
+    )
+    expect(outsideScheduler('done', unsafe)).toBe(false)
+  })
+
+  it('words the flat reasons and stop codes', () => {
+    expect(reasonText({ reason_code: 'untrained', filter: 'Ha' }, null)).toBe(
+      'The flat panel has no trained exposure for H-a.',
+    )
+    expect(reasonText({ reason_code: 'already_taken' }, null)).toBe(
+      'These flats were already taken in this run.',
+    )
+    expect(reasonText({ reason_code: 'error' }, null)).toBe('An error stopped this set.')
+    expect(stopText({ stop: { code: 'safe' } })).toBe(
+      'It turned safe, so calibration stopped for imaging.',
+    )
+    expect(stopText({ stop: { code: 'error', reason: 'camera lost' } })).toBe('Camera lost.')
+    expect(stopText({})).toBe('')
+  })
+
+  it('merges a set taken in more than one run', () => {
+    const a = { kind: 'darks', combo_key: 'k', exposure: 300, gain: 0, set_temp: 6 }
+    const taken = [
+      { ...a, frames: 10, started_at: t(1), ended_at: t(2) },
+      { ...a, frames: 5, started_at: t(4), ended_at: t(5) },
+      { kind: 'flats', target_name: 'M 15', filter: 'L', exposure: 3, frames: 30, ended_at: t(11) },
+    ]
+    const g = groupTaken(taken)
+    expect(g).toHaveLength(2)
+    expect(g[0].frames).toBe(15)
+    const rows = takenRows({ kind: 'done', taken }, {
+      runs: [{ kind: 'darks', exposure: 300, gain: 0, set_temp: 6, clean: 10, started_at: t(1), ended_at: t(2) }],
+    })
+    expect(rows[0]).toEqual({ set: '300 s at 6 °C, gain 0', frames: '15', clean: '10 so far', ended: '00:00' })
+    const flats = flatRows({
+      kind: 'flats',
+      set: { target_name: 'M 15', filter: 'L', frames_total: 30, frames_done: 31 },
+      taken,
+    })
+    expect(flats).toHaveLength(1)
+    expect(flats[0].current).toBe(true)
   })
 })

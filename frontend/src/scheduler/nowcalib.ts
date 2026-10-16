@@ -109,8 +109,10 @@ function cameraBusy(c: Conditions | null | undefined): boolean {
 }
 
 export function calibCard(s: SchedulerStatus, c: Conditions | null | undefined): CalibCard | null {
-  if (s.paused || s.state === 'imaging') return null
   const cal = s.calibration
+  if (s.paused) return null
+  if (cal?.kind === 'cooling' && cal.purpose === 'imaging') return s.exposure ? null : 'cooling'
+  if (s.state === 'imaging') return null
   switch (cal?.kind) {
     case 'cooling':
       return 'cooling'
@@ -134,9 +136,23 @@ export function showCalibLower(
   s: SchedulerStatus,
   c: Conditions | null | undefined,
 ): boolean {
-  if (card) return true
+  const imagingCool = card === 'cooling' && s.calibration?.purpose === 'imaging'
+  if (card && !imagingCool) return true
   if (s.state === 'imaging' || s.state === 'waiting') return false
   return roofClosed(c)
+}
+
+/** pauseApplies is whether the scheduler can still be paused while calibration runs. */
+export function pauseApplies(s: SchedulerStatus): boolean {
+  return s.state === 'calibrating' && s.calibration?.placement === 'before_wait'
+}
+
+/** outsideScheduler is whether calibration runs where pause and skip do not reach it. */
+export function outsideScheduler(card: CalibCard | null, s: SchedulerStatus): boolean {
+  const cal = s.calibration
+  if (!cal || (card !== 'cooling' && card !== 'darks' && card !== 'flats')) return false
+  if (cal.kind === 'cooling' && cal.purpose === 'imaging') return false
+  return cal.placement === 'while_unsafe' || cal.placement === 'end_of_night'
 }
 
 const hourFmt = new Intl.DateTimeFormat('en-GB', {
@@ -274,7 +290,9 @@ function sunPhrase(cal: CalibrationStatus | null | undefined, about = false): st
 }
 
 export function reasonText(
-  item: Pick<CalibrationQueueItem, 'reason_code' | 'reason' | 'set_temp'>,
+  item: Pick<CalibrationQueueItem, 'reason_code' | 'reason' | 'set_temp'> & {
+    filter?: string | null
+  },
   cal: CalibrationStatus | null | undefined,
 ): string {
   const t = fin(item.set_temp) ? tempText(item.set_temp) : 'this temperature'
@@ -302,8 +320,13 @@ export function reasonText(
       return `The sensor drifted away from ${t}.`
     case 'stopped':
       return 'Calibration stopped before this set.'
+    case 'untrained':
+      return `The flat panel has no trained exposure for ${filterName(item.filter)}.`
+    case 'already_taken':
+      return 'These flats were already taken in this run.'
   }
   const r = (item.reason ?? '').trim()
+  if (item.reason_code === 'error' && !r) return 'An error stopped this set.'
   if (!r) return 'No reason reported yet.'
   return capitalise(r) + (/[.!?]$/.test(r) ? '' : '.')
 }
@@ -858,14 +881,49 @@ export interface FlatRow {
   current: boolean
 }
 
+export interface TakenGroup {
+  first: CalibrationTaken
+  entries: CalibrationTaken[]
+  frames: number
+  started: number
+  ended: number
+}
+
+export function takenKey(t: CalibrationSetup & { kind?: string | null }): string {
+  if (t.kind === 'flats') return `flats|${t.target_name ?? ''}|${filterName(t.filter)}`
+  return `${t.kind ?? 'darks'}|${t.combo_key || setLabel(t)}`
+}
+
+/** groupTaken merges the runs of one set, as the plugin lists a set again for each run. */
+export function groupTaken(taken: CalibrationTaken[] | null | undefined): TakenGroup[] {
+  const groups = new Map<string, TakenGroup>()
+  for (const t of taken ?? []) {
+    const k = takenKey(t)
+    const a = ms(t.started_at)
+    const b = ms(t.ended_at)
+    const g = groups.get(k)
+    if (!g) {
+      groups.set(k, { first: t, entries: [t], frames: t.frames ?? 0, started: a, ended: b })
+      continue
+    }
+    g.entries.push(t)
+    g.frames += t.frames ?? 0
+    if (!isNaN(a) && (isNaN(g.started) || a < g.started)) g.started = a
+    if (!isNaN(b) && (isNaN(g.ended) || b > g.ended)) g.ended = b
+  }
+  return [...groups.values()]
+}
+
 export function flatRows(cal: CalibrationStatus): FlatRow[] {
-  const rows: FlatRow[] = (cal.taken ?? [])
-    .filter((t) => t.kind === 'flats')
-    .map((t) => ({
-      done: hm(t.ended_at),
+  const current = cal.set ? takenKey({ ...cal.set, kind: 'flats' }) : ''
+  const rows: FlatRow[] = groupTaken((cal.taken ?? []).filter((t) => t.kind === 'flats'))
+    .filter((g) => takenKey(g.first) !== current)
+    .map((g) => ({ t: g.first, frames: g.frames, ended: g.ended }))
+    .map(({ t, frames, ended }) => ({
+      done: hm(ended),
       target: t.target_name ?? '',
       filter: t.filter ?? '',
-      flats: fin(t.frames) ? String(t.frames) : '',
+      flats: String(frames),
       exposure: secText(t.exposure),
       current: false,
     }))
@@ -972,15 +1030,54 @@ export function takenRows(
   cal: CalibrationStatus,
   recent: RecentCalibration | null | undefined,
 ): TakenRow[] {
-  return (cal.taken ?? []).map((t) => {
-    const r = matchRun(t, recent?.runs)
+  return groupTaken(cal.taken).map((g) => {
+    const runs = new Set<RecentCalibrationRun>()
+    let missing = 0
+    for (const e of g.entries) {
+      const r = matchRun(e, recent?.runs)
+      if (r && fin(r.clean)) runs.add(r)
+      else missing++
+    }
+    const clean = [...runs].reduce((a, r) => a + (r.clean ?? 0), 0)
     return {
-      set: setLabel(t),
-      frames: fin(t.frames) ? String(t.frames) : '',
-      clean: r && fin(r.clean) ? String(r.clean) : 'not checked yet',
-      ended: hm(t.ended_at),
+      set: setLabel(g.first),
+      frames: String(g.frames),
+      clean: !runs.size ? 'not checked yet' : missing ? `${clean} so far` : String(clean),
+      ended: hm(g.ended),
     }
   })
+}
+
+export function stopText(cal: CalibrationStatus): string {
+  const stop = cal.stop
+  if (!stop) return ''
+  const r = (stop.reason ?? '').trim()
+  const own = r ? capitalise(r) + (/[.!?]$/.test(r) ? '' : '.') : ''
+  switch (stop.code) {
+    case 'finished':
+      return 'The calibration run finished.'
+    case 'nothing_left':
+      return 'No set that is still missing fits tonight.'
+    case 'safe':
+      return 'It turned safe, so calibration stopped for imaging.'
+    case 'sun':
+      return `Calibration stopped because ${sunPhrase(cal)}.`
+    case 'cover':
+      return 'The flat panel cover is not confirmed closed, so darks stopped.'
+    case 'time_limit':
+      return "The calibration instruction's time limit is up."
+    case 'wait_end':
+      return 'The wait before the next target ended.'
+    case 'replan':
+      return 'A re-plan or pause was asked for from the web.'
+    case 'no_safety':
+      return 'No safety monitor is connected, so it is not known when imaging can resume.'
+    case 'canceled':
+      return 'The run was cancelled in NINA.'
+    case 'error':
+      return own || 'An error stopped the run.'
+  }
+  return own
 }
 
 export interface DoneView {
@@ -994,16 +1091,13 @@ export function doneView(cal: CalibrationStatus, c: Conditions | null | undefine
   const closed = roofClosed(c)
   const cam = sensorOf(cal, c)
   const stop = cal.stop
-  let why = ''
-  if (stop?.code || stop?.reason)
-    why = reasonText({ reason_code: stop.code, reason: stop.reason, set_temp: undefined }, cal)
-  if (why === 'No reason reported yet.') why = ''
+  let why = stopText(cal)
   if (fin(cam.temperature))
     why = [why, `The camera is at ${readingText(cam.temperature)}.`].filter(Boolean).join(' ')
-  const darks = (cal.taken ?? []).filter((t) => t.kind === 'darks' || t.kind === 'bias')
-  const frames = darks.reduce((a, t) => a + (t.frames ?? 0), 0)
-  const starts = darks.map((t) => ms(t.started_at)).filter((x) => !isNaN(x))
-  const ends = darks.map((t) => ms(t.ended_at)).filter((x) => !isNaN(x))
+  const darks = groupTaken((cal.taken ?? []).filter((t) => t.kind === 'darks' || t.kind === 'bias'))
+  const frames = darks.reduce((a, g) => a + g.frames, 0)
+  const starts = darks.map((g) => g.started).filter((x) => !isNaN(x))
+  const ends = darks.map((g) => g.ended).filter((x) => !isNaN(x))
   const facts: Fact[] = [
     {
       label: 'Darks tonight',
