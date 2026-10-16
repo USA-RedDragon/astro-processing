@@ -1,7 +1,8 @@
 // One shared connection to the backend's event stream: rendered previews,
 // updated masters, what the stacker is working on, the observatory
-// scheduler's state and commands.
+// scheduler's state and commands, and what every background process does.
 import { reactive } from 'vue';
+import type { ActivityItem } from '@/lib/activity';
 
 export interface Worker {
   object: string;
@@ -39,6 +40,7 @@ export const status = reactive({
   connected: false,
   workers: [] as Worker[],
   backlog: null as Backlog | null,
+  activity: [] as ActivityItem[],
 });
 
 const handlers = new Set<(e: LiveEvent) => void>();
@@ -81,6 +83,10 @@ function connect() {
     if (e.type === 'status') {
       status.workers = e.workers ?? [];
       status.backlog = e.backlog ?? null;
+      return;
+    }
+    if (e.type === 'activity') {
+      status.activity = e.data?.items ?? [];
       return;
     }
     handlers.forEach((h) => h(e as LiveEvent));
@@ -154,14 +160,3 @@ export function onReconnect(h: () => void): () => void {
 export function watchStatus() {
   connect();
 }
-
-export const stageLabels: Record<string, string> = {
-  starting: 'Starting',
-  calibrating: 'Calibrating',
-  registering: 'Aligning',
-  adding: 'Adding to master',
-  rebuilding: 'Rebuilding master',
-  publishing: 'Saving',
-  assembling: 'Assembling mosaic',
-  linear_fit: 'LinearFit',
-};
