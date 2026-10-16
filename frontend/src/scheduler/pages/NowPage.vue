@@ -6,13 +6,17 @@ import { onEvent } from '../api/events'
 import { onChange } from '@/lib/events'
 import { onUrlsAging, samePicture } from '@/lib/signedUrls'
 import {
+  getCameraHistory,
   getConditions,
   getMoon,
+  getRecentCalibration,
   getPreview,
   getTonightSubs,
   postPreview,
+  type CameraHistoryPoint,
   type Conditions,
   type MoonNight,
+  type RecentCalibration,
   type Preview,
   type TonightSub,
   type TonightSubs,
@@ -50,6 +54,18 @@ import { activityLine } from '../activity'
 import { latestOnly } from '../latest'
 import PageHead from '../components/PageHead.vue'
 import AutofocusPanel from '../components/AutofocusPanel.vue'
+import NowCalibration from '../components/NowCalibration.vue'
+import NowCalibrationLower from '../components/NowCalibrationLower.vue'
+import { ApiError } from '../api/client'
+import { getDarkBacklog, type DarkBacklog } from '../api/darks'
+import {
+  CALIBRATION_BLOCKED,
+  calibBadge,
+  calibCard,
+  cameraPill,
+  ninaPill,
+  showCalibLower,
+} from '../nowcalib'
 import MoonKeepNote from '../components/MoonKeepNote.vue'
 import { getMoonKeep, type MoonKeepView } from '../api/moonkeep'
 import { nowNote } from '../moonKeep'
@@ -138,6 +154,69 @@ async function loadMoon() {
   }
 }
 
+const calCard = computed(() => calibCard(st.value, conditions.value))
+const calLower = computed(() => showCalibLower(calCard.value, st.value, conditions.value))
+const calBadge = computed(() =>
+  calibBadge(calCard.value, st.value.calibration, conditions.value, shell.now),
+)
+const calSide = computed(
+  () =>
+    !!calCard.value &&
+    calCard.value !== 'unreported' &&
+    !(calCard.value === 'cooling' && st.value.calibration?.purpose === 'imaging'),
+)
+const needHistory = computed(() => calCard.value === 'cooling' || calCard.value === 'unreported')
+
+const history = ref<CameraHistoryPoint[] | null>(null)
+const historyNote = ref('Loading.')
+const backlog = ref<DarkBacklog | null>(null)
+const backlogNote = ref('Loading.')
+const recent = ref<RecentCalibration | null>(null)
+const recentNote = ref('Loading.')
+
+const errText = (e: unknown) => (e instanceof Error ? e.message : String(e))
+const notThere = (e: unknown) => e instanceof ApiError && e.status === 404
+
+async function loadHistory() {
+  if (!needHistory.value) return
+  try {
+    const h = await getCameraHistory(60)
+    history.value = h.points ?? []
+    historyNote.value = history.value.length
+      ? ''
+      : 'No camera temperature readings in the last hour.'
+  } catch (e) {
+    history.value = null
+    historyNote.value = notThere(e)
+      ? "The camera's temperature history is not available yet."
+      : "Could not read the camera's temperature history: " + errText(e)
+  }
+}
+
+async function loadCalibration() {
+  if (!calLower.value) return
+  const [b, r] = await Promise.allSettled([getDarkBacklog(), getRecentCalibration(24)])
+  if (b.status === 'fulfilled') {
+    backlog.value = b.value
+    backlogNote.value = ''
+  } else {
+    backlog.value = null
+    backlogNote.value = 'Could not read the missing dark sets: ' + errText(b.reason)
+  }
+  if (r.status === 'fulfilled') {
+    recent.value = r.value
+    recentNote.value = ''
+  } else {
+    recent.value = null
+    recentNote.value = notThere(r.reason)
+      ? 'Recent calibration is not available from the server yet.'
+      : 'Could not read recent calibration: ' + errText(r.reason)
+  }
+}
+
+watch(needHistory, (v) => v && loadHistory(), { immediate: true })
+watch(calLower, (v) => v && loadCalibration(), { immediate: true })
+
 const moonKeep = ref<MoonKeepView | null>(null)
 
 async function loadMoonKeep() {
@@ -168,6 +247,8 @@ async function loadPreview() {
 let previewTimer: ReturnType<typeof setInterval> | undefined
 let conditionsTimer: ReturnType<typeof setInterval> | undefined
 let moonKeepTimer: ReturnType<typeof setInterval> | undefined
+let historyTimer: ReturnType<typeof setInterval> | undefined
+let calibrationTimer: ReturnType<typeof setInterval> | undefined
 let debounce: ReturnType<typeof setTimeout> | undefined
 const offs: (() => void)[] = []
 
@@ -203,6 +284,8 @@ onMounted(() => {
   previewTimer = setInterval(loadPreview, 300000)
   loadMoonKeep()
   moonKeepTimer = setInterval(loadMoonKeep, 300000)
+  historyTimer = setInterval(loadHistory, 30000)
+  calibrationTimer = setInterval(loadCalibration, 120000)
   offs.push(
     onEvent('frames', soon),
     onEvent('preview', tonights),
@@ -221,6 +304,8 @@ onUnmounted(() => {
   if (previewTimer) clearInterval(previewTimer)
   if (conditionsTimer) clearInterval(conditionsTimer)
   if (moonKeepTimer) clearInterval(moonKeepTimer)
+  if (historyTimer) clearInterval(historyTimer)
+  if (calibrationTimer) clearInterval(calibrationTimer)
   if (debounce) clearTimeout(debounce)
   offs.forEach((f) => f())
   window.removeEventListener('keydown', onKey)
@@ -269,6 +354,11 @@ const abortSyncClients = computed(() => !!exposure.value?.sync_clients)
 
 const blockedLine = computed(() => {
   if (!skipBlocked.value) return ''
+  if (
+    !blockedReason.value &&
+    (calCard.value === 'cooling' || calCard.value === 'darks' || calCard.value === 'flats')
+  )
+    return CALIBRATION_BLOCKED
   if (!pauseBlocked.value || skipBlocked.value === pauseBlocked.value) return skipBlocked.value
   return skipBlocked.value + ' ' + pauseBlocked.value
 })
@@ -332,6 +422,9 @@ const systems = computed(() => {
           : 'checking'
   const queued = shell.waiting.filter((c) => c.status === 'queued').length
   const pend = (s.pending?.length ?? 0) + queued
+  const calNina =
+    s.reachable === 'online' ? ninaPill(calCard.value, s.calibration, conditions.value) : null
+  const cam = cameraPill(calCard.value, s.calibration, conditions.value)
   const items: { label: string; value: string; dot: string; title?: string }[] = [
     {
       label: 'NINA',
@@ -360,6 +453,7 @@ const systems = computed(() => {
       dot: s.last_plan_at ? 'var(--ok)' : 'var(--muted-foreground)',
     },
     ...conditionPills(conditions.value),
+    ...(cam ? [cam] : []),
     {
       label: 'Web editing',
       value: s.web_editing === undefined ? '—' : s.web_editing ? 'on' : 'off',
@@ -372,6 +466,7 @@ const systems = computed(() => {
     },
   ]
   if (pend > 0) items.push({ label: 'Pending', value: String(pend), dot: 'var(--warn)' })
+  if (calNina) Object.assign(items[0], calNina)
   return items
 })
 
@@ -787,6 +882,9 @@ const cross = (x: number, y: number, r: number) =>
         <span class="clock num ml-2">{{ clock(shell.now) }}</span>
       </template>
       <template #actions>
+        <span v-if="calBadge" role="status" class="badge" :class="calBadge.tone">{{
+          calBadge.label
+        }}</span>
         <span v-if="pausedChip" role="status" class="badge warn">
           {{ pausedChip }} ·
           <button type="button" class="inline-link" :disabled="busy" @click="resume">resume</button>
@@ -858,7 +956,20 @@ const cross = (x: number, y: number, r: number) =>
     <MoonKeepNote v-if="moonNow" headline="Bright Moon" :lines="[moonNow]" />
 
     <div class="cards">
-      <section aria-labelledby="current-h" class="card current">
+      <NowCalibration
+        v-if="calCard"
+        :card="calCard"
+        :status="st"
+        :conditions="conditions"
+        :history="history"
+        :history-note="historyNote"
+        :backlog="backlog"
+        :recent="recent"
+        :recent-note="recentNote"
+        :twilight="preview?.twilight"
+        :now="shell.now"
+      />
+      <section v-else aria-labelledby="current-h" class="card current">
         <template v-if="target">
           <div class="spread top">
             <div>
@@ -1037,7 +1148,7 @@ const cross = (x: number, y: number, r: number) =>
         >
       </section>
 
-      <section aria-labelledby="sub-h" class="card latest">
+      <section v-if="!calSide" aria-labelledby="sub-h" class="card latest">
         <div class="spread">
           <h2 id="sub-h">Latest sub</h2>
           <span v-if="latest" class="xsmall muted">
@@ -1145,7 +1256,7 @@ const cross = (x: number, y: number, r: number) =>
       </section>
     </div>
 
-    <section aria-labelledby="hfr-h" class="card">
+    <section v-if="!calCard" aria-labelledby="hfr-h" class="card">
       <div class="spread" style="align-items: flex-end; gap: 1rem">
         <div>
           <h2 id="hfr-h">Star size and guiding tonight</h2>
@@ -1442,7 +1553,14 @@ const cross = (x: number, y: number, r: number) =>
     </section>
 
     <div class="lower">
-      <section aria-labelledby="next-h" class="card" style="gap: 0.75rem">
+      <NowCalibrationLower
+        v-if="calLower"
+        :backlog="backlog"
+        :backlog-note="backlogNote"
+        :recent="recent"
+        :recent-note="recentNote"
+      />
+      <section v-if="!calCard" aria-labelledby="next-h" class="card" style="gap: 0.75rem">
         <div class="spread">
           <h2 id="next-h">Next up</h2>
           <RouterLink :to="{ name: 'tonight' }" class="lnk small muted">{{
