@@ -327,6 +327,23 @@ describe('chanceText', () => {
       'Comparing the night with itself found no false changes. Shuffling the subs in time linked no false movers.',
     )
     expect(chanceText(null)).toBe('not measured')
+    expect(
+      chanceText({
+        change_null: { subs: 26, found: 0, max_snr: 0, filter_found: 3, filter_max_snr: 6.24 },
+      }),
+    ).toBe(
+      'Comparing the night with itself found no false changes. Each filter compared alone found 3 false changes, the strongest 6.2σ.',
+    )
+  })
+
+  it('says a change was found in one filter alone, without a distance', () => {
+    expect(
+      matchLines(
+        candidate({
+          matches: [{ catalog: 'filter', name: 'Red', sep_arcsec: 0 }],
+        }),
+      ),
+    ).toEqual(['Red, found in one filter alone'])
   })
 
   it('names the ZTF check and confirming nights in plain words', () => {

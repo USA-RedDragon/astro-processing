@@ -178,6 +178,7 @@ const CATALOG_WORDS: Record<string, string> = {
   track: 'moving objects in the subs',
   many: 'new-source count of the night',
   defect: 'defect-pixel check',
+  filter: 'found in one filter alone',
 }
 
 /** heldText warns that a night's new sources were held as likely defects. */
@@ -205,6 +206,12 @@ export function chanceText(
         ? 'Comparing the night with itself found no false changes'
         : `Comparing the night with itself found ${c.found} false ${c.found === 1 ? 'change' : 'changes'}, the strongest ${c.max_snr.toFixed(1)}σ; a new variable must be stronger`,
     )
+    const f = c.filter_found ?? 0
+    if (f > 0) {
+      parts.push(
+        `Each filter compared alone found ${f} false ${f === 1 ? 'change' : 'changes'}, the strongest ${(c.filter_max_snr ?? 0).toFixed(1)}σ`,
+      )
+    }
   }
   const m = run?.mover_null
   if (m) {
@@ -238,7 +245,7 @@ export function matchLines(c: Pick<DiscoveryCandidate, 'matches'>): string[] {
   return (c.matches ?? []).map((m) => {
     const where = CATALOG_WORDS[m.catalog] ?? m.catalog
     const sep =
-      Number.isFinite(m.sep_arcsec) && m.catalog !== 'track'
+      Number.isFinite(m.sep_arcsec) && m.catalog !== 'track' && m.catalog !== 'filter'
         ? `, ${m.sep_arcsec.toFixed(1)}″ away`
         : ''
     const type = m.type ? ` (${m.type})` : ''
