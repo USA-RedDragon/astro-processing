@@ -73,7 +73,7 @@ const chart = computed(() => {
 const cooling = computed(() =>
   cal.value ? coolingView(cal.value, props.conditions, props.history, props.now) : null,
 )
-const steps = computed(() => (cal.value ? calibSteps(cal.value) : []))
+const steps = computed(() => (cal.value ? calibSteps(cal.value).slice().reverse() : []))
 const queue = computed(() => (cal.value ? queueRows(cal.value, combos.value) : []))
 const why = computed(() =>
   cal.value ? placementText(cal.value, props.status.wait?.until, props.twilight, props.now) : '',
