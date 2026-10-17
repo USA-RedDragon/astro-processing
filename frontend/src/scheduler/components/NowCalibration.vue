@@ -336,9 +336,7 @@ const unreported = computed(() => unreportedView(props.conditions))
     <section class="card side" aria-labelledby="cal-q-h">
       <div class="spread">
         <h2 id="cal-q-h">{{ isBias ? 'Bias next' : 'Darks next' }}</h2>
-        <span v-if="cal.placement === 'while_unsafe' && !isBias" class="small muted"
-          >warmest first</span
-        >
+        <span v-if="!isBias" class="small muted">coldest first</span>
       </div>
       <ol v-if="queue.length" class="queue">
         <li v-for="(q, i) in queue" :key="i">

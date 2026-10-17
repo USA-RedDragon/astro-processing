@@ -260,8 +260,12 @@ describe('header and pills', () => {
       label: 'Roof closed · cooling for darks',
       tone: 'warn',
     })
-    expect(calibBadge('darks', { kind: 'darks' }, c, T(1))?.label).toBe('Roof closed · taking darks')
-    expect(calibBadge('flats', { kind: 'flats' }, c, T(11, 43))?.label).toBe('Morning · taking flats')
+    expect(calibBadge('darks', { kind: 'darks' }, c, T(1))?.label).toBe(
+      'Roof closed · taking darks',
+    )
+    expect(calibBadge('flats', { kind: 'flats' }, c, T(11, 43))?.label).toBe(
+      'Morning · taking flats',
+    )
     expect(calibBadge('done', { kind: 'done' }, c, T(10))?.label).toBe('Roof closed · waiting')
     expect(calibBadge('unreported', null, c, T(1))?.label).toBe('Roof closed · camera cold')
     expect(calibBadge(null, null, c, T(1))).toBeNull()
@@ -315,10 +319,16 @@ describe('reasons and placement', () => {
         purpose: 'darks',
         cooling: { target: -11.57 },
       }),
-    ).toBe('The roof is closed, so NINA uses the time for darks. It cools the camera to −11.6 °C first.')
+    ).toBe(
+      'The roof is closed, so NINA uses the time for darks. It cools the camera to −11.6 °C first.',
+    )
     expect(
       placementText(
-        { kind: 'flats', placement: 'flats', set: { frames_total: 30, session_date: '2026-10-14' } },
+        {
+          kind: 'flats',
+          placement: 'flats',
+          set: { frames_total: 30, session_date: '2026-10-14' },
+        },
         null,
         { astronomical_dawn: t(11, 20) },
         T(11, 43),
@@ -413,14 +423,25 @@ describe('cooling', () => {
     expect(s.map((x) => x.state)).toEqual(['done', 'cur', 'later'])
     expect(s[2]).toEqual({
       at: 'about 22:35',
-      text: 'Darks start with the warmest set: 600 s at 6 °C, gain 0.',
+      text: 'Darks start with 600 s at 6 °C, gain 0.',
       state: 'later',
     })
   })
 
+  it('names the coldest set first when several dark sets are queued', () => {
+    const q = { ...darksCal.queue![1], kind: 'darks' }
+    const s = calibSteps({ ...cal, queue: [q, { ...q, set_temp: 10, status: 'waiting' }] })
+    expect(s[2].text).toBe('Darks start with the coldest set: 600 s at 6 °C, gain 0.')
+    expect(s[2].text).not.toContain('warmest')
+  })
+
   it('draws the sensor line, the target and the rest of the ramp', () => {
     const box = { x0: 44, x1: 584, yTop: 14, yBottom: 176 }
-    const ch = coolChart(history, { target: -11.57, setpoint: 7, endsAt: t(1, 44), now: T(1, 26) }, box)
+    const ch = coolChart(
+      history,
+      { target: -11.57, setpoint: 7, endsAt: t(1, 44), now: T(1, 26) },
+      box,
+    )
     expect(ch.empty).toBe(false)
     expect(ch.sensor.startsWith('M44.0 ')).toBe(true)
     expect(ch.ramp).not.toBe('')
@@ -453,8 +474,12 @@ describe('darks card', () => {
       value: '18.3 °C',
       note: 'camera 11 °C below',
     })
-    const other = conditions({ last_image: { source: 'prometheus', exposure: 5, median_adu: 31100 } })
-    expect(darkFacts(darksCal, other).find((x) => x.label === 'Last dark')?.value).toBe(NOT_MEASURED)
+    const other = conditions({
+      last_image: { source: 'prometheus', exposure: 5, median_adu: 31100 },
+    })
+    expect(darkFacts(darksCal, other).find((x) => x.label === 'Last dark')?.value).toBe(
+      NOT_MEASURED,
+    )
   })
 
   it('names who needs the set', () => {
@@ -502,7 +527,11 @@ describe('flats card', () => {
     const fd = conditions({
       flat_device: { source: 'prometheus', connected: true, brightness: 48, brightness_max: 4096 },
     })
-    expect(flatFacts(cal, fd)[0]).toEqual({ label: 'Panel', value: '48 of 4,096', note: '1.2% brightness' })
+    expect(flatFacts(cal, fd)[0]).toEqual({
+      label: 'Panel',
+      value: '48 of 4,096',
+      note: '1.2% brightness',
+    })
     expect(flatFacts(cal, conditions())[0]).toEqual({ label: 'Panel', value: '48', note: '' })
     expect(flatFacts({ kind: 'flats' }, conditions())[0].value).toBe(NOT_MEASURED)
   })
@@ -510,7 +539,14 @@ describe('flats card', () => {
   it('lists the flats taken and the current set', () => {
     expect(flatRows(cal)).toEqual([
       { done: '06:41', target: 'M 15', filter: 'L', flats: '30', exposure: '3 s', current: false },
-      { done: 'now', target: "Barnard's E", filter: 'B', flats: '13 of 30', exposure: '5 s', current: true },
+      {
+        done: 'now',
+        target: "Barnard's E",
+        filter: 'B',
+        flats: '13 of 30',
+        exposure: '5 s',
+        current: true,
+      },
     ])
   })
 })
@@ -582,11 +618,16 @@ describe('nothing left', () => {
     expect(v.why).toBe(
       'Calibration stopped because the sun reaches 8° below the horizon at 07:07. The camera is at 7.0 °C.',
     )
-    expect(v.facts[0]).toEqual({ label: 'Darks tonight', value: '2 sets · 45 frames', note: '20:44 to 05:31' })
+    expect(v.facts[0]).toEqual({
+      label: 'Darks tonight',
+      value: '2 sets · 45 frames',
+      note: '20:44 to 05:31',
+    })
     expect(v.waits).toEqual([
       {
         set: '300 s at −19 °C, gain 0',
-        reason: 'The camera has never cooled to −19 °C at this air temperature. It waits for a cooler night.',
+        reason:
+          'The camera has never cooled to −19 °C at this air temperature. It waits for a cooler night.',
       },
     ])
   })
@@ -610,14 +651,34 @@ describe('lower cards', () => {
         combo({ combo_key: 'b', set_temp: -19, lights_blocked: 1368, lights_scaled: 0 }),
       ],
       unschedulable: [
-        { exposure: 600, set_temp: -25, lights: 302, reason: 'the lights have no GAIN or OFFSET in their header' },
-        { exposure: 300, set_temp: -25, lights: 118, reason: 'the lights have no GAIN or OFFSET in their header' },
+        {
+          exposure: 600,
+          set_temp: -25,
+          lights: 302,
+          reason: 'the lights have no GAIN or OFFSET in their header',
+        },
+        {
+          exposure: 300,
+          set_temp: -25,
+          lights: 118,
+          reason: 'the lights have no GAIN or OFFSET in their header',
+        },
       ],
     } as DarkBacklog)!
-    expect(v.summary).toBe('2 sets are short of 25 clean darks. 1,368 lights have no dark at all and 556 use a scaled one.')
-    expect(v.rows[0]).toMatchObject({ set: '300 s at 6 °C, gain 0', have: '5 of 25', waiting: '556 scaled', bad: false, latest: '18 Sept' })
+    expect(v.summary).toBe(
+      '2 sets are short of 25 clean darks. 1,368 lights have no dark at all and 556 use a scaled one.',
+    )
+    expect(v.rows[0]).toMatchObject({
+      set: '300 s at 6 °C, gain 0',
+      have: '5 of 25',
+      waiting: '556 scaled',
+      bad: false,
+      latest: '18 Sept',
+    })
     expect(v.rows[1]).toMatchObject({ waiting: '1,368 with none', bad: true })
-    expect(v.foot).toBe('420 lights cannot be matched to any dark: their files have no gain or offset.')
+    expect(v.foot).toBe(
+      '420 lights cannot be matched to any dark: their files have no gain or offset.',
+    )
     expect(missingView(null)).toBeNull()
   })
 
@@ -639,12 +700,37 @@ describe('lower cards', () => {
     const v = recentView({
       newest_indexed: t(12, 4),
       runs: [
-        { kind: 'flats', target_name: 'M 15', filter: 'L', exposure: 3, frames: 30, ended_at: t(11, 41) },
-        { kind: 'darks', exposure: 300, gain: 0, set_temp: 9, frames: 25, clean: 25, leak: 0, unchecked: 0, ended_at: t(6, 22) },
+        {
+          kind: 'flats',
+          target_name: 'M 15',
+          filter: 'L',
+          exposure: 3,
+          frames: 30,
+          ended_at: t(11, 41),
+        },
+        {
+          kind: 'darks',
+          exposure: 300,
+          gain: 0,
+          set_temp: 9,
+          frames: 25,
+          clean: 25,
+          leak: 0,
+          unchecked: 0,
+          ended_at: t(6, 22),
+        },
       ],
     })!
-    expect(v.rows[0]).toEqual({ ended: '06:41', kind: 'Flats', set: 'Luminance, M 15, 3 s', frames: '30', leak: false })
-    expect(v.foot).toBe('All 25 darks passed the light-leak check. Newest frame on record from 07:04.')
+    expect(v.rows[0]).toEqual({
+      ended: '06:41',
+      kind: 'Flats',
+      set: 'Luminance, M 15, 3 s',
+      frames: '30',
+      leak: false,
+    })
+    expect(v.foot).toBe(
+      'All 25 darks passed the light-leak check. Newest frame on record from 07:04.',
+    )
     expect(recentView(null)).toBeNull()
   })
 
@@ -678,9 +764,9 @@ describe('contract details', () => {
       ),
     ).toBeNull()
     expect(ninaPill('cooling', cal, conditions())?.value).toBe('cooling for imaging')
-    expect(showCalibLower('cooling', status({ state: 'imaging', calibration: cal }), conditions())).toBe(
-      false,
-    )
+    expect(
+      showCalibLower('cooling', status({ state: 'imaging', calibration: cal }), conditions()),
+    ).toBe(false)
   })
 
   it('lets pause apply inside the wait and keeps the outside-the-scheduler line for the rest', () => {
@@ -690,9 +776,12 @@ describe('contract details', () => {
     const unsafe = status({ calibration: { kind: 'darks', placement: 'while_unsafe' } })
     expect(pauseApplies(unsafe)).toBe(false)
     expect(outsideScheduler('darks', unsafe)).toBe(true)
-    expect(outsideScheduler('flats', status({ calibration: { kind: 'flats', placement: 'end_of_night' } }))).toBe(
-      true,
-    )
+    expect(
+      outsideScheduler(
+        'flats',
+        status({ calibration: { kind: 'flats', placement: 'end_of_night' } }),
+      ),
+    ).toBe(true)
     expect(outsideScheduler('done', unsafe)).toBe(false)
   })
 
@@ -721,10 +810,28 @@ describe('contract details', () => {
     const g = groupTaken(taken)
     expect(g).toHaveLength(2)
     expect(g[0].frames).toBe(15)
-    const rows = takenRows({ kind: 'done', taken }, {
-      runs: [{ kind: 'darks', exposure: 300, gain: 0, set_temp: 6, clean: 10, started_at: t(1), ended_at: t(2) }],
+    const rows = takenRows(
+      { kind: 'done', taken },
+      {
+        runs: [
+          {
+            kind: 'darks',
+            exposure: 300,
+            gain: 0,
+            set_temp: 6,
+            clean: 10,
+            started_at: t(1),
+            ended_at: t(2),
+          },
+        ],
+      },
+    )
+    expect(rows[0]).toEqual({
+      set: '300 s at 6 °C, gain 0',
+      frames: '15',
+      clean: '10 so far',
+      ended: '00:00',
     })
-    expect(rows[0]).toEqual({ set: '300 s at 6 °C, gain 0', frames: '15', clean: '10 so far', ended: '00:00' })
     const flats = flatRows({
       kind: 'flats',
       set: { target_name: 'M 15', filter: 'L', frames_total: 30, frames_done: 31 },

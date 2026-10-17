@@ -558,12 +558,12 @@ export function coolingView(
     facts,
     bar: p
       ? {
-        label: fin(co.rate_c_per_min)
-          ? `Cooling, ${Number(co.rate_c_per_min.toPrecision(2))} °C a minute`
-          : 'Cooling',
-        right: `${mmss(p.elapsed)} of ${mmss(p.len)} · done about ${hm(p.end)}`,
-        pct: p.pct,
-      }
+          label: fin(co.rate_c_per_min)
+            ? `Cooling, ${Number(co.rate_c_per_min.toPrecision(2))} °C a minute`
+            : 'Cooling',
+          right: `${mmss(p.elapsed)} of ${mmss(p.len)} · done about ${hm(p.end)}`,
+          pct: p.pct,
+        }
       : null,
   }
 }
@@ -586,10 +586,13 @@ export function calibSteps(cal: CalibrationStatus): Step[] {
       (q) => q.status !== 'done' && q.status !== 'skipped' && q.status !== 'waiting',
     )
     if (first) {
-      const warm = cal.placement === 'while_unsafe' ? 'the warmest set: ' : ''
+      const order =
+        (cal.queue ?? []).filter((q) => (q.kind ?? 'darks') === 'darks').length > 1
+          ? 'the coldest set: '
+          : ''
       out.push({
         at: first.planned_start ? 'about ' + hm(first.planned_start) : '',
-        text: `Darks start with ${warm}${setLabel(first, first.kind ?? 'darks')}.`,
+        text: `Darks start with ${order}${setLabel(first, first.kind ?? 'darks')}.`,
         state: 'later',
       })
     }
