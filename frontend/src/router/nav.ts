@@ -88,6 +88,12 @@ export const navGroups: NavGroup[] = [
         names: ['discoveries', 'discovery-report'],
       },
       {
+        to: '/discoveries/eclipses',
+        label: 'Eclipse planner',
+        note: 'Next eclipses of your binaries to image',
+        names: ['discovery-eclipses'],
+      },
+      {
         to: '/collabs',
         label: 'Collabs',
         note: 'Starfront collaborations and fit',
