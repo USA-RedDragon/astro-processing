@@ -80,6 +80,16 @@ function stacker(over: Partial<Record<string, unknown>> = {}): Handler {
         return json({ ...none, ...(over.checks as object), state: 'queued' })
       return json(over.checks ?? { ...none, requested_at: null, finished_at: null })
     }
+    const share = /^\/api\/v1\/discoveries\/sources\/(\d+)\/share$/.exec(p)
+    if (share)
+      return json(
+        over.share ?? {
+          state: 'ready',
+          url: `/api/v1/discoveries/sources/${share[1]}/share.jpg?v=2`,
+          version: 2,
+          note: '',
+        },
+      )
     if (init?.method === 'PUT') {
       const body = JSON.parse(String(init.body))
       vetted = { vetting: body.state, vet_note: body.note, needs_look: !body.state }
@@ -333,6 +343,30 @@ describe('DiscoveriesPage', () => {
     const detail = el.querySelector('.detail')!
     expect(detail.textContent).toContain('None: it matches no known asteroid')
     expect(detail.textContent).not.toContain('from the predicted position')
+    app.unmount()
+  })
+
+  it('shows the shareable picture of the opened source', async () => {
+    const { el, app, fetch } = await render(stacker())
+    const detail = el.querySelector('.detail')!
+    expect(
+      fetch.mock.calls.some((c) => String(c[0]) === '/api/v1/discoveries/sources/1/share'),
+    ).toBe(true)
+    expect(detail.querySelector('.thumb img')!.getAttribute('src')).toBe(
+      '/api/v1/discoveries/sources/1/share.jpg?v=2',
+    )
+    expect(detail.querySelector('a[download]')!.getAttribute('href')).toBe(
+      '/api/v1/discoveries/sources/1/share.jpg?v=2&download=1',
+    )
+    app.unmount()
+  })
+
+  it('says the picture is being made while it is pending', async () => {
+    const { el, app } = await render(
+      stacker({ share: { state: 'pending', url: '', version: 0, note: 'Made-up: being drawn.' } }),
+    )
+    expect(el.querySelector('.detail')!.textContent).toContain('Made-up: being drawn.')
+    expect(el.querySelector('.detail .thumb')).toBeNull()
     app.unmount()
   })
 })

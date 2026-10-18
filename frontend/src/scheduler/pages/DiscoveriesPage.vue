@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import VettingPanel from '../components/VettingPanel.vue'
+import SharePicture from '../components/SharePicture.vue'
 import {
   getDiscoveryCandidate,
   getDiscoverySource,
@@ -64,6 +65,7 @@ import {
 import { onChange } from '@/lib/events'
 import { latestOnly } from '../latest'
 import { useSourceChecks } from '../useSourceChecks'
+import { useShare } from '../useShare'
 
 const PAGE = 50
 const RECENT_ROWS = 30
@@ -326,6 +328,7 @@ watch(
 
 const rows = computed(() => (selected.value ? nightRows(selected.value) : []))
 const vc = useSourceChecks(() => selected.value?.id ?? null)
+const pic = useShare(() => selected.value?.id ?? null)
 const checkedStar = computed(() => vc.checks.value?.report?.star ?? '')
 const failedText = computed(() => {
   const s = selected.value
@@ -623,6 +626,12 @@ const pageState = computed(() => {
               <dd>{{ vettingLabel(selected.vetting) }}</dd>
             </template>
           </dl>
+          <SharePicture
+            :share="pic.share.value"
+            :title="selected.object"
+            :loading="pic.loading.value"
+            :error="pic.error.value"
+          />
           <VettingPanel
             :source="selected"
             :checks="vc.checks.value"
