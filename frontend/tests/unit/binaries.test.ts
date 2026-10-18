@@ -135,7 +135,7 @@ describe('eclipse planner helpers', () => {
       canCancel: true,
     })
     expect(requestView({ id: 1, state: 'done', note: '' })).toMatchObject({
-      label: 'Imaged',
+      label: 'Window passed',
       canRequest: false,
       canCancel: false,
     })

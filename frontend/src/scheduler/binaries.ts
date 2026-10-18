@@ -143,7 +143,7 @@ export function requestView(r: EclipseRequest | null): RequestView {
       canCancel: true,
     }
   if (r.state === 'done')
-    return { label: 'Imaged', tone: 'ok', note: r.note, canRequest: false, canCancel: false }
+    return { label: 'Window passed', tone: '', note: r.note, canRequest: false, canCancel: false }
   return {
     label: 'Request failed',
     tone: 'bad',
