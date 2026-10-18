@@ -558,12 +558,12 @@ export function coolingView(
     facts,
     bar: p
       ? {
-          label: fin(co.rate_c_per_min)
-            ? `Cooling, ${Number(co.rate_c_per_min.toPrecision(2))} °C a minute`
-            : 'Cooling',
-          right: `${mmss(p.elapsed)} of ${mmss(p.len)} · done about ${hm(p.end)}`,
-          pct: p.pct,
-        }
+        label: fin(co.rate_c_per_min)
+          ? `Cooling, ${Number(co.rate_c_per_min.toPrecision(2))} °C a minute`
+          : 'Cooling',
+        right: `${mmss(p.elapsed)} of ${mmss(p.len)} · done about ${hm(p.end)}`,
+        pct: p.pct,
+      }
       : null,
   }
 }
