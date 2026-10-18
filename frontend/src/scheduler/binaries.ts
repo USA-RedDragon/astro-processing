@@ -202,3 +202,15 @@ export function rangeText(from: string, to: string): string {
   const yb = yearFmt.format(b)
   return ya === yb ? `${day(a)} to ${day(b)}, ${yb}` : `${day(a)}, ${ya} to ${day(b)}, ${yb}`
 }
+
+export function downloadUrl(url: string): string {
+  return url + (url.includes('?') ? '&' : '?') + 'download=1'
+}
+
+export function absoluteUrl(url: string, origin: string): string {
+  try {
+    return new URL(url, origin).href
+  } catch {
+    return url
+  }
+}

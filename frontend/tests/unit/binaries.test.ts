@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  absoluteUrl,
   bytesText,
   canCopy,
   checklistText,
   confidenceBadges,
+  downloadUrl,
   durationText,
   eclipseKey,
   fieldWords,
@@ -185,5 +187,23 @@ describe('VSX kit helpers', () => {
     expect(bytesText(512)).toBe('512 bytes')
     expect(bytesText(52000)).toBe('51 KB')
     expect(bytesText(3 * 1024 * 1024)).toBe('3 MB')
+  })
+})
+
+describe('share picture helpers', () => {
+  it('adds the download flag to the picture address', () => {
+    expect(downloadUrl('/api/v1/discoveries/sources/5/share.jpg?v=3')).toBe(
+      '/api/v1/discoveries/sources/5/share.jpg?v=3&download=1',
+    )
+    expect(downloadUrl('/x/share.jpg')).toBe('/x/share.jpg?download=1')
+  })
+
+  it('makes the picture address absolute for sharing', () => {
+    expect(absoluteUrl('/api/v1/discoveries/sources/5/share.jpg?v=3', 'https://astro.example')).toBe(
+      'https://astro.example/api/v1/discoveries/sources/5/share.jpg?v=3',
+    )
+    expect(absoluteUrl('https://other.example/a.jpg', 'https://astro.example')).toBe(
+      'https://other.example/a.jpg',
+    )
   })
 })

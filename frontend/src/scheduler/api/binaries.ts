@@ -24,6 +24,13 @@ export interface VsxState {
 
 export type FactsState = 'ready' | 'pending' | 'failed'
 
+export interface Share {
+  state: 'ready' | 'pending' | 'none' | 'failed'
+  url: string
+  version: number
+  note: string
+}
+
 export interface Binary {
   source_id: number
   name: string
@@ -44,6 +51,7 @@ export interface Binary {
   notes: string
   facts_state: FactsState
   facts_error: string
+  share: Share
 }
 
 export interface FactsJob {
@@ -153,6 +161,9 @@ export const updateBinary = (id: number, change: BinaryChange) =>
 
 export const setDiscoverer = (discoverer: string) =>
   api.put<{ discoverer: string }>('/discoveries/binaries/settings', { discoverer })
+
+export const getShare = (sourceId: number) =>
+  api.get<Share>(`/discoveries/sources/${sourceId}/share`)
 
 export const getKit = (id: number) => api.get<Kit>(`/discoveries/binaries/${id}/kit`)
 

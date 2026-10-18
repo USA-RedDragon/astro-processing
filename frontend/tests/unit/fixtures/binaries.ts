@@ -33,6 +33,7 @@ export function star(over: Partial<Binary> = {}): Binary {
     notes: '',
     facts_state: 'ready',
     facts_error: '',
+    share: { state: 'none', url: '', version: 0, note: 'Made-up note: no colour picture yet.' },
     ...over,
   }
 }
