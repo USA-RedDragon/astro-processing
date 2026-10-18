@@ -126,28 +126,36 @@ export interface RequestView {
   label: string
   tone: '' | 'ok' | 'bad'
   note: string
+  by: string
   canRequest: boolean
   canCancel: boolean
 }
 
+export const ASKED_BY_APP = 'Asked by the app'
+
 export function requestView(r: EclipseRequest | null): RequestView {
-  if (!r) return { label: '', tone: '', note: '', canRequest: true, canCancel: false }
+  if (!r) return { label: '', tone: '', note: '', by: '', canRequest: true, canCancel: false }
+  const by = r.auto ? ASKED_BY_APP : ''
   if (r.state === 'waiting')
-    return { label: 'Requested', tone: '', note: r.note, canRequest: false, canCancel: true }
+    return { label: 'Requested', tone: '', note: r.note, by, canRequest: false, canCancel: true }
   if (r.state === 'sent')
     return {
       label: 'Sent to the scheduler',
       tone: 'ok',
       note: r.note,
+      by,
       canRequest: false,
       canCancel: true,
     }
   if (r.state === 'done')
-    return { label: 'Window passed', tone: '', note: r.note, canRequest: false, canCancel: false }
+    return { label: 'Window passed', tone: '', note: r.note, by, canRequest: false, canCancel: false }
+  if (r.state === 'cancelled')
+    return { label: 'Cancelled', tone: '', note: r.note, by, canRequest: true, canCancel: false }
   return {
     label: 'Request failed',
     tone: 'bad',
     note: r.note,
+    by,
     canRequest: true,
     canCancel: false,
   }

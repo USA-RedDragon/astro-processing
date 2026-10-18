@@ -250,6 +250,9 @@ const pageState = computed(() => {
               <span class="badge" :class="requestView(e.request).tone">{{
                 requestView(e.request).label
               }}</span>
+              <span v-if="requestView(e.request).by" class="badge info">{{
+                requestView(e.request).by
+              }}</span>
               <span v-if="requestView(e.request).note" class="xsmall dim">{{
                 requestView(e.request).note
               }}</span>

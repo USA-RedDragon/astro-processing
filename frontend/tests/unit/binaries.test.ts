@@ -127,26 +127,41 @@ describe('eclipse planner helpers', () => {
 
   it('describes each request state and what can be done next', () => {
     expect(requestView(null)).toMatchObject({ label: '', canRequest: true, canCancel: false })
-    expect(requestView({ id: 1, state: 'waiting', note: '' })).toMatchObject({
+    expect(requestView({ id: 1, state: 'waiting', note: '', auto: false })).toMatchObject({
       label: 'Requested',
       canRequest: false,
       canCancel: true,
     })
-    expect(requestView({ id: 1, state: 'sent', note: 'n' })).toMatchObject({
+    expect(requestView({ id: 1, state: 'sent', note: 'n', auto: false })).toMatchObject({
       label: 'Sent to the scheduler',
       canCancel: true,
     })
-    expect(requestView({ id: 1, state: 'done', note: '' })).toMatchObject({
+    expect(requestView({ id: 1, state: 'done', note: '', auto: false })).toMatchObject({
       label: 'Window passed',
       canRequest: false,
       canCancel: false,
     })
-    expect(requestView({ id: 1, state: 'failed', note: 'Made-up failure' })).toMatchObject({
+    expect(requestView({ id: 1, state: 'failed', note: 'Made-up failure', auto: false })).toMatchObject({
       label: 'Request failed',
       tone: 'bad',
       note: 'Made-up failure',
       canRequest: true,
     })
+    expect(requestView({ id: 1, state: 'cancelled', note: '', auto: true })).toMatchObject({
+      label: 'Cancelled',
+      by: 'Asked by the app',
+      canRequest: true,
+      canCancel: false,
+    })
+  })
+
+  it('marks requests the app made so they can still be cancelled', () => {
+    expect(requestView({ id: 2, state: 'waiting', note: '', auto: true })).toMatchObject({
+      label: 'Requested',
+      by: 'Asked by the app',
+      canCancel: true,
+    })
+    expect(requestView({ id: 2, state: 'sent', note: '', auto: false }).by).toBe('')
   })
 
   it('writes the planner range in one year or across two', () => {

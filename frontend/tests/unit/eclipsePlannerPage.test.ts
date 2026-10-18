@@ -56,7 +56,7 @@ const rows = () => [
     kind_label: 'Second eclipse',
     mid: '2026-10-20T10:00:00Z',
     time_label: '5:00 AM',
-    request: { id: 41, state: 'sent', note: 'Made-up project made' },
+    request: { id: 41, state: 'sent', note: 'Made-up project made', auto: false },
   }),
   eclipse({ day_label: 'Wed Oct 21', mid: '2026-10-21T08:00:00Z', time_label: '3:00 AM' }),
 ]
@@ -65,7 +65,7 @@ function stacker(over: Partial<EclipsePlan> = {}): Handler {
   return (url, init) => {
     const p = new URL(url, 'http://x').pathname
     if (p === '/api/v1/discoveries/eclipses/requests' && init?.method === 'POST')
-      return json({ id: 55, state: 'waiting', note: '' })
+      return json({ id: 55, state: 'waiting', note: '', auto: false })
     if (p.startsWith('/api/v1/discoveries/eclipses/requests/') && init?.method === 'DELETE')
       return new Response(null, { status: 204 })
     if (p === '/api/v1/discoveries/eclipses') return json(plan(rows(), { hidden: 4, ...over }))
@@ -194,12 +194,23 @@ describe('EclipsePlannerPage', () => {
 
   it('shows a failed request with its note and offers to ask again', async () => {
     const { el, app } = await render(() =>
-      json(plan([eclipse({ purpose: 'flag', request: { id: 3, state: 'failed', note: 'Made-up scheduler error' } })])),
+      json(plan([eclipse({ purpose: 'flag', request: { id: 3, state: 'failed', note: 'Made-up scheduler error', auto: false } })])),
     )
     const row = el.querySelector('.ecl')!
     expect(row.textContent).toContain('Request failed')
     expect(row.textContent).toContain('Made-up scheduler error')
     expect(button(row, 'Request again')).toBeDefined()
+    app.unmount()
+  })
+
+  it('marks a request the app made and lets it be cancelled', async () => {
+    const { el, app } = await render(() =>
+      json(plan([eclipse({ purpose: 'flag', request: { id: 9, state: 'waiting', note: '', auto: true } })])),
+    )
+    const row = el.querySelector('.ecl')!
+    expect(row.textContent).toContain('Requested')
+    expect(row.textContent).toContain('Asked by the app')
+    expect(button(row, 'Cancel request')).toBeDefined()
     app.unmount()
   })
 
