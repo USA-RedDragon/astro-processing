@@ -227,4 +227,27 @@ describe('MyDiscoveriesPage', () => {
     expect(el.textContent).toContain('No confirmed variable stars yet.')
     app.unmount()
   })
+
+  it('shows the share picture of a star or its note in its place', async () => {
+    const pic = star({
+      share: {
+        state: 'ready',
+        url: '/api/v1/discoveries/sources/101/share.jpg?v=1',
+        version: 1,
+        note: '',
+      },
+    })
+    const { el, app } = await render(stacker(list([pic, submitted()])))
+    const cards = el.querySelectorAll('.find')
+    expect(cards[0]!.querySelector('.thumb img')!.getAttribute('src')).toBe(
+      '/api/v1/discoveries/sources/101/share.jpg?v=1',
+    )
+    expect(cards[0]!.querySelector('a[download]')!.getAttribute('href')).toBe(
+      '/api/v1/discoveries/sources/101/share.jpg?v=1&download=1',
+    )
+    expect(button(cards[0]!, 'Share')).toBeDefined()
+    expect(cards[1]!.querySelector('.thumb')).toBeNull()
+    expect(cards[1]!.textContent).toContain('Made-up note: no colour picture yet.')
+    app.unmount()
+  })
 })

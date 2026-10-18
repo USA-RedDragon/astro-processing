@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
+import SharePicture from '../components/SharePicture.vue'
 import {
   getBinaries,
   updateBinary,
@@ -54,10 +55,12 @@ async function load() {
 
 let factsTimer: ReturnType<typeof setInterval> | undefined
 watch(
-  () => data.value?.facts.state,
-  (s) => {
-    if (s === 'running' && !factsTimer) factsTimer = setInterval(load, 15000)
-    if (s !== 'running' && factsTimer) {
+  () =>
+    data.value?.facts.state === 'running' ||
+    !!data.value?.stars.some((b) => b.share?.state === 'pending'),
+  (busy) => {
+    if (busy && !factsTimer) factsTimer = setInterval(load, 15000)
+    if (!busy && factsTimer) {
       clearInterval(factsTimer)
       factsTimer = undefined
     }
@@ -205,6 +208,7 @@ const pageState = computed(() => {
                 >Eclipses</RouterLink
               >
             </div>
+            <SharePicture v-if="b.share" class="pic" :share="b.share" :title="b.name" />
             <div class="vsx-set">
               <label class="dim small" :for="'vsx-' + b.source_id">VSX</label>
               <select
@@ -371,6 +375,10 @@ const pageState = computed(() => {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+}
+.pic {
+  margin-top: 10px;
+  max-width: 20rem;
 }
 .vsx-set {
   display: flex;
