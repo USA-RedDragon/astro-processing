@@ -8,13 +8,16 @@ import type {
 } from './api/binaries'
 import { SITE_TZ, toDate } from './format'
 
-export type StarView = '' | 'sub' | 'not' | 'flagged'
+export type StarView = '' | 'sub' | 'not' | 'flagged' | 'timed' | 'untimed' | 'trend'
 
 export const STAR_VIEWS: { key: StarView; label: string }[] = [
   { key: '', label: 'All' },
   { key: 'sub', label: 'Submitted to VSX' },
   { key: 'not', label: 'Not submitted yet' },
   { key: 'flagged', label: 'Flagged by the checks' },
+  { key: 'timed', label: 'Has timings' },
+  { key: 'untimed', label: 'No timings yet' },
+  { key: 'trend', label: 'Flagged by a trend check' },
 ]
 
 export function isStarView(v: string): v is StarView {
@@ -25,11 +28,14 @@ export function inStarView(b: Binary, view: StarView): boolean {
   if (view === 'sub') return b.vsx.submitted
   if (view === 'not') return !b.vsx.submitted
   if (view === 'flagged') return b.flags.length > 0
+  if (view === 'timed') return (b.timing?.count ?? 0) > 0
+  if (view === 'untimed') return !((b.timing?.count ?? 0) > 0)
+  if (view === 'trend') return (b.timing?.flags.length ?? 0) > 0
   return true
 }
 
 export function starViewCounts(stars: Binary[]): Record<StarView, number> {
-  const out = { '': 0, sub: 0, not: 0, flagged: 0 } as Record<StarView, number>
+  const out = {} as Record<StarView, number>
   for (const v of STAR_VIEWS) out[v.key] = stars.filter((b) => inStarView(b, v.key)).length
   return out
 }

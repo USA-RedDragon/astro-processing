@@ -28,6 +28,7 @@ async function render(handler: Handler, path = '/discoveries/mine') {
       { path: '/discoveries/mine', name: 'discoveries-mine', component: MyDiscoveriesPage },
       { path: '/discoveries/mine/:id/vsx', name: 'discovery-vsx', component: blank },
       { path: '/discoveries/eclipses', name: 'discovery-eclipses', component: blank },
+      { path: '/discoveries/mine/:id/timings', name: 'discovery-timings', component: blank },
     ],
   })
   router.push(path)
@@ -84,6 +85,9 @@ describe('MyDiscoveriesPage', () => {
       'Submitted to VSX 1',
       'Not submitted yet 2',
       'Flagged by the checks 1',
+      'Has timings 0',
+      'No timings yet 3',
+      'Flagged by a trend check 0',
     ])
     expect(el.querySelector('.sec')!.textContent).toBe(
       'All · 3 stars · submitted first, then the rest',
@@ -133,6 +137,30 @@ describe('MyDiscoveriesPage', () => {
     ])
     expect(flag.textContent).toContain('Survey facts still being worked out.')
     expect(plain.textContent).not.toContain('Survey facts')
+    app.unmount()
+  })
+
+  it('shows the eclipse timings line from the API with trend flags and a Timings link', async () => {
+    const timed = star({
+      source_id: 404,
+      timing: {
+        count: 7,
+        text: 'Made-up: 7 good timings over 400 days.',
+        flags: ['Predicted times need updating'],
+      },
+    })
+    const { el, app } = await render(stacker(list([star(), timed])))
+    const [plain, flagged] = [...el.querySelectorAll('.find .tline')]
+    expect(plain!.textContent).toContain('Made-up: no timings yet.')
+    expect(plain!.querySelector('.badge')).toBeNull()
+    expect(flagged!.textContent).toContain('Made-up: 7 good timings over 400 days.')
+    expect(flagged!.querySelector('.badge.warn')!.textContent).toBe('Predicted times need updating')
+    expect(flagged!.querySelector('a[href="/discoveries/mine/404/timings"]')!.textContent).toBe(
+      'Timings',
+    )
+    button(el, 'Flagged by a trend check')!.click()
+    await settle()
+    expect(el.querySelectorAll('.find')).toHaveLength(1)
     app.unmount()
   })
 

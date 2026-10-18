@@ -29,13 +29,25 @@ describe('my discoveries helpers', () => {
   it('counts each group, a flagged star counts once however many flags it has', () => {
     const twice = flagged()
     twice.flags.push({ id: 'blend', label: 'Blended with a close star', why: 'x' })
-    expect(starViewCounts([submitted(), star(), twice])).toEqual({
-      '': 3,
+    const timed = star({ timing: { count: 4, text: 'x', flags: ['Period changing'] } })
+    expect(starViewCounts([submitted(), star(), twice, timed])).toEqual({
+      '': 4,
       sub: 1,
-      not: 2,
+      not: 3,
       flagged: 1,
+      timed: 1,
+      untimed: 3,
+      trend: 1,
     })
-    expect(starViewCounts([])).toEqual({ '': 0, sub: 0, not: 0, flagged: 0 })
+    expect(starViewCounts([])).toEqual({
+      '': 0,
+      sub: 0,
+      not: 0,
+      flagged: 0,
+      timed: 0,
+      untimed: 0,
+      trend: 0,
+    })
   })
 
   it('writes the section line with one or many stars', () => {

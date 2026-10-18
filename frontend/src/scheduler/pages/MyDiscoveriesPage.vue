@@ -148,7 +148,8 @@ const pageState = computed(() => {
 <template>
   <main class="page wide bin mine">
     <PageHead context="Discover" title="My discoveries">
-      Every variable star you found and confirmed, and where each one stands on VSX.
+      Every variable star you found and confirmed, where each one stands on VSX, and the record of
+      its eclipse timings.
       <span v-if="factsText" class="block xsmall mt-1" role="status">{{ factsText }}</span>
       <template #actions>
         <RouterLink class="btn sm" :to="{ name: 'discovery-eclipses' }">Eclipse planner</RouterLink>
@@ -312,6 +313,22 @@ const pageState = computed(() => {
               </div>
             </template>
           </div>
+          <div v-if="b.timing" class="tline">
+            <div class="k">Eclipse timings</div>
+            <div class="v">
+              <span>{{ b.timing.text }}</span>
+              <div v-if="b.timing.flags.length" class="meta">
+                <span v-for="f in b.timing.flags" :key="f" class="badge warn">{{ f }}</span>
+              </div>
+            </div>
+            <div>
+              <RouterLink
+                class="btn sm"
+                :to="{ name: 'discovery-timings', params: { id: String(b.source_id) } }"
+                >Timings</RouterLink
+              >
+            </div>
+          </div>
         </article>
         <p v-if="!rows.length" class="empty">
           {{ stars.length ? 'No stars in this group.' : 'No confirmed variable stars yet.' }}
@@ -442,5 +459,33 @@ dd {
 }
 .who p.bad {
   margin: 6px 0 0;
+}
+.tline {
+  grid-column: 1 / -1;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: start;
+  font-size: 13px;
+}
+.tline .k {
+  color: var(--muted-foreground);
+}
+.tline .v {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.tline .v .meta {
+  margin-top: 4px;
+}
+@media (max-width: 640px) {
+  .tline {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .tline .k {
+    grid-column: 1 / -1;
+  }
 }
 </style>

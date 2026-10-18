@@ -7,6 +7,9 @@ import type {
   KitField,
   KitFile,
   PlannedEclipse,
+  Timing,
+  TimingRecord,
+  Trend,
 } from '@/scheduler/api/binaries'
 
 export function star(over: Partial<Binary> = {}): Binary {
@@ -34,6 +37,7 @@ export function star(over: Partial<Binary> = {}): Binary {
     facts_state: 'ready',
     facts_error: '',
     share: { state: 'none', url: '', version: 0, note: 'Made-up note: no colour picture yet.' },
+    timing: { count: 0, text: 'Made-up: no timings yet.', flags: [] },
     ...over,
   }
 }
@@ -168,3 +172,100 @@ export const plan = (eclipses: PlannedEclipse[], over: Partial<EclipsePlan> = {}
   hidden: 0,
   ...over,
 })
+
+export function timing(over: Partial<Timing> = {}): Timing {
+  return {
+    id: 1,
+    kind: 'secondary',
+    kind_label: 'Second eclipse',
+    night: '2026-10-11',
+    mid: '2026-10-12T09:33:00Z',
+    filter: 'Luminance',
+    bjd_tdb: 2461325.90389,
+    hjd_utc: 2461325.9031,
+    err_minutes: 5.5,
+    late_minutes: 0.6,
+    late_text: '0.6 minutes late',
+    cycle: 323,
+    points: 28,
+    method: "Fit of the eclipse's own shape",
+    check_minutes: null,
+    used: true,
+    state: 'good',
+    note: '',
+    request_id: null,
+    ...over,
+  }
+}
+
+export function trendRows(): Trend[] {
+  return [
+    {
+      id: 'ephemeris',
+      label: 'Predicted times need updating',
+      state: 'need',
+      why: 'Not enough timings yet. Made-up need one.',
+      basis: '',
+    },
+    {
+      id: 'period',
+      label: 'Period changing',
+      state: 'clear',
+      why: 'Made-up clear finding.',
+      basis: 'Made-up basis.',
+    },
+    {
+      id: 'orbit',
+      label: 'Orbit turning',
+      state: 'flag',
+      why: 'Made-up flag finding.',
+      basis: 'Made-up flag basis.',
+    },
+    {
+      id: 'third',
+      label: 'Possible third star',
+      state: 'need',
+      why: 'Not enough timings yet. Made-up need four.',
+      basis: '',
+    },
+  ]
+}
+
+export function record(over: Partial<TimingRecord> = {}): TimingRecord {
+  return {
+    source_id: 101,
+    name: 'Gaia DR3 1000000000000000101',
+    period_text: '7.25000',
+    epoch_bjd_tdb: 2460000.5,
+    epoch_hjd_utc: 2460000.4995,
+    summary: 'Made-up summary: 1 good timing so far.',
+    timings: [timing()],
+    untimed: [
+      {
+        id: 2,
+        kind: 'primary',
+        kind_label: 'Deeper eclipse',
+        night: '2025-10-22',
+        mid: '2025-10-23T06:00:00Z',
+        state: 'none',
+        note: 'Not timed: made-up reason.',
+        request_id: null,
+      },
+    ],
+    points: [{ year: 2026.78, kind: 'secondary', minutes: 0.6, err_minutes: 5.5, used: true }],
+    lines: [],
+    trends: trendRows(),
+    updated: null,
+    season: null,
+    ...over,
+  }
+}
+
+export const emptyRecord = () =>
+  record({
+    summary: 'Made-up: no timings yet.',
+    timings: [],
+    untimed: [],
+    points: [],
+    trends: trendRows().map((t) => ({ ...t, state: 'need' as const, basis: '' })),
+  })

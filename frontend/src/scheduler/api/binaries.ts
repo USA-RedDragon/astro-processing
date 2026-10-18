@@ -52,6 +52,13 @@ export interface Binary {
   facts_state: FactsState
   facts_error: string
   share: Share
+  timing: TimingSummary
+}
+
+export interface TimingSummary {
+  count: number
+  text: string
+  flags: string[]
 }
 
 export interface FactsJob {
@@ -155,6 +162,115 @@ export interface EclipsePlan {
   hidden: number
 }
 
+export type TimingKind = 'primary' | 'secondary'
+
+export interface Timing {
+  id: number
+  kind: TimingKind
+  kind_label: string
+  night: string
+  mid: string
+  filter: string
+  bjd_tdb: number
+  hjd_utc: number
+  err_minutes: number
+  late_minutes: number
+  late_text: string
+  cycle: number
+  points: number
+  method: string
+  check_minutes: number | null
+  used: boolean
+  state: 'good' | 'doubtful'
+  note: string
+  request_id: number | null
+}
+
+export interface UntimedEclipse {
+  id: number
+  kind: TimingKind
+  kind_label: string
+  night: string
+  mid: string
+  state: 'none'
+  note: string
+  request_id: number | null
+}
+
+export interface LatePoint {
+  year: number
+  kind: TimingKind
+  minutes: number
+  err_minutes: number
+  used: boolean
+}
+
+export interface LateLine {
+  kind: TimingKind
+  points: [number, number][]
+}
+
+export type TrendId = 'ephemeris' | 'period' | 'orbit' | 'third'
+export type TrendState = 'flag' | 'clear' | 'need'
+
+export interface Trend {
+  id: TrendId
+  label: string
+  state: TrendState
+  why: string
+  basis: string
+}
+
+export interface UpdatedEphemeris {
+  period_text: string
+  period: number
+  period_err: number
+  epoch_bjd_tdb: number
+}
+
+export interface SeasonKind {
+  kind: TimingKind
+  label: string
+  want: number
+  timed: number
+  asked: number
+  needed: number
+}
+
+export interface SeasonRequest {
+  id: number
+  state: RequestState
+  note: string
+  auto: boolean
+}
+
+export interface TimingSeason {
+  start: string
+  end: string
+  opposition: string
+  label: string
+  kinds: SeasonKind[]
+  stopped: string
+  requests: SeasonRequest[]
+}
+
+export interface TimingRecord {
+  source_id: number
+  name: string
+  period_text: string
+  epoch_bjd_tdb: number
+  epoch_hjd_utc: number
+  prediction_note?: string
+  summary: string
+  timings: Timing[]
+  untimed: UntimedEclipse[]
+  points: LatePoint[]
+  lines: LateLine[]
+  trends: Trend[]
+  updated: UpdatedEphemeris | null
+  season: TimingSeason | null
+}
+
 export const getBinaries = () => api.get<BinaryList>('/discoveries/binaries')
 
 export const updateBinary = (id: number, change: BinaryChange) =>
@@ -167,6 +283,9 @@ export const getShare = (sourceId: number) =>
   api.get<Share>(`/discoveries/sources/${sourceId}/share`)
 
 export const getKit = (id: number) => api.get<Kit>(`/discoveries/binaries/${id}/kit`)
+
+export const getTimings = (id: number) =>
+  api.get<TimingRecord>(`/discoveries/binaries/${id}/timings`)
 
 export const getEclipses = (days: number, all: boolean) =>
   api.get<EclipsePlan>('/discoveries/eclipses' + query({ days, all: all ? 1 : undefined }))

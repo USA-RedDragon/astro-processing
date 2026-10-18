@@ -93,6 +93,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'VSX kit' },
   },
   {
+    path: '/discoveries/mine/:id/timings',
+    name: 'discovery-timings',
+    component: () => import('../scheduler/pages/EclipseTimingsPage.vue'),
+    meta: { title: 'Eclipse timings' },
+  },
+  {
     path: '/discoveries/eclipses',
     name: 'discovery-eclipses',
     component: () => import('../scheduler/pages/EclipsePlannerPage.vue'),

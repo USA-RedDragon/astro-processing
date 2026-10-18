@@ -137,3 +137,57 @@
   color: var(--muted-foreground);
   font-size: 0.875rem;
 }
+.bin .tabs {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius);
+  background: var(--muted);
+  max-width: 100%;
+}
+.bin .tab {
+  all: unset;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: calc(var(--radius) - 2px);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.bin .tab[aria-selected='true'] {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px oklch(0 0 0 / 0.08);
+}
+.bin .tab:focus-visible {
+  outline: 2px solid var(--d-sel);
+  outline-offset: 1px;
+}
+.bin .scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.bin .tbl {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.bin .tbl th,
+.bin .tbl td {
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  vertical-align: top;
+}
+.bin .tbl th {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.bin .tbl td.r,
+.bin .tbl th.r {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
