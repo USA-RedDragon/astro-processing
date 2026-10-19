@@ -64,6 +64,8 @@ describe('watched row', () => {
     expect(isWatched({ watching: true, watch: watch() })).toBe(true)
     expect(isWatched({ watching: false, watch: watch({ ended: 'look' }) })).toBe(false)
     expect(isWatched({ watching: false, watch: null })).toBe(false)
+    expect(isWatched({ watching: false, watch: watch() })).toBe(false)
+    expect(isWatched({ watch: watch() })).toBe(true)
     expect(isWatched({})).toBe(false)
   })
 

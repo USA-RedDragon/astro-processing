@@ -538,7 +538,7 @@ const pageState = computed(() => {
             <span class="mid">
               <span class="meta">
                 <span class="pill" :class="pillOf(c.s.class)">{{ classLabel(c.s.class) }}</span>
-                <span v-if="isWatched(c.s)" class="pill watching">Watching</span>
+                <span v-if="c.s.watching || isWatched(c.s)" class="pill watching">Watching</span>
                 <span v-if="c.s.vetting" class="small dim"
                   >Vetted: {{ vettingLabel(c.s.vetting) }}</span
                 >

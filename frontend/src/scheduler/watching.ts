@@ -5,7 +5,7 @@ import { shortNight } from './discoveryInbox'
 export function isWatched(
   s: Pick<DiscoverySource, 'watching' | 'watch'>,
 ): s is { watching?: boolean; watch: DiscoveryWatch } {
-  return !!s.watch && s.watch.ended === ''
+  return !!s.watch && s.watch.ended === '' && s.watching !== false
 }
 
 function dayOf(at: string): string {
