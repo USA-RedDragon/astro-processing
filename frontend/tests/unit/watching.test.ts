@@ -10,6 +10,7 @@ import {
   imagingText,
   isWatched,
   nextText,
+  nightsRequested,
   resultText,
   watchedSince,
 } from '@/scheduler/watching'
@@ -69,15 +70,40 @@ describe('watched row', () => {
     expect(isWatched({})).toBe(false)
   })
 
+  const asked = watch({
+    nights: [
+      night({ night: '2026-10-20', state: 'done', got_minutes: 40, result: 'steady' }),
+      night({ night: '2026-10-23', state: 'sent', got_minutes: 60, result: 'steady' }),
+      night({ night: '2026-10-27' }),
+      night({ night: '2026-11-02' }),
+      night({ night: '2026-11-08' }),
+    ],
+  })
+  const oct24 = new Date(2026, 9, 24, 21, 0)
+
   it('says when watching started and what comes next, as in 3635', () => {
     expect(watchedSince(watch())).toBe('watched since Oct 19')
-    expect(nextText(watch())).toBe(
-      'Next: field imaged on 2 of 5 nights · weekly survey check Oct 26',
+    expect(nextText(asked, oct24)).toBe(
+      'Next: field requested on 2 of 5 nights · weekly survey check Oct 26',
     )
   })
 
+  it('counts only nights so far the scheduler took', () => {
+    expect(nightsRequested(asked, new Date(2026, 9, 23, 21, 0))).toBe(2)
+    expect(nightsRequested(asked, new Date(2026, 9, 19, 21, 0))).toBe(0)
+    const refused = watch({
+      nights: [
+        night({ night: '2026-10-20', state: 'failed' }),
+        night({ night: '2026-10-21', state: 'cancelled' }),
+      ],
+    })
+    expect(nightsRequested(refused, oct24)).toBe(0)
+  })
+
   it('leaves out a survey check it does not know', () => {
-    expect(nextText(watch({ next_survey_check: null }))).toBe('Next: field imaged on 2 of 5 nights')
+    expect(nextText({ ...asked, next_survey_check: null }, oct24)).toBe(
+      'Next: field requested on 2 of 5 nights',
+    )
   })
 
   it('says imaging requests stopped', () => {

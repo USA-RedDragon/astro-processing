@@ -17,13 +17,29 @@ export function watchedSince(w: Pick<DiscoveryWatch, 'started_at'>): string {
   return `watched since ${shortNight(dayOf(w.started_at))}`
 }
 
-/** nextText is the row's "Next:" line: imaging so far and the next survey check. */
+function localDay(now: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+/**
+ * nightsRequested counts the watched nights so far the field was requested on: asks the
+ * scheduler took, for nights up to today.
+ */
+export function nightsRequested(w: Pick<DiscoveryWatch, 'nights'>, now = new Date()): number {
+  const today = localDay(now)
+  return w.nights.filter((n) => (n.state === 'sent' || n.state === 'done') && n.night <= today)
+    .length
+}
+
+/** nextText is the row's "Next:" line: nights requested so far and the next survey check. */
 export function nextText(
-  w: Pick<DiscoveryWatch, 'imaging' | 'nights_imaged' | 'nights_planned' | 'next_survey_check'>,
+  w: Pick<DiscoveryWatch, 'imaging' | 'nights' | 'nights_planned' | 'next_survey_check'>,
+  now = new Date(),
 ): string {
   const parts: string[] = []
   if (w.imaging === 'asking') {
-    parts.push(`field imaged on ${w.nights_imaged} of ${w.nights_planned} nights`)
+    parts.push(`field requested on ${nightsRequested(w, now)} of ${w.nights_planned} nights`)
   } else {
     parts.push('imaging requests stopped')
   }
