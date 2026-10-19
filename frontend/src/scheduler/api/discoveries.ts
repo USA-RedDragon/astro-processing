@@ -167,7 +167,37 @@ export interface DiscoveryStatus {
   done_in_pass: number
 }
 
-export type SourceView = 'look' | 'known' | 'movers' | 'low' | 'unsure' | 'artifacts' | 'vetted'
+export type SourceView =
+  'look' | 'watching' | 'known' | 'movers' | 'low' | 'unsure' | 'artifacts' | 'vetted'
+
+export type WatchImaging = 'asking' | 'stopped_quiet' | 'stopped_user'
+export type WatchNightState = 'waiting' | 'sent' | 'done' | 'cancelled' | 'failed'
+
+/** WatchNight is one night the app asked the scheduler to image a watched find's field. */
+export interface WatchNight {
+  night: string
+  asked_minutes: number
+  filter: string
+  got_minutes: number | null
+  result: 'steady' | 'faded' | ''
+  state: WatchNightState
+  note: string
+}
+
+/** DiscoveryWatch is how the app keeps watching a find the vet thinks is real at low confidence. */
+export interface DiscoveryWatch {
+  started_at: string
+  confidence: string
+  fade_nights: number | null
+  fade_nights_needed: number | null
+  imaging: WatchImaging
+  imaging_stopped_at: string | null
+  nights_planned: number
+  nights_imaged: number
+  next_survey_check: string | null
+  ended: '' | 'look' | 'artifact'
+  nights: WatchNight[]
+}
 
 export interface DiscoverySourceNight {
   night: string
@@ -193,10 +223,13 @@ export interface DiscoverySource {
   nights: DiscoverySourceNight[]
   checked: string[]
   failed: string[]
+  watching?: boolean
+  watch?: DiscoveryWatch | null
 }
 
 export interface SourceCounts {
   look: number
+  watching?: number
   known: number
   movers: number
   new_movers: number
@@ -233,6 +266,9 @@ export const getDiscoverySource = (id: number) =>
 
 export const setSourceVetting = (id: number, state: Vetting, note: string) =>
   api.put<DiscoverySource>(`/discoveries/sources/${id}/vetting`, { state, note })
+
+export const stopWatchImaging = (id: number) =>
+  api.post<DiscoveryWatch>(`/discoveries/sources/${id}/watch/stop`)
 
 export const getRecentRuns = (since: string | undefined, object?: string) =>
   api.get<DiscoveryRun[] | null>('/discoveries/runs' + query({ since, object }))

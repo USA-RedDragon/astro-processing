@@ -26,6 +26,7 @@ const VARIABLE_CATALOGS = [
 
 export const VIEWS: { key: SourceView; label: string }[] = [
   { key: 'look', label: 'Needs a look' },
+  { key: 'watching', label: 'Watching' },
   { key: 'known', label: 'Known variables' },
   { key: 'movers', label: 'Moving objects' },
   { key: 'low', label: 'Low confidence' },
@@ -65,6 +66,8 @@ export function countText(view: SourceView, c: SourceCounts): string {
   switch (view) {
     case 'look':
       return n(c.look)
+    case 'watching':
+      return n(c.watching ?? 0)
     case 'known':
       return n(c.known)
     case 'movers': {

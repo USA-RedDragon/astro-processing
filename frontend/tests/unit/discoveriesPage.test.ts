@@ -228,6 +228,75 @@ describe('DiscoveriesPage', () => {
     app.unmount()
   })
 
+  it('shows a watched find with its watch panel and stops its imaging requests', async () => {
+    const w = {
+      started_at: '2026-10-19T22:10:00Z',
+      confidence: 'low',
+      fade_nights: 4,
+      fade_nights_needed: 6,
+      imaging: 'asking',
+      imaging_stopped_at: null,
+      nights_planned: 5,
+      nights_imaged: 2,
+      next_survey_check: '2026-10-26',
+      ended: '',
+      nights: [
+        {
+          night: '2026-10-20',
+          asked_minutes: 60,
+          filter: 'Luminance',
+          got_minutes: 40,
+          result: 'steady',
+          state: 'done',
+          note: '',
+        },
+        {
+          night: '2026-10-27',
+          asked_minutes: 60,
+          filter: 'Luminance',
+          got_minutes: null,
+          result: '',
+          state: 'sent',
+          note: '',
+        },
+      ],
+    } as const
+    let stopped = false
+    const stop = { imaging: 'stopped_user', imaging_stopped_at: '2026-10-21T01:00:00Z' }
+    const { el, app, fetch } = await render((url, init) => {
+      const watch = { ...w, nights: [...w.nights], ...(stopped ? stop : {}) }
+      if (new URL(url, 'http://x').pathname === '/api/v1/discoveries/sources/1/watch/stop') {
+        stopped = true
+        return json({ ...watch, ...stop })
+      }
+      return stacker({ sources: page([cygnus({ watching: true, watch })]) })(url, init)
+    }, '/discoveries?show=watching')
+    const card = el.querySelector('.src')!
+    expect(card.textContent).toContain('Watching')
+    expect(card.textContent).toContain('watched since Oct 19')
+    expect(card.textContent).toContain(
+      'Next: field imaged on 2 of 5 nights · weekly survey check Oct 26',
+    )
+    const panel = el.querySelector('.watch')!
+    expect(panel.textContent).toContain('Real · low confidence')
+    expect(panel.textContent).toContain('Fade nights so far: 4 of the 6 needed')
+    const rows = [...panel.querySelectorAll('tbody tr')].map((r) =>
+      [...r.querySelectorAll('td')].map((d) => d.textContent?.trim()),
+    )
+    expect(rows).toEqual([
+      ['Oct 20', '60 min L', '40 min', 'Steady'],
+      ['Oct 27', '60 min L', '–', 'Sent to the scheduler'],
+    ])
+    button(panel as HTMLElement, 'Stop asking for imaging')!.click()
+    await settle()
+    const post = fetch.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'POST')!
+    expect(String(post[0])).toBe('/api/v1/discoveries/sources/1/watch/stop')
+    const after = el.querySelector('.watch') as HTMLElement
+    expect(button(after, 'Stop asking')).toBeUndefined()
+    expect(after.textContent).toContain('You stopped the imaging requests on Oct 21.')
+    app.unmount()
+  })
+
   it('shows the automatic checks of the picked source and saves nothing on its own', async () => {
     const { el, app, fetch } = await render(stacker({ checks: cygnusChecks }))
     const detail = el.querySelector('.detail')!

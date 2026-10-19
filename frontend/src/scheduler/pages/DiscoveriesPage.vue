@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import VettingPanel from '../components/VettingPanel.vue'
 import SharePicture from '../components/SharePicture.vue'
+import WatchPanel from '../components/WatchPanel.vue'
 import {
   getDiscoveryCandidate,
   getDiscoverySource,
@@ -11,6 +12,7 @@ import {
   getDiscoveryStatus,
   getRecentRuns,
   setSourceVetting,
+  stopWatchImaging,
   type DiscoveryCandidate,
   type DiscoveryRun,
   type DiscoverySource,
@@ -62,6 +64,7 @@ import {
   targetsOf,
   type Range,
 } from '../discoveryInbox'
+import { isWatched, nextText, watchedSince } from '../watching'
 import { onChange } from '@/lib/events'
 import { latestOnly } from '../latest'
 import { useSourceChecks } from '../useSourceChecks'
@@ -400,6 +403,26 @@ function saveNote() {
   saveVetting(s.id, (cur) => cur.vetting, note.value)
 }
 
+const stopping = ref(false)
+const watchError = ref('')
+
+async function stopImaging() {
+  const s = selected.value
+  if (!s) return
+  stopping.value = true
+  watchError.value = ''
+  try {
+    const w = await stopWatchImaging(s.id)
+    const cur = latest(s.id)
+    if (cur) cur.watch = w
+    loadList()
+  } catch (e) {
+    watchError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    stopping.value = false
+  }
+}
+
 const emptyText = computed(() => {
   if (search.value.trim()) return 'Nothing matches that search.'
   if (counts.value.all === 0) {
@@ -515,6 +538,7 @@ const pageState = computed(() => {
             <span class="mid">
               <span class="meta">
                 <span class="pill" :class="pillOf(c.s.class)">{{ classLabel(c.s.class) }}</span>
+                <span v-if="isWatched(c.s)" class="pill watching">Watching</span>
                 <span v-if="c.s.vetting" class="small dim"
                   >Vetted: {{ vettingLabel(c.s.vetting) }}</span
                 >
@@ -524,7 +548,11 @@ const pageState = computed(() => {
               </span>
               <span>{{ c.change }}</span>
               <span class="dim small">{{ c.star }}</span>
-              <span class="dim small">{{ c.nights }}</span>
+              <span class="dim small"
+                >{{ c.nights
+                }}<template v-if="isWatched(c.s)"> · {{ watchedSince(c.s.watch) }}</template></span
+              >
+              <span v-if="isWatched(c.s)" class="small">{{ nextText(c.s.watch) }}</span>
             </span>
             <span class="spark">
               <svg
@@ -626,6 +654,16 @@ const pageState = computed(() => {
               <dd>{{ vettingLabel(selected.vetting) }}</dd>
             </template>
           </dl>
+          <WatchPanel
+            v-if="isWatched(selected)"
+            :watch="selected.watch"
+            :object="selected.object"
+            :busy="vetBusy > 0"
+            :stopping="stopping"
+            :error="watchError || vetError"
+            @vet="vet"
+            @stop="stopImaging"
+          />
           <SharePicture
             :share="pic.share.value"
             :title="selected.object"
@@ -763,6 +801,8 @@ const pageState = computed(() => {
   --low-bg: oklch(0.95 0.003 285);
   --nova: oklch(0.55 0.16 25);
   --nova-bg: oklch(0.95 0.04 25);
+  --watch: oklch(0.5 0.15 230);
+  --watch-bg: oklch(0.62 0.13 230 / 0.15);
   --d-sel: oklch(0.62 0.15 250);
   --pt: oklch(0.55 0.13 250);
   --model: oklch(0.6 0.15 55);
@@ -777,6 +817,7 @@ const pageState = computed(() => {
   --low-bg: oklch(0.28 0.01 285);
   --nova: oklch(0.78 0.13 25);
   --nova-bg: oklch(0.32 0.07 25);
+  --watch: oklch(0.76 0.12 230);
   --d-sel: oklch(0.7 0.14 250);
   --pt: oklch(0.75 0.12 250);
   --model: oklch(0.8 0.13 65);
@@ -1003,6 +1044,10 @@ tbody tr:focus-visible {
 .pill.new {
   color: var(--new);
   background: var(--new-bg);
+}
+.pill.watching {
+  color: var(--watch);
+  background: var(--watch-bg);
 }
 .pill.nova {
   color: var(--nova);
