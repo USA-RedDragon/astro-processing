@@ -121,7 +121,7 @@ export interface Kit {
 }
 
 export type EclipsePurpose = 'flag' | 'period' | 'own'
-export type RequestState = 'waiting' | 'sent' | 'failed' | 'done' | 'cancelled'
+export type RequestState = 'waiting' | 'sent' | 'failed' | 'done' | 'cancelled' | 'moved'
 
 export interface EclipseRequest {
   id: number

@@ -157,6 +157,8 @@ export function requestView(r: EclipseRequest | null): RequestView {
     return { label: 'Window passed', tone: '', note: r.note, by, canRequest: false, canCancel: false }
   if (r.state === 'cancelled')
     return { label: 'Cancelled', tone: '', note: r.note, by, canRequest: true, canCancel: false }
+  if (r.state === 'moved')
+    return { label: 'Moved to the new eclipse time', tone: '', note: r.note, by, canRequest: true, canCancel: false }
   return {
     label: 'Request failed',
     tone: 'bad',
