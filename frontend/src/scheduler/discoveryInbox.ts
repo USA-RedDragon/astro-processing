@@ -29,6 +29,7 @@ export const VIEWS: { key: SourceView; label: string }[] = [
   { key: 'known', label: 'Known variables' },
   { key: 'movers', label: 'Moving objects' },
   { key: 'low', label: 'Low confidence' },
+  { key: 'unsure', label: 'Not sure' },
   { key: 'artifacts', label: 'Likely artifacts' },
   { key: 'vetted', label: 'Vetted' },
 ]
@@ -74,6 +75,8 @@ export function countText(view: SourceView, c: SourceCounts): string {
     }
     case 'low':
       return n(c.low)
+    case 'unsure':
+      return n(c.unsure ?? 0)
     case 'artifacts':
       return n(c.artifacts ?? 0)
     case 'vetted':
