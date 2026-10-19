@@ -167,7 +167,7 @@ export interface DiscoveryStatus {
   done_in_pass: number
 }
 
-export type SourceView = 'look' | 'known' | 'movers' | 'low' | 'vetted'
+export type SourceView = 'look' | 'known' | 'movers' | 'low' | 'artifacts' | 'vetted'
 
 export interface DiscoverySourceNight {
   night: string
@@ -201,6 +201,7 @@ export interface SourceCounts {
   movers: number
   new_movers: number
   low: number
+  artifacts?: number
   vetted: number
   all: number
   look_earlier?: number
