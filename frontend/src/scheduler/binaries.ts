@@ -27,10 +27,10 @@ export function isStarView(v: string): v is StarView {
 export function inStarView(b: Binary, view: StarView): boolean {
   if (view === 'sub') return b.vsx.submitted
   if (view === 'not') return !b.vsx.submitted
-  if (view === 'flagged') return b.flags.length > 0
+  if (view === 'flagged') return (b.flags ?? []).length > 0
   if (view === 'timed') return (b.timing?.count ?? 0) > 0
   if (view === 'untimed') return !((b.timing?.count ?? 0) > 0)
-  if (view === 'trend') return (b.timing?.flags.length ?? 0) > 0
+  if (view === 'trend') return (b.timing?.flags?.length ?? 0) > 0
   return true
 }
 

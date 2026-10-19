@@ -186,7 +186,7 @@ const pageState = computed(() => {
           <div class="who">
             <div class="meta">
               <span class="pill" :class="b.vsx.submitted ? 'known' : 'low'">{{ vsxLabel(b) }}</span>
-              <span v-for="f in b.flags" :key="f.id" class="badge violet" :title="f.why">{{
+              <span v-for="f in b.flags ?? []" :key="f.id" class="badge violet" :title="f.why">{{
                 f.label
               }}</span>
             </div>
@@ -263,7 +263,7 @@ const pageState = computed(() => {
                 c.text
               }}</span>
             </div>
-            <p v-for="f in b.flags" :key="f.id" class="small line">
+            <p v-for="f in b.flags ?? []" :key="f.id" class="small line">
               <span class="dim">Why flagged:</span> {{ f.why }}
             </p>
             <p v-if="b.facts_state === 'pending'" class="small dim line">
@@ -317,8 +317,8 @@ const pageState = computed(() => {
             <div class="k">Eclipse timings</div>
             <div class="v">
               <span>{{ b.timing.text }}</span>
-              <div v-if="b.timing.flags.length" class="meta">
-                <span v-for="f in b.timing.flags" :key="f" class="badge warn">{{ f }}</span>
+              <div v-if="b.timing.flags?.length" class="meta">
+                <span v-for="f in b.timing.flags ?? []" :key="f" class="badge warn">{{ f }}</span>
               </div>
             </div>
             <div>
