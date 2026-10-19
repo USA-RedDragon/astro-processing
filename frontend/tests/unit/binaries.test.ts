@@ -165,6 +165,11 @@ describe('eclipse planner helpers', () => {
       canRequest: true,
       canCancel: false,
     })
+    expect(requestView({ id: 1, state: 'moved', note: '', auto: false })).toMatchObject({
+      label: 'Moved to the new eclipse time',
+      canRequest: true,
+      canCancel: false,
+    })
   })
 
   it('marks requests the app made so they can still be cancelled', () => {
