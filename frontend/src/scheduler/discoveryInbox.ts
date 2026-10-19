@@ -68,7 +68,7 @@ export function countText(view: SourceView, c: SourceCounts): string {
     case 'known':
       return n(c.known)
     case 'movers': {
-      const known = c.movers - c.new_movers
+      const known = c.known_movers ?? c.movers - c.new_movers
       if (!c.movers) return '0'
       if (!c.new_movers) return `${n(known)} known`
       return `${n(c.new_movers)} new · ${n(known)} known`

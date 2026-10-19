@@ -200,6 +200,7 @@ export interface SourceCounts {
   known: number
   movers: number
   new_movers: number
+  known_movers?: number
   low: number
   artifacts?: number
   unsure?: number
