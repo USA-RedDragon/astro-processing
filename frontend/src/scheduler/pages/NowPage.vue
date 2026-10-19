@@ -589,12 +589,15 @@ const latestShown = computed(() => latestImage(subs.value))
 // A reload signs the latest sub's preview again; keeping the link it was
 // first shown with lets the browser reuse its copy.
 const latestKept = ref<{ id: number; url: string } | null>(null)
+const showRaw = ref(false)
+const latestCalibrated = computed(() => !showRaw.value && !!latestShown.value?.sub.calibrated_url)
 const latestSrc = computed(() => {
   const sub = latestShown.value?.sub
   if (!sub?.preview_url) return ''
+  const url = latestCalibrated.value && sub.calibrated_url ? sub.calibrated_url : sub.preview_url
   const kept = latestKept.value
-  if (kept && samePicture(kept.url, String(kept.id), sub.preview_url, String(sub.id))) return kept.url
-  return sub.preview_url
+  if (kept && samePicture(kept.url, String(kept.id), url, String(sub.id))) return kept.url
+  return url
 })
 watch(latestSrc, (url) => {
   const sub = latestShown.value?.sub
@@ -1152,7 +1155,9 @@ const cross = (x: number, y: number, r: number) =>
           <h2 id="sub-h">Latest sub</h2>
           <span v-if="latest" class="xsmall muted">
             {{ subTimes(latest)
-            }}<template v-if="latest.preview_url"> · stretched preview</template>
+            }}<template v-if="latest.preview_url">
+              · {{ latestCalibrated ? 'calibrated' : 'raw' }} stretched preview</template
+            >
           </span>
         </div>
         <template v-if="latest || latestShown">
@@ -1160,7 +1165,8 @@ const cross = (x: number, y: number, r: number) =>
             v-if="latestShown"
             :src="latestSrc"
             :alt="
-              'Stretched preview of the ' +
+              (latestCalibrated ? 'Calibrated stretched' : 'Stretched') +
+              ' preview of the ' +
               clock(latestShown.sub.time) +
               ' ' +
               filterName(latestShown.sub.filter) +
@@ -1187,6 +1193,24 @@ const cross = (x: number, y: number, r: number) =>
               No preview yet
             </text>
           </svg>
+          <div
+            v-if="latestShown?.sub.calibrated_note || latestShown?.sub.calibrated_url"
+            class="spread xsmall muted"
+            style="gap: 0.5rem 1rem"
+          >
+            <span v-if="latestCalibrated">{{ latestShown.sub.calibrated_note }}</span>
+            <span v-else-if="latestShown.sub.calibrated_url">Raw sub, not calibrated.</span>
+            <span v-else>{{ latestShown.sub.calibrated_note }}</span>
+            <button
+              v-if="latestShown.sub.calibrated_url"
+              type="button"
+              class="btn sm"
+              :aria-pressed="showRaw"
+              @click="showRaw = !showRaw"
+            >
+              {{ showRaw ? 'Show calibrated' : 'Show raw' }}
+            </button>
+          </div>
           <p v-if="latestShown?.note" class="small muted" style="margin: 0">
             {{ latestShown.note }}
           </p>

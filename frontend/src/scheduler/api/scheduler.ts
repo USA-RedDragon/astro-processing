@@ -338,6 +338,8 @@ export interface TonightSub {
   processed_at?: string
   uploaded_at?: string
   preview_url?: string
+  calibrated_url?: string
+  calibrated_note?: string
   width?: number | null
   height?: number | null
   indexed?: boolean
