@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import MyDiscoveriesPage from '@/scheduler/pages/MyDiscoveriesPage.vue'
-import type { Binary, BinaryList } from '@/scheduler/api/binaries'
-import { flagged, list, star, submitted } from './fixtures/binaries'
+import type { Binary, BinaryList, OtherStar } from '@/scheduler/api/binaries'
+import { flagged, list, other, star, starTypes, submitted } from './fixtures/binaries'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -44,6 +44,7 @@ async function render(handler: Handler, path = '/discoveries/mine') {
 
 function stacker(body: BinaryList = list()): Handler {
   const stars = new Map(body.stars.map((s) => [s.source_id, s]))
+  const others = new Map((body.others ?? []).map((s) => [s.source_id, s]))
   return (url, init) => {
     const p = new URL(url, 'http://x').pathname
     const one = /^\/api\/v1\/discoveries\/binaries\/(\d+)$/.exec(p)
@@ -62,7 +63,23 @@ function stacker(body: BinaryList = list()): Handler {
       stars.set(next.source_id, next)
       return json(next)
     }
-    if (p === '/api/v1/discoveries/binaries') return json({ ...body, stars: [...stars.values()] })
+    const oneOther = /^\/api\/v1\/discoveries\/others\/(\d+)$/.exec(p)
+    if (oneOther && init?.method === 'PUT') {
+      const cur = others.get(Number(oneOther[1]))!
+      const b = JSON.parse(String(init.body))
+      const next: OtherStar = {
+        ...cur,
+        notes: b.notes ?? cur.notes,
+        star_type:
+          b.star_type === undefined
+            ? cur.star_type
+            : (starTypes.find((t) => t.key === b.star_type) ?? null),
+      }
+      others.set(next.source_id, next)
+      return json(next)
+    }
+    if (p === '/api/v1/discoveries/binaries')
+      return json({ ...body, stars: [...stars.values()], others: [...others.values()] })
     return json({ error: 'not found' }, 404)
   }
 }
@@ -241,7 +258,10 @@ describe('MyDiscoveriesPage', () => {
   })
 
   it('says when survey facts are being worked out and when the stacker is down', async () => {
-    const body = { ...list([submitted(), flagged()]), facts: { state: 'running' as const, done: 1, total: 2 } }
+    const body = {
+      ...list([submitted(), flagged()]),
+      facts: { state: 'running' as const, done: 1, total: 2 },
+    }
     const { el, app } = await render(stacker(body))
     expect(el.textContent).toContain('Working out survey facts: 1 of 2 stars done.')
     app.unmount()
@@ -276,6 +296,79 @@ describe('MyDiscoveriesPage', () => {
     expect(button(cards[0]!, 'Share')).toBeDefined()
     expect(cards[1]!.querySelector('.thumb')).toBeNull()
     expect(cards[1]!.textContent).toContain('Made-up note: no colour picture yet.')
+    app.unmount()
+  })
+
+  it('shows confirmed stars that are not eclipsing binaries as their own kind', async () => {
+    const body: BinaryList = {
+      ...list([star()]),
+      star_types: starTypes,
+      others: [
+        other(),
+        other({
+          source_id: 202,
+          vet_kind: 'fades',
+          vet_line: 'Fades now and then',
+          period: 0,
+          period_text: '',
+          confidence: 'low',
+          star_type: starTypes[1]!,
+          notes: 'Made-up note: dips recur every 9.36 days.',
+        }),
+        other({
+          source_id: 203,
+          vet_kind: '',
+          vet_line: '',
+          period: 0,
+          period_text: '',
+          confidence: '',
+          star_type: null,
+          waiting: 'Made-up: the vet looks again soon.',
+        }),
+      ],
+    }
+    const { el, app } = await render(stacker(body))
+    const cards = [...el.querySelectorAll('article.other')]
+    expect(cards.map((c) => c.querySelector('.kind')?.textContent?.trim())).toEqual([
+      'Spotted star: rotates every 4.32 days',
+      'Dipper: fades now and then',
+      'Variable star',
+    ])
+    const text = (c: Element) => c.textContent?.replace(/\s+/g, ' ') ?? ''
+    expect(text(cards[0]!)).toContain('ROT')
+    expect(text(cards[0]!)).toContain('every 4.318 days')
+    expect(text(cards[0]!)).toContain('medium confidence')
+    expect(text(cards[0]!)).toContain('Test Field B · G 16.20')
+    expect(text(cards[1]!)).toContain('Fades now and then, low confidence')
+    expect(text(cards[1]!)).toContain('dips recur every 9.36 days')
+    expect(text(cards[2]!)).toContain('Made-up: the vet looks again soon.')
+    for (const c of cards) {
+      expect(text(c)).not.toMatch(/Eclipses|Timings|Prepare VSX submission|eclips/i)
+    }
+    expect(el.querySelectorAll('article.find').length).toBe(4)
+    app.unmount()
+  })
+
+  it('names the kind of a star that is not an eclipsing binary', async () => {
+    const body: BinaryList = {
+      ...list([star()]),
+      star_types: starTypes,
+      others: [other({ star_type: null })],
+    }
+    const { el, app, fetch } = await render(stacker(body))
+    const sel = el.querySelector('#type-201') as HTMLSelectElement
+    expect(el.querySelector('article.other .kind')?.textContent?.trim()).toBe(
+      'Repeats every 4.32 days',
+    )
+    sel.value = 'rot'
+    sel.dispatchEvent(new Event('change'))
+    await settle()
+    const put = puts(fetch).at(-1)!
+    expect(String(put[0])).toContain('/api/v1/discoveries/others/201')
+    expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({ star_type: 'rot' })
+    expect(el.querySelector('article.other .kind')?.textContent?.trim()).toBe(
+      'Spotted star: rotates every 4.32 days',
+    )
     app.unmount()
   })
 })

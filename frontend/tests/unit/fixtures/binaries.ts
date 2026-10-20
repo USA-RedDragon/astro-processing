@@ -1,6 +1,7 @@
 import type {
   Binary,
   BinaryList,
+  OtherStar,
   EclipsePlan,
   Kit,
   KitCheck,
@@ -67,6 +68,33 @@ export const flagged = () =>
     facts_state: 'pending',
   })
 
+export function other(over: Partial<OtherStar> = {}): OtherStar {
+  return {
+    source_id: 201,
+    name: 'Gaia DR3 1000000000000000201',
+    alt_name: '',
+    field: 'Test Field B',
+    magnitude: 'G 16.20',
+    vet_kind: 'periodic',
+    vet_line: 'Repeats every 4.318 days',
+    waiting: '',
+    period: 4.318,
+    period_text: '4.318',
+    confidence: 'medium',
+    star_type: { key: 'rot', words: 'Spotted star', verb: 'rotates', vsx: 'ROT' },
+    vsx: { submitted: false, ref: '', submitted_at: null },
+    notes: '',
+    share: { state: 'none', url: '', version: 0, note: '' },
+    ...over,
+  }
+}
+
+export const starTypes = [
+  { key: 'rot', words: 'Spotted star', verb: 'rotates', vsx: 'ROT' },
+  { key: 'dipper', words: 'Dipper', verb: 'dips recur', vsx: '' },
+  { key: 'variable', words: 'Variable star', verb: 'repeats', vsx: 'VAR' },
+]
+
 export const list = (stars: Binary[] = [submitted(), star(), flagged()]): BinaryList => ({
   stars,
   discoverer: '',
@@ -107,13 +135,29 @@ export function kit(over: Partial<Kit> = {}): Kit {
     star: star(),
     lede: 'A made-up star in Test Field A.',
     fields: [
-      field({ key: 'position', label: 'Position (J2000)', value: '01 02 03.4 +05 06 07.8', hint: 'Made-up hint.' }),
-      field({ key: 'primary_name', label: 'Primary name', value: 'Gaia DR3 1000000000000000101', editable: true }),
+      field({
+        key: 'position',
+        label: 'Position (J2000)',
+        value: '01 02 03.4 +05 06 07.8',
+        hint: 'Made-up hint.',
+      }),
+      field({
+        key: 'primary_name',
+        label: 'Primary name',
+        value: 'Gaia DR3 1000000000000000101',
+        editable: true,
+      }),
       field({ key: 'other_names', label: 'Other names', value: '', state: 'not_looked_up' }),
       field({ key: 'spectral_type', label: 'Spectral type', value: '', state: 'empty' }),
       field(),
       field({ key: 'duration', label: 'Eclipse duration (%)', value: '', state: 'not_measured' }),
-      field({ key: 'discoverer', label: 'Discoverer', value: '', state: 'not_set', editable: true }),
+      field({
+        key: 'discoverer',
+        label: 'Discoverer',
+        value: '',
+        state: 'not_set',
+        editable: true,
+      }),
     ],
     files: [
       file(),
@@ -126,10 +170,24 @@ export function kit(over: Partial<Kit> = {}): Kit {
         bytes: 0,
         note: 'Made-up note: no eclipse caught yet.',
       }),
-      file({ key: 'chart', title: 'Finding chart', state: 'pending', url: '', caption: '', bytes: 0, note: 'Made-up note: being made.' }),
+      file({
+        key: 'chart',
+        title: 'Finding chart',
+        state: 'pending',
+        url: '',
+        caption: '',
+        bytes: 0,
+        note: 'Made-up note: being made.',
+      }),
     ],
     checklist: [
-      check({ key: 'vsx', text: 'No VSX entry nearby', done: true, auto: true, note: 'Checked by the app' }),
+      check({
+        key: 'vsx',
+        text: 'No VSX entry nearby',
+        done: true,
+        auto: true,
+        note: 'Checked by the app',
+      }),
       check(),
       check({ key: 'upload', text: 'Upload the light curve', done: true }),
     ],

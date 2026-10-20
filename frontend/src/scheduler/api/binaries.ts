@@ -67,8 +67,37 @@ export interface FactsJob {
   total: number
 }
 
+export interface StarType {
+  key: string
+  words: string
+  verb: string
+  vsx: string
+}
+
+export type VetKind = '' | 'periodic' | 'fades' | 'brightens'
+
+export interface OtherStar {
+  source_id: number
+  name: string
+  alt_name: string
+  field: string
+  magnitude: string
+  vet_kind: VetKind
+  vet_line: string
+  waiting: string
+  period: number
+  period_text: string
+  confidence: string
+  star_type: StarType | null
+  vsx: VsxState
+  notes: string
+  share: Share
+}
+
 export interface BinaryList {
   stars: Binary[]
+  others?: OtherStar[]
+  star_types?: StarType[]
   discoverer: string
   facts: FactsJob
 }
@@ -78,6 +107,7 @@ export interface BinaryChange {
   vsx_ref?: string
   notes?: string
   primary_name?: string
+  star_type?: string
   checklist?: Record<string, boolean>
 }
 
@@ -275,6 +305,9 @@ export const getBinaries = () => api.get<BinaryList>('/discoveries/binaries')
 
 export const updateBinary = (id: number, change: BinaryChange) =>
   api.put<Binary>(`/discoveries/binaries/${id}`, change)
+
+export const updateOther = (id: number, change: BinaryChange) =>
+  api.put<OtherStar>(`/discoveries/others/${id}`, change)
 
 export const setDiscoverer = (discoverer: string) =>
   api.put<{ discoverer: string }>('/discoveries/binaries/settings', { discoverer })

@@ -22,8 +22,22 @@ import {
   vsxClass,
   vsxHref,
   vsxLabel,
+  daysText,
+  inOtherView,
+  otherHeadline,
+  otherVetText,
 } from '@/scheduler/binaries'
-import { check, eclipse, field, flagged, kit, star, submitted } from './fixtures/binaries'
+import {
+  check,
+  eclipse,
+  field,
+  flagged,
+  kit,
+  other,
+  star,
+  starTypes,
+  submitted,
+} from './fixtures/binaries'
 
 describe('my discoveries helpers', () => {
   it('counts each group, a flagged star counts once however many flags it has', () => {
@@ -153,7 +167,9 @@ describe('eclipse planner helpers', () => {
       canRequest: false,
       canCancel: false,
     })
-    expect(requestView({ id: 1, state: 'failed', note: 'Made-up failure', auto: false })).toMatchObject({
+    expect(
+      requestView({ id: 1, state: 'failed', note: 'Made-up failure', auto: false }),
+    ).toMatchObject({
       label: 'Request failed',
       tone: 'bad',
       note: 'Made-up failure',
@@ -231,11 +247,41 @@ describe('share picture helpers', () => {
   })
 
   it('makes the picture address absolute for sharing', () => {
-    expect(absoluteUrl('/api/v1/discoveries/sources/5/share.jpg?v=3', 'https://astro.example')).toBe(
-      'https://astro.example/api/v1/discoveries/sources/5/share.jpg?v=3',
-    )
+    expect(
+      absoluteUrl('/api/v1/discoveries/sources/5/share.jpg?v=3', 'https://astro.example'),
+    ).toBe('https://astro.example/api/v1/discoveries/sources/5/share.jpg?v=3')
     expect(absoluteUrl('https://other.example/a.jpg', 'https://astro.example')).toBe(
       'https://other.example/a.jpg',
     )
+  })
+})
+
+describe('other confirmed star helpers', () => {
+  it('words the kind line from the star type and the vet', () => {
+    expect(otherHeadline(other())).toBe('Spotted star: rotates every 4.32 days')
+    expect(otherHeadline(other({ star_type: null }))).toBe('Repeats every 4.32 days')
+    expect(
+      otherHeadline(other({ star_type: starTypes[1]!, period: 9.3564, period_text: '9.3564' })),
+    ).toBe('Dipper: dips recur every 9.36 days')
+    expect(
+      otherHeadline(
+        other({ star_type: null, period: 0, vet_line: 'Fades now and then', vet_kind: 'fades' }),
+      ),
+    ).toBe('Fades now and then')
+    expect(otherHeadline(other({ star_type: null, period: 0, vet_line: '' }))).toBe('Variable star')
+    expect(daysText(0.4988)).toBe('0.499')
+    expect(daysText(0)).toBe('')
+  })
+
+  it('says what the vet thinks and filters by VSX state only', () => {
+    expect(otherVetText(other())).toBe('medium confidence')
+    expect(
+      otherVetText(other({ period: 0, vet_line: 'Fades now and then', confidence: 'low' })),
+    ).toBe('Fades now and then, low confidence')
+    expect(otherVetText(other({ waiting: 'Made-up wait.' }))).toBe('Made-up wait.')
+    expect(inOtherView(other(), '')).toBe(true)
+    expect(inOtherView(other(), 'not')).toBe(true)
+    expect(inOtherView(other(), 'sub')).toBe(false)
+    expect(inOtherView(other(), 'timed')).toBe(false)
   })
 })

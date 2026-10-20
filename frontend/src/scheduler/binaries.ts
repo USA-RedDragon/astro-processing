@@ -4,6 +4,7 @@ import type {
   EclipseRequest,
   KitCheck,
   KitField,
+  OtherStar,
   PlannedEclipse,
 } from './api/binaries'
 import { SITE_TZ, toDate } from './format'
@@ -40,15 +41,46 @@ export function starViewCounts(stars: Binary[]): Record<StarView, number> {
   return out
 }
 
+export function inOtherView(o: OtherStar, view: StarView): boolean {
+  if (view === 'sub') return o.vsx.submitted
+  if (view === 'not') return !o.vsx.submitted
+  return view === ''
+}
+
+export function daysText(p: number): string {
+  if (!(p > 0)) return ''
+  return String(Number(p >= 1 ? p.toFixed(2) : p.toPrecision(3)))
+}
+
+export function otherHeadline(o: OtherStar): string {
+  const t = o.star_type
+  let phrase = ''
+  if (o.period > 0) phrase = `${t?.verb ?? 'repeats'} every ${daysText(o.period)} days`
+  else if (o.vet_line) phrase = o.vet_line.charAt(0).toLowerCase() + o.vet_line.slice(1)
+  if (t) return phrase ? `${t.words}: ${phrase}` : t.words
+  return phrase ? phrase.charAt(0).toUpperCase() + phrase.slice(1) : 'Variable star'
+}
+
+export function otherVetText(o: OtherStar): string {
+  if (o.waiting) return o.waiting
+  const conf = o.confidence ? `${o.confidence} confidence` : ''
+  if (o.period > 0 || !o.vet_line) return conf
+  return conf ? `${o.vet_line}, ${conf}` : o.vet_line
+}
+
+export function othersLine(n: number): string {
+  return `Other confirmed variable stars · ${n} ${n === 1 ? 'star' : 'stars'} · not eclipsing binaries`
+}
+
 export function starsLine(label: string, n: number): string {
   return `${label} · ${n} ${n === 1 ? 'star' : 'stars'} · submitted first, then the rest`
 }
 
-export function vsxLabel(b: Binary): string {
+export function vsxLabel(b: Pick<Binary, 'vsx'>): string {
   return b.vsx.submitted ? 'Submitted to VSX' : 'Not submitted yet'
 }
 
-export function vsxClass(b: Binary): 's-sub' | 's-not' {
+export function vsxClass(b: Pick<Binary, 'vsx'>): 's-sub' | 's-not' {
   return b.vsx.submitted ? 's-sub' : 's-not'
 }
 

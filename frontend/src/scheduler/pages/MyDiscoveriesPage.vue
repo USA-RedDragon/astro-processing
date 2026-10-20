@@ -6,16 +6,22 @@ import SharePicture from '../components/SharePicture.vue'
 import {
   getBinaries,
   updateBinary,
+  updateOther,
   type Binary,
   type BinaryChange,
   type BinaryList,
+  type OtherStar,
 } from '../api/binaries'
 import {
   STAR_VIEWS,
   confidenceBadges,
+  inOtherView,
   inStarView,
   isStarView,
   noteLines,
+  otherHeadline,
+  otherVetText,
+  othersLine,
   starViewCounts,
   starsLine,
   typeText,
@@ -75,6 +81,9 @@ onUnmounted(() => {
 const stars = computed(() => data.value?.stars ?? [])
 const counts = computed(() => starViewCounts(stars.value))
 const rows = computed(() => stars.value.filter((b) => inStarView(b, view.value)))
+const others = computed(() => data.value?.others ?? [])
+const otherRows = computed(() => others.value.filter((o) => inOtherView(o, view.value)))
+const starTypes = computed(() => data.value?.star_types ?? [])
 const viewLabel = computed(() => STAR_VIEWS.find((v) => v.key === view.value)?.label ?? 'All')
 const factsText = computed(() => {
   const f = data.value?.facts
@@ -93,18 +102,27 @@ const editing = reactive<Record<number, boolean>>({})
 const noteDraft = reactive<Record<number, string>>({})
 const refDraft = reactive<Record<number, string>>({})
 
-function replace(next: Binary) {
-  const d = data.value
-  if (!d) return
-  const i = d.stars.findIndex((s) => s.source_id === next.source_id)
-  if (i >= 0) d.stars[i] = next
+type Card = Binary | OtherStar
+
+function isOther(b: Card): b is OtherStar {
+  return !!data.value?.others?.some((o) => o.source_id === b.source_id)
 }
 
-async function save(b: Binary, change: BinaryChange): Promise<boolean> {
+function replace(next: Card) {
+  const d = data.value
+  if (!d) return
+  const list: Card[] = isOther(next) ? (d.others ?? []) : d.stars
+  const i = list.findIndex((s) => s.source_id === next.source_id)
+  if (i >= 0) list[i] = next
+}
+
+async function save(b: Card, change: BinaryChange): Promise<boolean> {
   busy[b.source_id] = true
   cardError[b.source_id] = ''
   try {
-    replace(await updateBinary(b.source_id, change))
+    replace(
+      isOther(b) ? await updateOther(b.source_id, change) : await updateBinary(b.source_id, change),
+    )
     return true
   } catch (e) {
     cardError[b.source_id] = e instanceof Error ? e.message : String(e)
@@ -114,27 +132,32 @@ async function save(b: Binary, change: BinaryChange): Promise<boolean> {
   }
 }
 
-function pickVsx(b: Binary, ev: Event) {
+function pickType(o: OtherStar, ev: Event) {
+  const key = (ev.target as HTMLSelectElement).value
+  if (key !== (o.star_type?.key ?? '')) save(o, { star_type: key })
+}
+
+function pickVsx(b: Card, ev: Event) {
   const submitted = (ev.target as HTMLSelectElement).value === 'sub'
   if (submitted !== b.vsx.submitted) save(b, { vsx_submitted: submitted })
 }
 
-function refOf(b: Binary): string {
+function refOf(b: Card): string {
   return refDraft[b.source_id] ?? b.vsx.ref
 }
 
-async function saveRef(b: Binary) {
+async function saveRef(b: Card) {
   const next = refOf(b).trim()
   if (next === b.vsx.ref) return
   if (await save(b, { vsx_ref: next })) delete refDraft[b.source_id]
 }
 
-function editNotes(b: Binary) {
+function editNotes(b: Card) {
   noteDraft[b.source_id] = b.notes
   editing[b.source_id] = true
 }
 
-async function saveNotes(b: Binary) {
+async function saveNotes(b: Card) {
   if (await save(b, { notes: noteDraft[b.source_id] ?? '' })) editing[b.source_id] = false
 }
 
@@ -191,7 +214,8 @@ const pageState = computed(() => {
               }}</span>
             </div>
             <div class="t">
-              <b>{{ b.name }}</b><span class="dim small">find #{{ b.source_id }}</span>
+              <b>{{ b.name }}</b
+              ><span class="dim small">find #{{ b.source_id }}</span>
             </div>
             <div v-if="b.alt_name" class="dim small">{{ b.alt_name }}</div>
             <div class="dim small">
@@ -250,9 +274,11 @@ const pageState = computed(() => {
             <dd>{{ typeText(b) }}</dd>
             <dt>Repeats</dt>
             <dd>
-              every {{ b.period_text }} days<span v-if="b.alt_period_text" class="block dim small">{{
-                b.alt_period_text
-              }}</span>
+              every {{ b.period_text }} days<span
+                v-if="b.alt_period_text"
+                class="block dim small"
+                >{{ b.alt_period_text }}</span
+              >
             </dd>
             <dt>Dips</dt>
             <dd>{{ b.depth_text }}</dd>
@@ -331,9 +357,150 @@ const pageState = computed(() => {
           </div>
         </article>
         <p v-if="!rows.length" class="empty">
-          {{ stars.length ? 'No stars in this group.' : 'No confirmed variable stars yet.' }}
+          {{
+            stars.length
+              ? 'No stars in this group.'
+              : others.length
+                ? 'No confirmed eclipsing binaries yet.'
+                : 'No confirmed variable stars yet.'
+          }}
         </p>
       </div>
+      <template v-if="otherRows.length">
+        <div class="sec">{{ othersLine(otherRows.length) }}</div>
+        <div class="list">
+          <article
+            v-for="o in otherRows"
+            :key="o.source_id"
+            class="find other"
+            :class="vsxClass(o)"
+            :data-source="o.source_id"
+          >
+            <div class="who">
+              <div class="meta">
+                <span class="pill" :class="o.vsx.submitted ? 'known' : 'low'">{{
+                  vsxLabel(o)
+                }}</span>
+                <span
+                  v-if="o.star_type?.vsx"
+                  class="badge"
+                  :title="'VSX type ' + o.star_type.vsx"
+                  >{{ o.star_type.vsx }}</span
+                >
+              </div>
+              <div class="t">
+                <b>{{ o.name }}</b
+                ><span class="dim small">find #{{ o.source_id }}</span>
+              </div>
+              <div v-if="o.alt_name" class="dim small">{{ o.alt_name }}</div>
+              <div class="dim small">
+                {{ o.field }}<template v-if="o.magnitude"> · {{ o.magnitude }}</template>
+              </div>
+              <p class="kind">{{ otherHeadline(o) }}</p>
+              <SharePicture
+                v-if="o.share.state !== 'none'"
+                class="pic"
+                :share="o.share"
+                :title="o.name"
+              />
+              <div class="vsx-set">
+                <label class="dim small" :for="'type-' + o.source_id">Kind</label>
+                <select
+                  :id="'type-' + o.source_id"
+                  :value="o.star_type?.key ?? ''"
+                  :disabled="busy[o.source_id]"
+                  @change="pickType(o, $event)"
+                >
+                  <option value="">Not named yet</option>
+                  <option v-for="t in starTypes" :key="t.key" :value="t.key">{{ t.words }}</option>
+                </select>
+              </div>
+              <div class="vsx-set">
+                <label class="dim small" :for="'vsx-' + o.source_id">VSX</label>
+                <select
+                  :id="'vsx-' + o.source_id"
+                  :value="o.vsx.submitted ? 'sub' : 'not'"
+                  :disabled="busy[o.source_id]"
+                  @change="pickVsx(o, $event)"
+                >
+                  <option value="not">Not submitted yet</option>
+                  <option value="sub">Submitted to VSX</option>
+                </select>
+                <input
+                  v-if="o.vsx.submitted"
+                  type="text"
+                  class="ref"
+                  :value="refOf(o)"
+                  :disabled="busy[o.source_id]"
+                  placeholder="VSX link or id, optional"
+                  aria-label="VSX link or id"
+                  @input="refDraft[o.source_id] = ($event.target as HTMLInputElement).value"
+                  @change="saveRef(o)"
+                />
+                <a
+                  v-if="o.vsx.submitted && vsxHref(o.vsx.ref)"
+                  class="linkish small"
+                  :href="vsxHref(o.vsx.ref)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Open on VSX</a
+                >
+              </div>
+              <p v-if="cardError[o.source_id]" class="small bad" role="alert">
+                That did not save: {{ cardError[o.source_id] }}
+              </p>
+            </div>
+            <dl>
+              <dt>Kind</dt>
+              <dd>{{ o.star_type?.words ?? 'Not named yet' }}</dd>
+              <dt>Period</dt>
+              <dd>{{ o.period > 0 ? `every ${o.period_text} days` : 'None found' }}</dd>
+              <dt>Vet</dt>
+              <dd>{{ otherVetText(o) }}</dd>
+            </dl>
+            <div class="notes">
+              <div v-if="editing[o.source_id]" class="note-edit">
+                <label class="dim small" :for="'notes-' + o.source_id">Notes, one per line</label>
+                <textarea
+                  :id="'notes-' + o.source_id"
+                  v-model="noteDraft[o.source_id]"
+                  rows="4"
+                  :disabled="busy[o.source_id]"
+                />
+                <div class="row">
+                  <button
+                    type="button"
+                    class="btn sm primary"
+                    :disabled="busy[o.source_id]"
+                    @click="saveNotes(o)"
+                  >
+                    Save notes
+                  </button>
+                  <button
+                    type="button"
+                    class="btn sm"
+                    :disabled="busy[o.source_id]"
+                    @click="editing[o.source_id] = false"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+              <template v-else>
+                <ul v-if="noteLines(o.notes).length">
+                  <li v-for="(n, i) in noteLines(o.notes)" :key="i">{{ n }}</li>
+                </ul>
+                <p v-else class="dim small line">No notes.</p>
+                <div>
+                  <button type="button" class="btn sm ghost edit" @click="editNotes(o)">
+                    Edit notes
+                  </button>
+                </div>
+              </template>
+            </div>
+          </article>
+        </div>
+      </template>
     </template>
   </main>
 </template>
@@ -376,6 +543,10 @@ const pageState = computed(() => {
 }
 .who {
   min-width: 0;
+}
+.kind {
+  margin: 8px 0 0;
+  font-weight: 600;
 }
 .t {
   display: flex;
