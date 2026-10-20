@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import MyDiscoveriesPage from '@/scheduler/pages/MyDiscoveriesPage.vue'
-import type { Binary, BinaryList, OtherStar } from '@/scheduler/api/binaries'
-import { flagged, list, other, star, starTypes, submitted } from './fixtures/binaries'
+import type { Binary, BinaryList, DipperView, OtherStar } from '@/scheduler/api/binaries'
+import { dip, dipper, flagged, list, other, star, starTypes, submitted } from './fixtures/binaries'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -90,6 +90,9 @@ const button = (el: Element, text: string) =>
 
 const chips = (el: Element) =>
   [...el.querySelectorAll('.chip')].map((c) => c.textContent?.replace(/\s+/g, ' ').trim())
+
+const calls = (fetch: ReturnType<typeof vi.fn>, path: string) =>
+  fetch.mock.calls.filter((c) => new URL(String(c[0]), 'http://x').pathname === path)
 
 const puts = (fetch: ReturnType<typeof vi.fn>) =>
   fetch.mock.calls.filter((c) => (c[1] as RequestInit | undefined)?.method === 'PUT')
@@ -370,5 +373,186 @@ describe('MyDiscoveriesPage', () => {
       'Spotted star: rotates every 4.32 days',
     )
     app.unmount()
+  })
+
+  describe('dip windows', () => {
+    const dipperStar = () =>
+      other({
+        source_id: 15523,
+        vet_kind: 'fades',
+        vet_line: 'Fades now and then',
+        period: 0,
+        period_text: '',
+        star_type: starTypes[1]!,
+        dipper: {
+          windows_text: 'every 9.356 days, 20 hours wide (made-up)',
+          dips_text: '0.15 to 0.6 mag, made-up',
+          every_window: false,
+        },
+      })
+
+    const windows = () => [
+      dip({
+        mid: '2026-10-11T12:00:00Z',
+        mid_label: 'Oct 11, 7:00 AM',
+        dark_text: '11:12 PM to 5:55 AM',
+        over: true,
+        request: { id: 31, state: 'done', note: '', auto: true },
+        imaging: { subs: 42, seconds: 7560, text: '42 subs, 2 h 6 min' },
+        result: { state: 'no-dip', label: 'No dip', note: 'steady to 0.05 mag (made-up)' },
+      }),
+      dip({
+        mid: '2026-10-11T13:00:00Z',
+        mid_label: 'Oct 11, 8:00 AM',
+        over: true,
+        imaging: { subs: 30, seconds: 3600, text: '30 subs, 1 h' },
+        result: { state: 'dip', label: 'Dip seen', note: '0.3 mag deep (made-up)' },
+      }),
+      dip({
+        mid_label: 'Oct 20, 3:35 PM',
+        request: { id: 32, state: 'waiting', note: '', auto: true },
+      }),
+      dip({
+        mid: '2026-10-29T23:00:00Z',
+        mid_label: 'Oct 29, 6:00 PM',
+        dark_text: '',
+        observable: false,
+        observable_note: 'Not requested, under the 1 hour of usable dark a request needs',
+        result: { state: 'not-imaged', label: 'Not imaged', note: '' },
+      }),
+      dip({ mid: '2026-11-07T23:00:00Z', mid_label: 'Nov 7, 6:00 PM' }),
+    ]
+
+    function dippers(view: DipperView): Handler {
+      const base = stacker({ ...list([star()]), star_types: starTypes, others: [dipperStar()] })
+      let cur = view
+      return (url, init) => {
+        const p = new URL(url, 'http://x').pathname
+        if (p === '/api/v1/discoveries/dippers/15523' && (init?.method ?? 'GET') === 'GET')
+          return json(cur)
+        if (p === '/api/v1/discoveries/dippers/15523/every-window' && init?.method === 'PUT') {
+          cur = { ...cur, every_window: JSON.parse(String(init.body)).on }
+          return json(cur)
+        }
+        if (p === '/api/v1/discoveries/dippers/15523/requests' && init?.method === 'POST')
+          return json({ id: 90, state: 'waiting', note: '', auto: false })
+        if (init?.method === 'DELETE') return new Response(null, { status: 204 })
+        return base(url, init)
+      }
+    }
+
+    const text = (e: Element) => e.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+
+    it('shows the windows and dips lines and opens the dip windows box', async () => {
+      const { el, app, fetch } = await render(dippers(dipper({ windows: windows() })))
+      const card = el.querySelector('article.other')!
+      const dl = [...card.querySelectorAll('dt')].map((d) => [
+        d.textContent,
+        d.nextElementSibling?.textContent,
+      ])
+      expect(dl).toContainEqual(['Windows', 'every 9.356 days, 20 hours wide (made-up)'])
+      expect(dl).toContainEqual(['Dips', '0.15 to 0.6 mag, made-up'])
+      expect(card.querySelector('.dipbox')).toBeNull()
+      button(card, 'Dip windows')!.click()
+      await settle()
+      expect(calls(fetch, '/api/v1/discoveries/dippers/15523')).toHaveLength(1)
+      const box = card.querySelector('.dipbox')!
+      expect(box.querySelector('h3')!.textContent).toBe('Dip windows')
+      expect(text(box)).toContain(
+        'Requests go in at high priority for the dark part of each window and follow the live curve on the Now page. Windows with less than 1 hour of usable dark are listed but not requested.',
+      )
+      expect([...box.querySelectorAll('th')].map((t) => t.textContent)).toEqual([
+        'Window middle',
+        'Dark time inside it',
+        'Imaging',
+        'Result',
+      ])
+      const rows = [...box.querySelectorAll('tbody tr')]
+      expect(rows).toHaveLength(5)
+      const cells = (r: Element) =>
+        [...r.querySelectorAll('td')].map((td) =>
+          [...td.querySelectorAll('.cell > *')].length
+            ? [...td.querySelectorAll('.cell > *')].map((c) => c.textContent?.trim())
+            : td.textContent?.trim(),
+        )
+      expect(cells(rows[0]!)).toEqual([
+        'Oct 11, 7:00 AM',
+        '11:12 PM to 5:55 AM',
+        ['Window passed', '42 subs, 2 h 6 min'],
+        ['No dip', 'steady to 0.05 mag (made-up)'],
+      ])
+      expect(rows[0]!.querySelector('td:last-child .badge')!.textContent).toBe('No dip')
+      expect(rows[1]!.querySelector('td:last-child .badge.dip')!.textContent).toBe('Dip seen')
+      expect(text(rows[1]!)).toContain('0.3 mag deep (made-up)')
+      expect(button(rows[1]!, 'Request')).toBeUndefined()
+      expect(text(rows[2]!)).toContain('Requested')
+      expect(button(rows[2]!, 'Cancel request')).toBeDefined()
+      expect(rows[2]!.querySelector('td:last-child')!.classList.contains('dim')).toBe(true)
+      expect(rows[2]!.querySelector('td:last-child')!.textContent).toBe('Not imaged yet')
+      expect(text(rows[3]!)).toContain('No dark time')
+      expect(text(rows[3]!)).toContain(
+        'Not requested, under the 1 hour of usable dark a request needs',
+      )
+      expect(button(rows[3]!, 'Request')).toBeUndefined()
+      expect(text(box)).toContain('Past windows from made-up surveys: 3 dips over 2 years.')
+
+      button(rows[4]!, 'Request')!.click()
+      await settle()
+      const post = calls(fetch, '/api/v1/discoveries/dippers/15523/requests')[0]!
+      expect(JSON.parse(String((post[1] as RequestInit).body))).toEqual({
+        mid: '2026-11-07T23:00:00Z',
+      })
+      expect(text(rows[4]!)).toContain('Requested')
+      button(rows[4]!, 'Cancel request')!.click()
+      await settle()
+      const del = fetch.mock.calls.find(
+        (c) => (c[1] as RequestInit | undefined)?.method === 'DELETE',
+      )!
+      expect(String(del[0])).toBe('/api/v1/discoveries/eclipses/requests/90')
+      app.unmount()
+    })
+
+    it('asks for every window with the toggle', async () => {
+      const { el, app, fetch } = await render(dippers(dipper({ windows: windows() })))
+      button(el, 'Dip windows')!.click()
+      await settle()
+      const box = el.querySelector('#every-15523') as HTMLInputElement
+      expect(box.checked).toBe(false)
+      expect(box.closest('label')!.textContent!.trim()).toBe(
+        'Ask for imaging on every window the site can see',
+      )
+      box.checked = true
+      box.dispatchEvent(new Event('change'))
+      await settle()
+      const put = puts(fetch).at(-1)!
+      expect(String(put[0])).toBe('/api/v1/discoveries/dippers/15523/every-window')
+      expect(JSON.parse(String((put[1] as RequestInit).body))).toEqual({ on: true })
+      expect((el.querySelector('#every-15523') as HTMLInputElement).checked).toBe(true)
+      app.unmount()
+    })
+
+    it('says when the dip cycle is not stored', async () => {
+      const { el, app } = await render(
+        dippers(dipper({ ephemeris: null, past_text: 'Past windows: not measured yet.' })),
+      )
+      button(el, 'Dip windows')!.click()
+      await settle()
+      const box = el.querySelector('.dipbox')!
+      expect(text(box)).toContain("Dip windows not set up yet: the star's dip cycle is not stored.")
+      expect(box.querySelector('table')).toBeNull()
+      expect(box.querySelector('input[type="checkbox"]')).toBeNull()
+      expect(text(box)).toContain('Past windows: not measured yet.')
+      app.unmount()
+    })
+
+    it('offers no dip windows on stars that are not dippers', async () => {
+      const { el, app } = await render(
+        stacker({ ...list([star()]), star_types: starTypes, others: [other()] }),
+      )
+      expect(button(el.querySelector('article.other')!, 'Dip windows')).toBeUndefined()
+      const dts = [...el.querySelectorAll('article.other dt')].map((d) => d.textContent)
+      expect(dts).not.toContain('Windows')
+      app.unmount()
+    })
   })
 })

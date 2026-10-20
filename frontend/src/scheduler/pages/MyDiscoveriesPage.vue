@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
+import DipWindowsBox from '../components/DipWindowsBox.vue'
 import SharePicture from '../components/SharePicture.vue'
 import {
   getBinaries,
@@ -101,6 +102,15 @@ const cardError = reactive<Record<number, string>>({})
 const editing = reactive<Record<number, boolean>>({})
 const noteDraft = reactive<Record<number, string>>({})
 const refDraft = reactive<Record<number, string>>({})
+const dipOpen = reactive<Record<number, boolean>>({})
+
+function isDipper(o: OtherStar): boolean {
+  return !!o.dipper || o.star_type?.key === 'dipper'
+}
+
+function setEvery(o: OtherStar, on: boolean) {
+  if (o.dipper) o.dipper.every_window = on
+}
 
 type Card = Binary | OtherStar
 
@@ -397,6 +407,16 @@ const pageState = computed(() => {
                 {{ o.field }}<template v-if="o.magnitude"> · {{ o.magnitude }}</template>
               </div>
               <p class="kind">{{ otherHeadline(o) }}</p>
+              <div v-if="isDipper(o)" class="acts">
+                <button
+                  type="button"
+                  class="btn sm"
+                  :aria-expanded="!!dipOpen[o.source_id]"
+                  @click="dipOpen[o.source_id] = !dipOpen[o.source_id]"
+                >
+                  Dip windows
+                </button>
+              </div>
               <SharePicture
                 v-if="o.share.state !== 'none'"
                 class="pic"
@@ -457,6 +477,14 @@ const pageState = computed(() => {
               <dd>{{ o.period > 0 ? `every ${o.period_text} days` : 'None found' }}</dd>
               <dt>Vet</dt>
               <dd>{{ otherVetText(o) }}</dd>
+              <template v-if="o.dipper?.windows_text">
+                <dt>Windows</dt>
+                <dd>{{ o.dipper.windows_text }}</dd>
+              </template>
+              <template v-if="o.dipper?.dips_text">
+                <dt>Dips</dt>
+                <dd>{{ o.dipper.dips_text }}</dd>
+              </template>
             </dl>
             <div class="notes">
               <div v-if="editing[o.source_id]" class="note-edit">
@@ -498,6 +526,12 @@ const pageState = computed(() => {
                 </div>
               </template>
             </div>
+            <DipWindowsBox
+              v-if="isDipper(o) && dipOpen[o.source_id]"
+              class="dips"
+              :source-id="o.source_id"
+              @every-window="setEvery(o, $event)"
+            />
           </article>
         </div>
       </template>
@@ -630,6 +664,9 @@ dd {
 }
 .who p.bad {
   margin: 6px 0 0;
+}
+.dips {
+  grid-column: 1 / -1;
 }
 .tline {
   grid-column: 1 / -1;
