@@ -6,7 +6,10 @@ import type { DiscoverySource, DiscoverySourceList } from '@/scheduler/api/disco
 import { cygnus, nova, run } from './fixtures/discoveries'
 import cygnusChecks from './fixtures/checksCygnus.json'
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.useRealTimers()
+})
 
 const json = (v: unknown, status = 200) =>
   new Response(JSON.stringify(v), { status, headers: { 'content-type': 'application/json' } })
@@ -229,6 +232,8 @@ describe('DiscoveriesPage', () => {
   })
 
   it('shows a watched find with its watch panel and stops its imaging requests', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-21T18:00:00Z'))
     const w = {
       started_at: '2026-10-19T22:10:00Z',
       confidence: 'low',
@@ -275,7 +280,7 @@ describe('DiscoveriesPage', () => {
     expect(card.textContent).toContain('Watching')
     expect(card.textContent).toContain('watched since Oct 19')
     expect(card.textContent).toContain(
-      'Next: field imaged on 2 of 5 nights · weekly survey check Oct 26',
+      'Next: field requested on 1 of 5 nights · weekly survey check Oct 26',
     )
     const panel = el.querySelector('.watch')!
     expect(panel.textContent).toContain('Real · low confidence')
