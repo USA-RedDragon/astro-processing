@@ -3,7 +3,7 @@ import { createApp, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-router'
 import EclipsePlannerPage from '@/scheduler/pages/EclipsePlannerPage.vue'
 import type { EclipsePlan } from '@/scheduler/api/binaries'
-import { eclipse, plan } from './fixtures/binaries'
+import { dip, eclipse, plan } from './fixtures/binaries'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -92,7 +92,7 @@ describe('EclipsePlannerPage', () => {
     )
     expect(el.textContent).toContain('Times are US Central (made-up zone note).')
     const chips = [...el.querySelectorAll('.chip')].map((c) => c.textContent?.replace(/\s+/g, ' ').trim())
-    expect(chips).toEqual(['Settles a flag 1', 'Period check 1', 'All 3'])
+    expect(chips).toEqual(['Settles a flag 1', 'Period check 1', 'Dip windows 0', 'All 3'])
     const shown = el.querySelectorAll('.ecl')
     expect(shown).toHaveLength(1)
     expect(shown[0]!.classList.contains('flag')).toBe(true)
@@ -221,5 +221,98 @@ describe('EclipsePlannerPage', () => {
     const down = await render(() => json({ error: 'stacker restarting' }, 502))
     expect(down.el.textContent).toContain('The stacker did not answer: stacker restarting')
     down.app.unmount()
+  })
+
+  it('lists dip windows in the night they fall in, with the dark time and the Every window badge', async () => {
+    const { el, app, fetch } = await render((url, init) => {
+      const p = new URL(url, 'http://x').pathname
+      if (p === '/api/v1/discoveries/dippers/15523/requests' && init?.method === 'POST')
+        return json({ id: 77, state: 'waiting', note: '', auto: false })
+      if (init?.method === 'DELETE') return new Response(null, { status: 204 })
+      return json(
+        plan(rows(), {
+          dips: [
+            dip({ every_window: true }),
+            dip({
+              source_id: 15524,
+              name: 'Made-up Dipper Two',
+              mid: '2026-10-21T20:00:00Z',
+              group_at: '2026-10-22T01:00:00Z',
+              day_label: 'Wed Oct 21',
+              dark_note: 'dark from 8:00 PM to 8:40 PM, 40 min',
+              observable: false,
+              observable_note: 'Not requested, under the 1 hour of usable dark a request needs',
+            }),
+          ],
+        }),
+      )
+    })
+    const chips = [...el.querySelectorAll('.chip')].map((c) =>
+      c.textContent?.replace(/\s+/g, ' ').trim(),
+    )
+    expect(chips).toEqual(['Settles a flag 1', 'Period check 1', 'Dip windows 2', 'All 5'])
+    expect(el.textContent).toContain('A window when a dipper can dim')
+    button(el, 'Dip windows')!.click()
+    await settle()
+    expect([...el.querySelectorAll('.day h3')].map((h) => h.textContent)).toEqual([
+      'Tue Oct 20',
+      'Wed Oct 21',
+    ])
+    const [first, second] = [...el.querySelectorAll('.ecl.dip')]
+    const text = (e: Element) => e.textContent!.replace(/\s+/g, ' ')
+    expect(text(first!)).toContain('5:35 AM to 1:35 AM CDT')
+    expect(text(first!)).toContain('middle 3:35 PM Oct 20')
+    expect(text(first!)).toContain('15523 · Test Field D · G 16.90')
+    expect(first!.querySelector('.pill.dip')!.textContent).toBe('Dip window')
+    expect(text(first!)).toContain('dark from 7:05 PM to 1:35 AM, 6 h 30 min')
+    expect(text(first!)).toContain('Made-up reason: a dip here would back the cycle.')
+    expect(first!.querySelector('.badge.info')!.textContent).toBe('Every window')
+    expect(text(second!)).toContain(
+      'Not requested, under the 1 hour of usable dark a request needs',
+    )
+    expect(button(second!, 'Request imaging')).toBeUndefined()
+    expect(second!.querySelector('.badge.info')).toBeNull()
+
+    button(first!, 'Request imaging')!.click()
+    await settle()
+    const post = calls(fetch, '/api/v1/discoveries/dippers/15523/requests')[0]!
+    expect(JSON.parse(String((post[1] as RequestInit).body))).toEqual({
+      mid: '2026-10-20T20:35:00Z',
+    })
+    const row = el.querySelector('.ecl.dip')!
+    expect(text(row)).toContain('Requested')
+    button(row, 'Cancel request')!.click()
+    await settle()
+    const del = fetch.mock.calls.find(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'DELETE',
+    )!
+    expect(String(del[0])).toBe('/api/v1/discoveries/eclipses/requests/77')
+    expect(button(el.querySelector('.ecl.dip')!, 'Request imaging')).toBeDefined()
+    app.unmount()
+  })
+
+  it('mixes a dip window among eclipses by time and filters it by star', async () => {
+    const { el, app } = await render(
+      () =>
+        json(
+          plan(rows(), {
+            dips: [dip({ request: { id: 5, state: 'sent', note: '', auto: true } })],
+          }),
+        ),
+      '/discoveries/eclipses?star=15523',
+    )
+    const shown = [...el.querySelectorAll('.ecl')]
+    expect(shown).toHaveLength(1)
+    expect(shown[0]!.classList.contains('dip')).toBe(true)
+    expect(shown[0]!.textContent).toContain('Sent to the scheduler')
+    expect(shown[0]!.textContent).toContain('Asked by the app')
+    expect(button(shown[0]!, 'Cancel request')).toBeDefined()
+    expect(button(shown[0]!, 'Request imaging')).toBeUndefined()
+    ;(el.querySelector('#ecl-star') as HTMLSelectElement).value = '0'
+    el.querySelector('#ecl-star')!.dispatchEvent(new Event('change'))
+    await settle()
+    const order = [...el.querySelectorAll('.day')][0]!.querySelectorAll('.ecl')
+    expect([...order].map((e) => e.className.split(' ')[1])).toEqual(['flag', 'period', 'dip'])
+    app.unmount()
   })
 })

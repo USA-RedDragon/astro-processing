@@ -5,7 +5,9 @@ import PageHead from '../components/PageHead.vue'
 import {
   cancelEclipseRequest,
   getEclipses,
+  requestDip,
   requestEclipse,
+  type DipWindow,
   type EclipsePlan,
   type PlannedEclipse,
 } from '../api/binaries'
@@ -14,7 +16,8 @@ import {
   durationText,
   eclipseKey,
   groupByDay,
-  inEclipseView,
+  inPlanView,
+  planRows,
   rangeText,
   requestView,
   uncertaintyText,
@@ -75,9 +78,11 @@ function toggleAll(ev: Event) {
 }
 
 const eclipses = computed(() => data.value?.eclipses ?? [])
+const dips = computed(() => data.value?.dips ?? [])
+const allRows = computed(() => planRows(eclipses.value, dips.value))
 const starList = computed(() => {
   const seen = new Map<number, string>()
-  for (const e of eclipses.value) {
+  for (const e of [...eclipses.value, ...dips.value]) {
     if (!seen.has(e.source_id)) seen.set(e.source_id, e.field ? `${e.name} · ${e.field}` : e.name)
   }
   return [...seen].map(([id, label]) => ({ id, label }))
@@ -86,22 +91,23 @@ const starMissing = computed(
   () => star.value !== 0 && !starList.value.some((s) => s.id === star.value),
 )
 const base = computed(() =>
-  star.value ? eclipses.value.filter((e) => e.source_id === star.value) : eclipses.value,
+  star.value ? allRows.value.filter((r) => r.source_id === star.value) : allRows.value,
 )
 const counts = computed(() =>
   Object.fromEntries(
-    ECLIPSE_VIEWS.map((v) => [v.key, base.value.filter((e) => inEclipseView(e, v.key)).length]),
+    ECLIPSE_VIEWS.map((v) => [v.key, base.value.filter((r) => inPlanView(r, v.key)).length]),
   ),
 )
-const days = computed(() => groupByDay(base.value.filter((e) => inEclipseView(e, view.value))))
+const days = computed(() => groupByDay(base.value.filter((r) => inPlanView(r, view.value))))
 
 const lede = computed(() => {
   const d = data.value
   if (!d) return ''
   const range = rangeText(d.from, d.to)
-  return [range ? `Predicted eclipses of your confirmed binaries from ${range}.` : '', d.zone_note]
-    .filter(Boolean)
-    .join(' ')
+  const what = dips.value.length
+    ? 'Predicted eclipses of your confirmed binaries and dip windows of your dippers'
+    : 'Predicted eclipses of your confirmed binaries'
+  return [range ? `${what} from ${range}.` : '', d.zone_note].filter(Boolean).join(' ')
 })
 
 const hiddenText = computed(() => {
@@ -123,8 +129,7 @@ function starLine(e: PlannedEclipse): string {
 const busy = reactive<Record<string, boolean>>({})
 const rowError = reactive<Record<string, string>>({})
 
-async function act(e: PlannedEclipse, run: () => Promise<void>) {
-  const k = eclipseKey(e)
+async function act(k: string, run: () => Promise<void>) {
   busy[k] = true
   rowError[k] = ''
   try {
@@ -137,16 +142,25 @@ async function act(e: PlannedEclipse, run: () => Promise<void>) {
 }
 
 const ask = (e: PlannedEclipse) =>
-  act(e, async () => {
+  act(eclipseKey(e), async () => {
     e.request = await requestEclipse(e)
   })
 
-const cancel = (e: PlannedEclipse) =>
-  act(e, async () => {
+const askDip = (d: DipWindow, k: string) =>
+  act(k, async () => {
+    d.request = await requestDip(d.source_id, d.mid)
+  })
+
+const cancel = (e: PlannedEclipse | DipWindow, k: string) =>
+  act(k, async () => {
     if (!e.request) return
     await cancelEclipseRequest(e.request.id)
     e.request = null
   })
+
+function dipStarLine(d: DipWindow): string {
+  return [String(d.source_id), d.field, d.magnitude].filter(Boolean).join(' · ')
+}
 
 const pageState = computed(() => {
   if (!data.value && loading.value) return 'loading'
@@ -212,75 +226,128 @@ const pageState = computed(() => {
         <span><i class="flag" />Settles a flag from the checks</span>
         <span><i class="period" />Adds a timed eclipse to check the period</span>
         <span><i class="own" />Adds your own eclipse to the VSX package</span>
+        <span><i class="dip" />A window when a dipper can dim</span>
       </div>
 
       <section v-for="d in days" :key="d.label" class="day" :aria-label="d.label">
         <h3>{{ d.label }}</h3>
-        <article
-          v-for="e in d.eclipses"
-          :key="eclipseKey(e)"
-          class="ecl"
-          :class="[e.purpose, { unseen: !e.observable }]"
-        >
-          <div class="tm">
-            <b>{{ e.time_label }}</b> <span class="small dim">{{ e.zone }}</span
-            ><span class="block small dim num">{{ uncertaintyText(e.err_minutes) }}</span>
-          </div>
-          <div class="who">
-            <b>{{ e.name }}</b>
-            <span class="small dim">{{ starLine(e) }}</span>
-            <span class="meta">
-              <span class="pill" :class="e.kind === 'primary' ? 'known' : 'low'">{{
-                e.kind_label
+        <template v-for="r in d.eclipses" :key="r.key">
+          <article
+            v-if="r.kind === 'eclipse'"
+            class="ecl"
+            :class="[r.e.purpose, { unseen: !r.e.observable }]"
+          >
+            <div class="tm">
+              <b>{{ r.e.time_label }}</b> <span class="small dim">{{ r.e.zone }}</span
+              ><span class="block small dim num">{{ uncertaintyText(r.e.err_minutes) }}</span>
+            </div>
+            <div class="who">
+              <b>{{ r.e.name }}</b>
+              <span class="small dim">{{ starLine(r.e) }}</span>
+              <span class="meta">
+                <span class="pill" :class="r.e.kind === 'primary' ? 'known' : 'low'">{{
+                  r.e.kind_label
+                }}</span>
+                <span class="small dim"
+                  ><template v-if="durationText(r.e.duration_hours)">{{
+                    durationText(r.e.duration_hours)
+                  }}</template
+                  ><template v-else>lasts <i>not measured yet</i></template></span
+                >
+              </span>
+              <span class="small" :class="r.e.observable ? 'dim' : 'warn'">{{
+                r.e.observable_note
               }}</span>
-              <span class="small dim"
-                ><template v-if="durationText(e.duration_hours)">{{
-                  durationText(e.duration_hours)
-                }}</template
-                ><template v-else>lasts <i>not measured yet</i></template></span
+            </div>
+            <div class="why">{{ r.e.why }}</div>
+            <div class="go">
+              <template v-if="requestView(r.e.request).label">
+                <span class="badge" :class="requestView(r.e.request).tone">{{
+                  requestView(r.e.request).label
+                }}</span>
+                <span v-if="requestView(r.e.request).by" class="badge info">{{
+                  requestView(r.e.request).by
+                }}</span>
+                <span v-if="requestView(r.e.request).note" class="xsmall dim">{{
+                  requestView(r.e.request).note
+                }}</span>
+              </template>
+              <button
+                v-if="requestView(r.e.request).canRequest"
+                type="button"
+                class="btn sm"
+                :disabled="busy[r.key] || !r.e.observable"
+                :title="r.e.observable ? undefined : r.e.observable_note"
+                @click="ask(r.e)"
               >
-            </span>
-            <span class="small" :class="e.observable ? 'dim' : 'warn'">{{
-              e.observable_note
-            }}</span>
-          </div>
-          <div class="why">{{ e.why }}</div>
-          <div class="go">
-            <template v-if="requestView(e.request).label">
-              <span class="badge" :class="requestView(e.request).tone">{{
-                requestView(e.request).label
-              }}</span>
-              <span v-if="requestView(e.request).by" class="badge info">{{
-                requestView(e.request).by
-              }}</span>
-              <span v-if="requestView(e.request).note" class="xsmall dim">{{
-                requestView(e.request).note
-              }}</span>
-            </template>
-            <button
-              v-if="requestView(e.request).canRequest"
-              type="button"
-              class="btn sm"
-              :disabled="busy[eclipseKey(e)] || !e.observable"
-              :title="e.observable ? undefined : e.observable_note"
-              @click="ask(e)"
-            >
-              {{ e.request ? 'Request again' : 'Request imaging' }}
-            </button>
-            <button
-              v-if="requestView(e.request).canCancel"
-              type="button"
-              class="btn sm ghost"
-              :disabled="busy[eclipseKey(e)]"
-              @click="cancel(e)"
-            >
-              Cancel request
-            </button>
-            <span v-if="rowError[eclipseKey(e)]" class="xsmall bad" role="alert"
-              >That did not go through: {{ rowError[eclipseKey(e)] }}</span
-            >
-          </div>
-        </article>
+                {{ r.e.request ? 'Request again' : 'Request imaging' }}
+              </button>
+              <button
+                v-if="requestView(r.e.request).canCancel"
+                type="button"
+                class="btn sm ghost"
+                :disabled="busy[r.key]"
+                @click="cancel(r.e, r.key)"
+              >
+                Cancel request
+              </button>
+              <span v-if="rowError[r.key]" class="xsmall bad" role="alert"
+                >That did not go through: {{ rowError[r.key] }}</span
+              >
+            </div>
+          </article>
+          <article v-else class="ecl dip" :class="{ unseen: !r.d.observable }">
+            <div class="tm">
+              <b>{{ r.d.window_text }}</b> <span class="small dim">{{ r.d.zone }}</span
+              ><span class="block small dim num">middle {{ r.d.mid_text }}</span>
+            </div>
+            <div class="who">
+              <b>{{ r.d.name }}</b>
+              <span class="small dim">{{ dipStarLine(r.d) }}</span>
+              <span class="meta">
+                <span class="pill dip">Dip window</span>
+                <span class="small dim">{{ r.d.dark_note }}</span>
+              </span>
+            </div>
+            <div class="why">{{ r.d.why }}</div>
+            <div class="go">
+              <template v-if="requestView(r.d.request).label">
+                <span class="badge" :class="requestView(r.d.request).tone">{{
+                  requestView(r.d.request).label
+                }}</span>
+                <span v-if="requestView(r.d.request).by" class="badge info">{{
+                  requestView(r.d.request).by
+                }}</span>
+                <span v-if="requestView(r.d.request).note" class="xsmall dim">{{
+                  requestView(r.d.request).note
+                }}</span>
+              </template>
+              <span v-if="r.d.every_window" class="badge info">Every window</span>
+              <span v-if="!r.d.observable" class="xsmall dim">{{ r.d.observable_note }}</span>
+              <button
+                v-else-if="requestView(r.d.request).canRequest && !r.d.over"
+                type="button"
+                class="btn sm"
+                :disabled="busy[r.key]"
+                @click="askDip(r.d, r.key)"
+              >
+                {{ r.d.request ? 'Request again' : 'Request imaging' }}
+              </button>
+              <button
+                v-if="requestView(r.d.request).canCancel"
+                type="button"
+                class="btn sm ghost"
+                :disabled="busy[r.key]"
+                @click="cancel(r.d, r.key)"
+              >
+                Cancel request
+              </button>
+              <span v-if="rowError[r.key]" class="xsmall bad" role="alert"
+                >That did not go through: {{ rowError[r.key] }}</span
+              >
+            </div>
+          </article>
+        </template>
       </section>
       <p v-if="!days.length" class="empty" style="margin-top: 18px">{{ emptyText }}</p>
     </template>
@@ -318,6 +385,9 @@ const pageState = computed(() => {
 .legend i.own {
   background: var(--low);
 }
+.legend i.dip {
+  background: var(--dip);
+}
 .day {
   margin-top: 18px;
 }
@@ -348,6 +418,9 @@ const pageState = computed(() => {
 }
 .ecl.own {
   border-left-color: var(--low);
+}
+.ecl.dip {
+  border-left-color: var(--dip);
 }
 .ecl.unseen {
   opacity: 0.7;

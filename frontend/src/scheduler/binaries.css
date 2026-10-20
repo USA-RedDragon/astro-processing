@@ -7,6 +7,8 @@
   --low: oklch(0.55 0.02 285);
   --low-bg: oklch(0.95 0.003 285);
   --d-sel: oklch(0.62 0.15 250);
+  --dip: oklch(0.5 0.15 300);
+  --dip-bg: oklch(0.6 0.15 300 / 0.14);
 }
 .dark .bin {
   --d-card: oklch(0.18 0.005 285.8);
@@ -15,6 +17,8 @@
   --low: oklch(0.75 0.02 285);
   --low-bg: oklch(0.28 0.01 285);
   --d-sel: oklch(0.7 0.14 250);
+  --dip: oklch(0.75 0.14 300);
+  --dip-bg: oklch(0.6 0.15 300 / 0.22);
 }
 .bin .dim {
   color: var(--muted-foreground);
@@ -109,6 +113,12 @@
 .bin .pill.low {
   color: var(--low);
   background: var(--low-bg);
+}
+.bin .pill.dip,
+.bin .badge.dip {
+  border-color: transparent;
+  color: var(--dip);
+  background: var(--dip-bg);
 }
 .bin .badge.violet {
   border-color: transparent;

@@ -92,6 +92,13 @@ export interface OtherStar {
   vsx: VsxState
   notes: string
   share: Share
+  dipper?: DipperSummary | null
+}
+
+export interface DipperSummary {
+  windows_text: string
+  dips_text: string
+  every_window: boolean
 }
 
 export interface BinaryList {
@@ -189,7 +196,84 @@ export interface EclipsePlan {
   zone_note: string
   site_known: boolean
   eclipses: PlannedEclipse[]
+  dips?: DipWindow[]
   hidden: number
+}
+
+export interface TimeSpan {
+  start: string
+  end: string
+}
+
+export interface DipImaging {
+  subs: number
+  seconds: number
+  text: string
+}
+
+export type DipResultState = 'dip' | 'no-dip' | 'not-imaged' | 'waiting' | 'measuring' | 'unsure'
+
+export interface DipResult {
+  state: DipResultState
+  label: string
+  note: string
+}
+
+export interface DipWindow {
+  source_id: number
+  name: string
+  field: string
+  magnitude: string
+  period_text: string
+  n: number
+  mid: string
+  start: string
+  end: string
+  group_at: string
+  day_label: string
+  window_text: string
+  zone: string
+  mid_text: string
+  mid_label: string
+  dark: TimeSpan[]
+  dark_minutes: number
+  dark_text: string
+  dark_note: string
+  observable: boolean
+  observable_note: string
+  why: string
+  every_window: boolean
+  over: boolean
+  request: EclipseRequest | null
+  imaging: DipImaging | null
+  result: DipResult
+}
+
+export interface DipperEphemeris {
+  period: number
+  epoch_mjd: number
+  window_hours: number
+  depth_low: number
+  depth_high: number
+  dur_low_hours: number
+  dur_high_hours: number
+  active_share: number
+  past_surveys: string
+  past_dips: number
+  past_years: number
+  past_active: number
+  past_covered: number
+}
+
+export interface DipperView {
+  source_id: number
+  ephemeris: DipperEphemeris | null
+  every_window: boolean
+  windows_text: string
+  dips_text: string
+  past_text: string
+  zone_note: string
+  windows: DipWindow[]
 }
 
 export type TimingKind = 'primary' | 'secondary'
@@ -332,6 +416,14 @@ export const requestEclipse = (e: Pick<PlannedEclipse, 'source_id' | 'kind' | 'm
 
 export const cancelEclipseRequest = (id: number) =>
   api.del<unknown>(`/discoveries/eclipses/requests/${id}`)
+
+export const getDipper = (id: number) => api.get<DipperView>(`/discoveries/dippers/${id}`)
+
+export const setEveryWindow = (id: number, on: boolean) =>
+  api.put<DipperView>(`/discoveries/dippers/${id}/every-window`, { on })
+
+export const requestDip = (id: number, mid: string) =>
+  api.post<EclipseRequest>(`/discoveries/dippers/${id}/requests`, { mid })
 
 export type LiveState = 'early' | 'following' | 'off' | 'comps' | 'no-dip' | 'dip'
 

@@ -1,5 +1,6 @@
 import type {
   Binary,
+  DipWindow,
   EclipsePurpose,
   EclipseRequest,
   KitCheck,
@@ -129,13 +130,13 @@ export function durationText(hours: number | null): string {
   return `lasts about ${hours >= 10 ? Math.round(hours) : Number(hours.toFixed(1))} h`
 }
 
-export interface EclipseDay {
+export interface EclipseDay<T extends { day_label: string } = PlannedEclipse> {
   label: string
-  eclipses: PlannedEclipse[]
+  eclipses: T[]
 }
 
-export function groupByDay(eclipses: PlannedEclipse[]): EclipseDay[] {
-  const out: EclipseDay[] = []
+export function groupByDay<T extends { day_label: string }>(eclipses: T[]): EclipseDay<T>[] {
+  const out: EclipseDay<T>[] = []
   for (const e of eclipses) {
     const last = out.at(-1)
     if (last && last.label === e.day_label) last.eclipses.push(e)
@@ -144,16 +145,61 @@ export function groupByDay(eclipses: PlannedEclipse[]): EclipseDay[] {
   return out
 }
 
-export type EclipseView = EclipsePurpose | 'all'
+export type EclipseView = EclipsePurpose | 'dip' | 'all'
 
 export const ECLIPSE_VIEWS: { key: Exclude<EclipseView, 'own'>; label: string }[] = [
   { key: 'flag', label: 'Settles a flag' },
   { key: 'period', label: 'Period check' },
+  { key: 'dip', label: 'Dip windows' },
   { key: 'all', label: 'All' },
 ]
 
 export function inEclipseView(e: PlannedEclipse, view: EclipseView): boolean {
   return view === 'all' || e.purpose === view
+}
+
+/** One row of the eclipse planner: a predicted eclipse or a dipper's dip window. */
+export type PlanRow =
+  | {
+      kind: 'eclipse'
+      key: string
+      at: number
+      day_label: string
+      source_id: number
+      e: PlannedEclipse
+    }
+  | { kind: 'dip'; key: string; at: number; day_label: string; source_id: number; d: DipWindow }
+
+export function dipKey(d: Pick<DipWindow, 'source_id' | 'mid'>): string {
+  return `${d.source_id}|dip|${d.mid}`
+}
+
+/** Mixes eclipses and dip windows in time order so groupByDay puts each in its night. */
+export function planRows(eclipses: PlannedEclipse[], dips: DipWindow[]): PlanRow[] {
+  const rows: PlanRow[] = [
+    ...eclipses.map((e) => ({
+      kind: 'eclipse' as const,
+      key: eclipseKey(e),
+      at: Date.parse(e.mid),
+      day_label: e.day_label,
+      source_id: e.source_id,
+      e,
+    })),
+    ...dips.map((d) => ({
+      kind: 'dip' as const,
+      key: dipKey(d),
+      at: Date.parse(d.group_at),
+      day_label: d.day_label,
+      source_id: d.source_id,
+      d,
+    })),
+  ]
+  return rows.sort((a, b) => (a.at || 0) - (b.at || 0))
+}
+
+export function inPlanView(r: PlanRow, view: EclipseView): boolean {
+  if (r.kind === 'dip') return view === 'all' || view === 'dip'
+  return inEclipseView(r.e, view)
 }
 
 export function eclipseKey(e: Pick<PlannedEclipse, 'source_id' | 'kind' | 'mid'>): string {

@@ -1,6 +1,8 @@
 import type {
   Binary,
   BinaryList,
+  DipperView,
+  DipWindow,
   OtherStar,
   EclipsePlan,
   Kit,
@@ -217,6 +219,67 @@ export function eclipse(over: Partial<PlannedEclipse> = {}): PlannedEclipse {
     why: 'Made-up reason: adds your own eclipse.',
     window: { start: '2026-10-20T04:00:00Z', end: '2026-10-20T12:00:00Z' },
     request: null,
+    ...over,
+  }
+}
+
+export function dip(over: Partial<DipWindow> = {}): DipWindow {
+  return {
+    source_id: 15523,
+    name: 'Gaia DR3 1000000000000015523',
+    field: 'Test Field D',
+    magnitude: 'G 16.90',
+    period_text: '9.356',
+    n: 12,
+    mid: '2026-10-20T20:35:00Z',
+    start: '2026-10-20T10:35:00Z',
+    end: '2026-10-21T06:35:00Z',
+    group_at: '2026-10-21T00:05:00Z',
+    day_label: 'Tue Oct 20',
+    window_text: '5:35 AM to 1:35 AM',
+    zone: 'CDT',
+    mid_text: '3:35 PM Oct 20',
+    mid_label: 'Oct 20, 3:35 PM',
+    dark: [{ start: '2026-10-21T00:05:00Z', end: '2026-10-21T06:35:00Z' }],
+    dark_minutes: 390,
+    dark_text: '7:05 PM to 1:35 AM',
+    dark_note: 'dark from 7:05 PM to 1:35 AM, 6 h 30 min',
+    observable: true,
+    observable_note: '',
+    why: 'Made-up reason: a dip here would back the cycle.',
+    every_window: false,
+    over: false,
+    request: null,
+    imaging: null,
+    result: { state: 'waiting', label: 'Not imaged yet', note: '' },
+    ...over,
+  }
+}
+
+export function dipper(over: Partial<DipperView> = {}): DipperView {
+  return {
+    source_id: 15523,
+    ephemeris: {
+      period: 9.356,
+      epoch_mjd: 60000.5,
+      window_hours: 20,
+      depth_low: 0.15,
+      depth_high: 0.6,
+      dur_low_hours: 2,
+      dur_high_hours: 18,
+      active_share: 0.25,
+      past_surveys: 'ZTF and ATLAS',
+      past_dips: 3,
+      past_years: 2,
+      past_active: 3,
+      past_covered: 9,
+    },
+    every_window: false,
+    windows_text: 'every 9.356 days, 20 hours wide (made-up)',
+    dips_text: '0.15 to 0.6 mag, made-up',
+    past_text: 'Past windows from made-up surveys: 3 dips over 2 years.',
+    zone_note: 'Times are US Central (made-up zone note).',
+    windows: [],
     ...over,
   }
 }
