@@ -1,0 +1,276 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import type { LiveCurve } from '../api/binaries'
+import { hm } from '../format'
+import {
+  CHART,
+  bandPath,
+  chartOf,
+  compPath,
+  dipFacts,
+  eclipseFacts,
+  expectedPath,
+  pillFor,
+  subline,
+  title,
+  whyText,
+  xTicks,
+  yTicks,
+} from '../liveCurve'
+
+const props = defineProps<{ live: LiveCurve; now: number }>()
+
+const pill = computed(() => pillFor(props.live.state))
+const chart = computed(() => chartOf(props.live, props.now))
+const facts = computed(() =>
+  props.live.kind === 'dip-watch' ? dipFacts(props.live, props.now) : eclipseFacts(props.live),
+)
+const points = computed(() =>
+  (props.live.points ?? []).map((p) => {
+    const x = chart.value.sx(new Date(p.time).getTime())
+    return {
+      id: p.frame_id,
+      x,
+      y: chart.value.sy(p.mag),
+      y0: chart.value.sy(p.mag - p.err),
+      y1: chart.value.sy(p.mag + p.err),
+    }
+  }),
+)
+const nowX = computed(() => {
+  const c = chart.value
+  return props.now >= c.x0 && props.now <= c.x1 ? c.sx(props.now) : null
+})
+const midX = computed(() =>
+  props.live.eclipse ? chart.value.sx(new Date(props.live.eclipse.mid).getTime()) : null,
+)
+const win = computed(() => {
+  const d = props.live.dip
+  if (!d) return null
+  const c = chart.value
+  const x0 = c.sx(new Date(d.start).getTime())
+  const x1 = c.sx(new Date(d.end).getTime())
+  return { x: x0, w: x1 - x0, y: c.sy(d.depth_low), h: c.sy(d.depth_high) - c.sy(d.depth_low) }
+})
+const why = computed(() => whyText(props.live))
+const label = computed(() =>
+  props.live.kind === 'dip-watch'
+    ? `Brightness of ${props.live.name} against time with the dip window`
+    : `Brightness of ${props.live.name} against time with the expected eclipse curve`,
+)
+</script>
+
+<template>
+  <section aria-labelledby="live-h" class="card live">
+    <div class="head">
+      <h2 id="live-h">{{ title(live) }}</h2>
+      <span class="badge" :class="pill.tone">{{ pill.label }}</span>
+    </div>
+    <p class="small muted sub">{{ subline(live, now) }}</p>
+    <p v-if="why" class="small sub">{{ why }}</p>
+    <div class="chart">
+      <svg :viewBox="`0 0 ${CHART.w} ${CHART.h}`" role="img" :aria-label="label">
+        <g v-for="v in yTicks(chart)" :key="'y' + v">
+          <line :x1="CHART.l" :x2="CHART.r" :y1="chart.sy(v)" :y2="chart.sy(v)" class="grid" />
+          <text :x="CHART.l - 6" :y="chart.sy(v) + 4" text-anchor="end">
+            {{ (v > 0 ? '+' : '') + v.toFixed(1) }}
+          </text>
+        </g>
+        <text
+          v-for="t in xTicks(chart)"
+          :key="'x' + t"
+          :x="chart.sx(t)"
+          :y="CHART.b + 16"
+          text-anchor="middle"
+        >
+          {{ hm(t) }}
+        </text>
+        <text x="10" :y="CHART.t + 4">mag</text>
+        <text x="10" :y="CHART.b">fainter</text>
+        <template v-if="win">
+          <rect :x="win.x" :y="CHART.t" :width="win.w" :height="CHART.b - CHART.t" class="window" />
+          <rect :x="win.x" :y="win.y" :width="win.w" :height="win.h" class="band" />
+          <text :x="win.x + 4" :y="win.y + win.h - 4">past dips fell in here</text>
+        </template>
+        <line
+          v-if="live.dip"
+          :x1="CHART.l"
+          :x2="CHART.r"
+          :y1="chart.sy(0)"
+          :y2="chart.sy(0)"
+          class="expect"
+        />
+        <template v-if="live.eclipse">
+          <path :d="bandPath(live, chart)" class="band" />
+          <path :d="expectedPath(live, chart)" class="expect" fill="none" />
+          <template v-if="midX !== null">
+            <line :x1="midX" :x2="midX" :y1="CHART.t" :y2="CHART.b" class="mid" />
+            <text :x="midX + 4" :y="CHART.t + 10">expected middle</text>
+          </template>
+        </template>
+        <path v-if="points.length > 1" :d="compPath(live, chart)" class="comp" fill="none" />
+        <g v-for="p in points" :key="p.id">
+          <line :x1="p.x" :x2="p.x" :y1="p.y0" :y2="p.y1" class="err" />
+          <circle :cx="p.x" :cy="p.y" r="3" class="pt" />
+        </g>
+        <template v-if="nowX !== null">
+          <line :x1="nowX" :x2="nowX" :y1="CHART.t" :y2="CHART.b" class="now" />
+          <text :x="nowX + 4" :y="CHART.b - 6" class="now-t">now {{ hm(now) }}</text>
+        </template>
+      </svg>
+    </div>
+    <p v-if="!points.length" class="small muted sub">
+      Not measured yet. Each sub shows here a minute or two after it is registered.
+    </p>
+    <div class="legend xsmall muted">
+      <template v-if="live.eclipse">
+        <span
+          ><i class="sw" style="background: var(--lc-expect)"></i>Expected, from
+          {{ live.eclipse.basis || 'the surveys' }}</span
+        >
+        <span
+          ><i class="sw" style="background: var(--lc-band)"></i>Where the timing error allows
+          it</span
+        >
+      </template>
+      <template v-else-if="live.dip">
+        <span
+          ><i class="sw" style="background: var(--lc-window)"></i>Window where a dip can come</span
+        >
+        <span
+          ><i class="sw" style="background: var(--lc-band)"></i>Depths seen before,
+          {{ live.dip.depth_low.toFixed(2) }} to {{ live.dip.depth_high.toFixed(2) }} mag</span
+        >
+        <span><i class="sw line" style="background: var(--lc-expect)"></i>Normal level</span>
+      </template>
+      <span
+        ><i class="sw dot" style="background: var(--lc-point)"></i>Your subs{{
+          live.filter ? ' in ' + live.filter : ''
+        }}</span
+      >
+      <span><i class="sw line" style="background: var(--lc-comp)"></i>Nearby stars, average</span>
+    </div>
+    <p v-if="live.other_subs" class="xsmall muted sub">
+      {{ live.other_subs }} {{ live.other_subs === 1 ? 'sub' : 'subs' }} in other filters left off
+      the chart.
+    </p>
+    <div v-if="facts.length" class="lfacts">
+      <div v-for="f in facts" :key="f.label" class="lfact">
+        <span class="xsmall muted">{{ f.label }}</span>
+        <b class="num">{{ f.value }}</b>
+        <span v-if="f.note" class="xsmall muted">{{ f.note }}</span>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.live {
+  flex: 1 1 100%;
+  gap: 0.75rem;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.head h2 {
+  margin: 0;
+}
+.sub {
+  margin: 0;
+}
+.chart {
+  width: 100%;
+  overflow-x: auto;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  min-width: 520px;
+  height: auto;
+}
+.chart text {
+  font-size: 11px;
+  fill: var(--muted-foreground);
+}
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.band {
+  fill: var(--lc-band);
+}
+.window {
+  fill: var(--lc-window);
+}
+.expect {
+  stroke: var(--lc-expect);
+  stroke-width: 2;
+}
+.mid {
+  stroke: var(--lc-expect);
+  stroke-dasharray: 3 4;
+  stroke-width: 1;
+}
+.comp {
+  stroke: var(--lc-comp);
+  stroke-width: 1.5;
+}
+.err {
+  stroke: var(--lc-point);
+  stroke-opacity: 0.35;
+  stroke-width: 1;
+}
+.pt {
+  fill: var(--lc-point);
+}
+.now {
+  stroke: var(--lc-now);
+  stroke-width: 1.5;
+}
+.chart text.now-t {
+  fill: var(--lc-now);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.875rem;
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+.sw {
+  width: 18px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+.sw.line {
+  height: 2px;
+}
+.sw.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+.lfacts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
+  gap: 0.625rem;
+}
+.lfact {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  display: grid;
+  gap: 0.125rem;
+}
+.lfact b {
+  font-weight: 600;
+}
+</style>

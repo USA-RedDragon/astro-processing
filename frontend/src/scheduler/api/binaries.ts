@@ -332,3 +332,77 @@ export const requestEclipse = (e: Pick<PlannedEclipse, 'source_id' | 'kind' | 'm
 
 export const cancelEclipseRequest = (id: number) =>
   api.del<unknown>(`/discoveries/eclipses/requests/${id}`)
+
+export type LiveState = 'early' | 'following' | 'off' | 'comps' | 'no-dip' | 'dip'
+
+export interface LivePoint {
+  frame_id: number
+  time: string
+  filter: string
+  mag: number
+  err: number
+  comp: number
+}
+
+export interface CurveSample {
+  t: string
+  v: number
+  lo: number
+  hi: number
+}
+
+export interface LiveEclipse {
+  kind: 'primary' | 'secondary'
+  mid: string
+  err_min: number
+  start: string
+  end: string
+  depth: number
+  band: string
+  basis: string
+  curve: CurveSample[]
+  shift_min?: number
+  shift_err_min?: number
+  fit_depth?: number
+  fit_depth_err?: number
+  planned_end: string
+}
+
+export interface LiveDip {
+  start: string
+  end: string
+  depth_low: number
+  depth_high: number
+  active_share: number
+  latest?: number
+  smallest?: number
+  over_min?: number
+  dip_start?: string
+  dip_depth?: number
+}
+
+export interface LiveCurve {
+  kind: 'eclipse' | 'dip-watch'
+  project_guid: string
+  project_name: string
+  object: string
+  source_id: number
+  name: string
+  state: LiveState
+  why: string
+  note?: string
+  filter?: string
+  other_subs: number
+  from: string
+  to: string
+  points: LivePoint[] | null
+  comps: number
+  comp_scatter?: number
+  scatter?: number
+  last_sub?: string
+  eclipse?: LiveEclipse
+  dip?: LiveDip
+  updated_at: string
+}
+
+export const getLiveCurve = () => api.get<{ live: LiveCurve | null }>('/discoveries/live-curve')

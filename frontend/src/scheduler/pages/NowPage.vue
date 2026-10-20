@@ -69,6 +69,9 @@ import {
   showCalibLower,
 } from '../nowcalib'
 import MoonKeepNote from '../components/MoonKeepNote.vue'
+import LiveCurveCard from '../components/LiveCurveCard.vue'
+import { getLiveCurve, type LiveCurve } from '../api/binaries'
+import { showLive } from '../liveCurve'
 import { getMoonKeep, type MoonKeepView } from '../api/moonkeep'
 import { nowNote } from '../moonKeep'
 import { getAutofocusRuns } from '../api/autofocus'
@@ -235,6 +238,21 @@ async function loadMoonKeep() {
 
 const moonNow = computed(() => nowNote(moonKeep.value, st.value, shell.now))
 
+const live = ref<LiveCurve | null>(null)
+const liveShown = computed(() =>
+  !calCard.value && showLive(live.value, target.value?.project_guid) ? live.value : null,
+)
+
+async function loadLive() {
+  try {
+    live.value = (await getLiveCurve()).live
+  } catch {
+    live.value = null
+  }
+}
+
+watch(() => target.value?.project_guid, loadLive)
+
 async function loadPreview() {
   try {
     preview.value = await getPreview('tonight')
@@ -286,12 +304,14 @@ onMounted(() => {
   previewTimer = setInterval(loadPreview, 300000)
   loadMoonKeep()
   moonKeepTimer = setInterval(loadMoonKeep, 300000)
+  loadLive()
   historyTimer = setInterval(loadHistory, 30000)
   calibrationTimer = setInterval(loadCalibration, 120000)
   offs.push(
     onEvent('frames', soon),
     onEvent('preview', tonights),
     onEvent('subs', tonights),
+    onEvent('live-curve', loadLive),
     onEvent('command', (e: { data?: CommandRecord }) => {
       if (e.data?.status === 'applied' || e.data?.status === 'pending') loadPreview()
     }),
@@ -1149,6 +1169,8 @@ const cross = (x: number, y: number, r: number) =>
           >Autofocus history</RouterLink
         >
       </section>
+
+      <LiveCurveCard v-if="liveShown" :live="liveShown" :now="shell.now" />
 
       <section v-if="!calSide" aria-labelledby="sub-h" class="card latest">
         <div class="spread">
