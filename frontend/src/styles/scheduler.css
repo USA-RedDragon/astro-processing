@@ -5,6 +5,7 @@
   --lc-point: oklch(0.141 0.005 285.823);
   --lc-comp: oklch(0.552 0.016 285.938);
   --lc-now: oklch(0.56 0.2 25);
+  --lc-bin: oklch(0.52 0.2 300);
   --ok: oklch(0.5 0.13 155);
   --ok-bg: oklch(0.696 0.17 162.48 / 0.15);
   --warn: oklch(0.56 0.14 65);
@@ -53,6 +54,7 @@
   --lc-point: oklch(0.985 0 0);
   --lc-comp: oklch(0.705 0.015 286.067);
   --lc-now: oklch(0.7 0.18 25);
+  --lc-bin: oklch(0.75 0.15 300);
   --ha: oklch(0.52 0.16 0);
   --oiii: oklch(0.67 0.13 209);
   --sii: oklch(0.85 0.16 86);

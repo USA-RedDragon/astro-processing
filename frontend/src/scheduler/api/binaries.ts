@@ -425,7 +425,7 @@ export const setEveryWindow = (id: number, on: boolean) =>
 export const requestDip = (id: number, mid: string) =>
   api.post<EclipseRequest>(`/discoveries/dippers/${id}/requests`, { mid })
 
-export type LiveState = 'early' | 'following' | 'off' | 'comps' | 'no-dip' | 'dip'
+export type LiveState = 'early' | 'following' | 'off' | 'comps' | 'faint' | 'no-dip' | 'dip'
 
 export interface LivePoint {
   frame_id: number
@@ -434,6 +434,16 @@ export interface LivePoint {
   mag: number
   err: number
   comp: number
+  spread?: number
+  agree?: number
+  present?: number
+}
+
+export interface LiveBin {
+  time: string
+  mag: number
+  err: number
+  subs: number
 }
 
 export interface CurveSample {
@@ -471,6 +481,8 @@ export interface LiveDip {
   over_min?: number
   dip_start?: string
   dip_depth?: number
+  run?: number
+  bins?: LiveBin[]
 }
 
 export interface LiveCurve {
@@ -490,6 +502,8 @@ export interface LiveCurve {
   points: LivePoint[] | null
   comps: number
   comp_scatter?: number
+  comp_shift?: number
+  comp_spread?: number
   scatter?: number
   last_sub?: string
   eclipse?: LiveEclipse

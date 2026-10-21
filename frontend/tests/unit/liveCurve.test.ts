@@ -115,7 +115,8 @@ describe('live curve card words', () => {
     expect(pillFor('early')).toEqual({ label: 'Too early to tell', tone: 'warn' })
     expect(pillFor('following')).toEqual({ label: 'Following the expected curve', tone: 'ok' })
     expect(pillFor('off')).toEqual({ label: 'Off the expected curve', tone: 'warn' })
-    expect(pillFor('comps')).toEqual({ label: 'Nearby stars moving', tone: 'warn' })
+    expect(pillFor('comps')).toEqual({ label: 'Nearby stars disagree', tone: 'warn' })
+    expect(pillFor('faint')).toEqual({ label: 'Star too faint to read', tone: 'warn' })
     expect(pillFor('dip')).toEqual({ label: 'Dip seen', tone: 'ok' })
     expect(pillFor('no-dip')).toEqual({ label: 'No dip yet', tone: 'warn' })
   })
@@ -147,7 +148,7 @@ describe('live curve card words', () => {
     expect(f.map((x) => x.value)).toEqual([
       '3 min late, give or take 5',
       '0.43 mag',
-      'Steady, 0.02 mag',
+      'Agree',
       '12 before and 14 after the middle',
     ])
     const e = eclipse()
@@ -167,7 +168,7 @@ describe('live curve card words', () => {
     expect(dipFacts(dipWatch(), now).map((x) => [x.label, x.value])).toEqual([
       ['Level now', '0.01 mag fainter'],
       ['Smallest dip it would catch', '0.08 mag'],
-      ['Nearby stars', 'Steady, 0.02 mag'],
+      ['Nearby stars', 'Agree'],
       ['Window left', '1 h 29 min'],
     ])
     const seen = dipWatch({
@@ -177,9 +178,13 @@ describe('live curve card words', () => {
     expect(dipFacts(seen, now)[0]).toEqual({
       label: 'Dip',
       value: `0.31 mag from ${hm(at(30))}`,
-      note: 'nearby stars steady through it',
+      note: 'nearby stars agree through it',
     })
-    expect(dipFacts(dipWatch({ state: 'comps' }), now)[2]!.value).toBe('Moving, 0.02 mag')
+    expect(dipFacts(dipWatch({ state: 'comps' }), now)[2]!.value).toBe('Disagree')
+    const hazy = dipFacts(dipWatch({ comp_shift: 0.24, comp_spread: 0.17 }), now)[2]!
+    expect(hazy.value).toBe('Agree, 0.17 mag apart')
+    expect(hazy.note).toContain("0.24 mag dimmer together now, taken out of the star's points")
+    expect(pillFor('no-dip').label).toBe('No dip yet')
   })
 
   it('writes the why in local time', () => {

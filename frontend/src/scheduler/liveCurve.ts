@@ -15,7 +15,9 @@ export function pillFor(state: LiveState): Pill {
     case 'off':
       return { label: 'Off the expected curve', tone: 'warn' }
     case 'comps':
-      return { label: 'Nearby stars moving', tone: 'warn' }
+      return { label: 'Nearby stars disagree', tone: 'warn' }
+    case 'faint':
+      return { label: 'Star too faint to read', tone: 'warn' }
     case 'dip':
       return { label: 'Dip seen', tone: 'ok' }
     case 'no-dip':
@@ -92,13 +94,17 @@ function compsFact(live: LiveCurve): Fact {
       note: `${live.comps || 'no'} stars to compare with`,
     }
   }
-  const moving = live.state === 'comps'
+  const disagree = live.state === 'comps'
+  const shift = live.comp_shift ?? 0
+  const spread = live.comp_spread !== undefined ? `, ${live.comp_spread.toFixed(2)} mag apart` : ''
   return {
     label: 'Nearby stars',
-    value: `${moving ? 'Moving' : 'Steady'}, ${live.comp_scatter.toFixed(2)} mag`,
-    note: moving
-      ? `${live.comps} stars; cloud or haze, so the reading is held back`
-      : `${live.comps} stars, so a change is the star's own`,
+    value: `${disagree ? 'Disagree' : 'Agree'}${spread}`,
+    note: disagree
+      ? `${live.comps} stars, so the reading is held back`
+      : Math.abs(shift) >= 0.05
+        ? `${live.comps} stars, ${mag(shift)} ${shift > 0 ? 'dimmer' : 'brighter'} together now, taken out of the star's points`
+        : `${live.comps} stars, so a change is the star's own`,
   }
 }
 
@@ -157,7 +163,7 @@ export function dipFacts(live: LiveCurve, now: number): Fact[] {
     out.push({
       label: 'Dip',
       value: `${mag(d.dip_depth)} from ${hm(d.dip_start)}`,
-      note: 'nearby stars steady through it',
+      note: 'nearby stars agree through it',
     })
   }
   if (d.latest !== undefined && live.scatter !== undefined) {
@@ -168,7 +174,9 @@ export function dipFacts(live: LiveCurve, now: number): Fact[] {
     out.push({
       label: 'Level now',
       value: word,
-      note: `single subs scatter ${live.scatter.toFixed(2)}`,
+      note: d.run
+        ? `last ${d.run} subs averaged; single subs scatter ${live.scatter.toFixed(2)}`
+        : `single subs scatter ${live.scatter.toFixed(2)}`,
     })
   } else {
     out.push({ label: 'Level now', value: 'Not measured yet', note: 'needs 6 subs' })

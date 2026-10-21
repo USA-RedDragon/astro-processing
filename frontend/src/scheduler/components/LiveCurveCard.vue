@@ -55,6 +55,18 @@ const points = computed(() =>
     }
   }),
 )
+const bins = computed(() =>
+  (props.live.dip?.bins ?? []).map((b) => {
+    const x = chart.value.sx(new Date(b.time).getTime())
+    return {
+      key: b.time,
+      x,
+      y: chart.value.sy(b.mag),
+      y0: chart.value.sy(b.mag - b.err),
+      y1: chart.value.sy(b.mag + b.err),
+    }
+  }),
+)
 const nowX = computed(() => {
   const c = chart.value
   return props.now >= c.x0 && props.now <= c.x1 ? c.sx(props.now) : null
@@ -137,6 +149,10 @@ const label = computed(() =>
           <line :x1="p.x" :x2="p.x" :y1="p.y0" :y2="p.y1" class="err" />
           <circle :cx="p.x" :cy="p.y" r="3" class="pt" />
         </g>
+        <g v-for="b in bins" :key="'b' + b.key">
+          <line :x1="b.x" :x2="b.x" :y1="b.y0" :y2="b.y1" class="bin-err" />
+          <rect :x="b.x - 5" :y="b.y - 5" width="10" height="10" class="bin" />
+        </g>
         <template v-if="nowX !== null">
           <line :x1="nowX" :x2="nowX" :y1="box.t" :y2="box.b" class="now" />
           <text :x="nowX + 4" :y="box.b - 6" class="now-t">now {{ hm(now) }}</text>
@@ -172,7 +188,14 @@ const label = computed(() =>
           live.filter ? ' in ' + live.filter : ''
         }}</span
       >
-      <span><i class="sw line" style="background: var(--lc-comp)"></i>Nearby stars, average</span>
+      <span v-if="bins.length"
+        ><i class="sw" style="background: var(--lc-bin)"></i>Average of {{ live.dip?.run }} subs,
+        what the watch judges</span
+      >
+      <span
+        ><i class="sw line" style="background: var(--lc-comp)"></i>Nearby stars together, already
+        taken out of your subs</span
+      >
     </div>
     <p v-if="live.other_subs" class="xsmall muted sub">
       {{ live.other_subs }} {{ live.other_subs === 1 ? 'sub' : 'subs' }} in other filters left off
@@ -248,6 +271,15 @@ const label = computed(() =>
 }
 .pt {
   fill: var(--lc-point);
+}
+.bin {
+  fill: var(--lc-bin);
+  stroke: var(--lc-point);
+  stroke-width: 1;
+}
+.bin-err {
+  stroke: var(--lc-bin);
+  stroke-width: 2.5;
 }
 .now {
   stroke: var(--lc-now);
