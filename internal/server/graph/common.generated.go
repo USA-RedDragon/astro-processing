@@ -4,7 +4,6 @@ package graph
 
 import (
 	"context"
-	"errors"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -44,7 +43,7 @@ func (ec *executionContext) _ImagingStats_desired_images(ctx context.Context, fi
 	)
 }
 func (ec *executionContext) fieldContext_ImagingStats_desired_images(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, "Int")
 }
 
 func (ec *executionContext) _ImagingStats_accepted_images(ctx context.Context, field graphql.CollectedField, obj *model.ImagingStats) (ret graphql.Marshaler) {
@@ -67,7 +66,7 @@ func (ec *executionContext) _ImagingStats_accepted_images(ctx context.Context, f
 	)
 }
 func (ec *executionContext) fieldContext_ImagingStats_accepted_images(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, "Int")
 }
 
 func (ec *executionContext) _ImagingStats_rejected_images(ctx context.Context, field graphql.CollectedField, obj *model.ImagingStats) (ret graphql.Marshaler) {
@@ -90,7 +89,7 @@ func (ec *executionContext) _ImagingStats_rejected_images(ctx context.Context, f
 	)
 }
 func (ec *executionContext) fieldContext_ImagingStats_rejected_images(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, "Int")
 }
 
 func (ec *executionContext) _ImagingStats_acquired_images(ctx context.Context, field graphql.CollectedField, obj *model.ImagingStats) (ret graphql.Marshaler) {
@@ -113,7 +112,7 @@ func (ec *executionContext) _ImagingStats_acquired_images(ctx context.Context, f
 	)
 }
 func (ec *executionContext) fieldContext_ImagingStats_acquired_images(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("ImagingStats", field, false, false, "Int")
 }
 
 // endregion **************************** field.gotpl *****************************
@@ -134,8 +133,7 @@ func (ec *executionContext) _ImagingStats(ctx context.Context, sel ast.Selection
 	fields := graphql.CollectFields(ec.OperationContext, sel, imagingStatsImplementors)
 
 	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	deferred := graphql.NewDeferredGroup(ctx)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
@@ -169,14 +167,10 @@ func (ec *executionContext) _ImagingStats(ctx context.Context, sel ast.Selection
 		return graphql.Null
 	}
 
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
 
 	return out
 }
@@ -187,9 +181,7 @@ func (ec *executionContext) _ImagingStats(ctx context.Context, sel ast.Selection
 
 func (ec *executionContext) marshalNImagingStats2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐImagingStats(ctx context.Context, sel ast.SelectionSet, v *model.ImagingStats) graphql.Marshaler {
 	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
+		graphql.AddInvalidNullError(ctx, "ImagingStats!")
 		return graphql.Null
 	}
 	return ec._ImagingStats(ctx, sel, v)

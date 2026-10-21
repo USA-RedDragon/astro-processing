@@ -4,7 +4,6 @@ package graph
 
 import (
 	"context"
-	"errors"
 	"math"
 	"strconv"
 	"sync/atomic"
@@ -49,7 +48,7 @@ func (ec *executionContext) _OtherTarget_name(ctx context.Context, field graphql
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "String")
 }
 
 func (ec *executionContext) _OtherTarget_lights(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -72,7 +71,7 @@ func (ec *executionContext) _OtherTarget_lights(ctx context.Context, field graph
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_lights(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "Int")
 }
 
 func (ec *executionContext) _OtherTarget_recorded(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -95,7 +94,7 @@ func (ec *executionContext) _OtherTarget_recorded(ctx context.Context, field gra
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_recorded(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "Int")
 }
 
 func (ec *executionContext) _OtherTarget_stacked(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -118,7 +117,7 @@ func (ec *executionContext) _OtherTarget_stacked(ctx context.Context, field grap
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_stacked(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "Int")
 }
 
 func (ec *executionContext) _OtherTarget_nights(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -141,7 +140,7 @@ func (ec *executionContext) _OtherTarget_nights(ctx context.Context, field graph
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_nights(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type Int does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "Int")
 }
 
 func (ec *executionContext) _OtherTarget_first_night(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -164,7 +163,7 @@ func (ec *executionContext) _OtherTarget_first_night(ctx context.Context, field 
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_first_night(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "String")
 }
 
 func (ec *executionContext) _OtherTarget_last_night(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -187,7 +186,7 @@ func (ec *executionContext) _OtherTarget_last_night(ctx context.Context, field g
 	)
 }
 func (ec *executionContext) fieldContext_OtherTarget_last_night(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("OtherTarget", field, false, false, "String")
 }
 
 func (ec *executionContext) _OtherTarget_cover(ctx context.Context, field graphql.CollectedField, obj *model.OtherTarget) (ret graphql.Marshaler) {
@@ -272,8 +271,7 @@ func (ec *executionContext) _OtherTarget(ctx context.Context, sel ast.SelectionS
 	fields := graphql.CollectFields(ec.OperationContext, sel, otherTargetImplementors)
 
 	out := graphql.NewFieldSet(fields)
-	deferredFieldSet := graphql.NewFieldSet(nil)
-	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	deferred := graphql.NewDeferredGroup(ctx)
 	for i, field := range fields {
 		switch field.Name {
 		case "__typename":
@@ -314,81 +312,17 @@ func (ec *executionContext) _OtherTarget(ctx context.Context, sel ast.SelectionS
 				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "cover":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._OtherTarget_cover(ctx, field, obj)
-				if res == graphql.RequiredNull {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, false,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._OtherTarget_cover(ctx, field, obj)
 				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "masters":
-			field := field
-
-			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._OtherTarget_masters(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&fs.Invalids, 1)
-				}
-				return res
-			}
-
-			if field.IsDeferred() {
-				deferredFieldSet.AddField(field)
-				fieldIndex := len(deferredFieldSet.Values) - 1
-				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
-					return innerFunc(ctx, deferredFieldSet)
+			out.ResolveConcurrently(ec.OperationContext, &deferred, i,
+				true, true,
+				func(ctx context.Context) graphql.Marshaler {
+					return ec._OtherTarget_masters(ctx, field, obj)
 				})
-
-				for _, deferrable := range field.Deferrables {
-					view, ok := deferLabelToView[deferrable.Label]
-					if !ok {
-						view = deferredFieldSet.NewView()
-						deferLabelToView[deferrable.Label] = view
-					}
-					view.AddIndices(fieldIndex)
-				}
-
-				// don't run the out.Concurrently() call below
-				out.Values[i] = graphql.Null
-				continue
-			}
-
-			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -398,14 +332,10 @@ func (ec *executionContext) _OtherTarget(ctx context.Context, sel ast.SelectionS
 		return graphql.Null
 	}
 
-	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
-
-	ec.ProcessDeferredGroup(graphql.DeferredGroup{
-		Defers:   deferLabelToView,
-		Path:     graphql.GetPath(ctx),
-		FieldSet: deferredFieldSet,
-		Context:  ctx,
-	})
+	if n := len(deferred.Defers); n > 0 {
+		atomic.AddInt32(&ec.Deferred, int32(min(n, math.MaxInt32)))
+		ec.ProcessDeferredGroup(deferred)
+	}
 
 	return out
 }
@@ -432,9 +362,7 @@ func (ec *executionContext) marshalNOtherTarget2ᚕᚖgithubᚗcomᚋUSAᚑRedDr
 
 func (ec *executionContext) marshalNOtherTarget2ᚖgithubᚗcomᚋUSAᚑRedDragonᚋastroᚑprocessingᚋinternalᚋserverᚋgraphᚋmodelᚐOtherTarget(ctx context.Context, sel ast.SelectionSet, v *model.OtherTarget) graphql.Marshaler {
 	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
-		}
+		graphql.AddInvalidNullError(ctx, "OtherTarget!")
 		return graphql.Null
 	}
 	return ec._OtherTarget(ctx, sel, v)
