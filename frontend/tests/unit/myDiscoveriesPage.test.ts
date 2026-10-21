@@ -4,6 +4,8 @@ import { createMemoryHistory, createRouter, RouterView, type Router } from 'vue-
 import MyDiscoveriesPage from '@/scheduler/pages/MyDiscoveriesPage.vue'
 import type { Binary, BinaryList, DipperView, OtherStar } from '@/scheduler/api/binaries'
 import { dip, dipper, flagged, list, other, star, starTypes, submitted } from './fixtures/binaries'
+import { claims, mention, starClaims } from './fixtures/claims'
+import type { Claims, Mention } from '@/scheduler/api/claims'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -554,5 +556,167 @@ describe('MyDiscoveriesPage', () => {
       expect(dts).not.toContain('Windows')
       app.unmount()
     })
+  })
+})
+
+describe('MyDiscoveriesPage claims watch', () => {
+  function withClaims(c: Claims): Handler {
+    const base = stacker()
+    const marks = new Map<number, Mention>()
+    for (const st of c.per_star) for (const m of st.mentions) marks.set(m.id, m)
+    return (url, init) => {
+      const p = new URL(url, 'http://x').pathname
+      const one = /^\/api\/v1\/discoveries\/claims\/mentions\/(\d+)$/.exec(p)
+      if (one && init?.method === 'PUT') {
+        const m = { ...marks.get(Number(one[1]))!, mark: JSON.parse(String(init.body)).mark }
+        marks.set(m.id, m)
+        return json(m)
+      }
+      if (p === '/api/v1/discoveries/claims')
+        return json({
+          ...c,
+          per_star: c.per_star.map((st) => ({
+            ...st,
+            mentions: st.mentions.map((m) => marks.get(m.id)!),
+          })),
+        })
+      return base(url, init)
+    }
+  }
+
+  const fresh = () =>
+    claims({
+      per_star: [
+        starClaims({
+          source_id: 101,
+          new: 1,
+          known: 1,
+          mentions: [
+            mention({ id: 7 }),
+            mention({
+              id: 8,
+              where: 'vizier',
+              label: 'VizieR',
+              title: 'Made-up table 2023',
+              url: '',
+              dated: null,
+              status: 'known',
+            }),
+          ],
+          checks: starClaims().checks.map((ch) =>
+            ch.where === 'vsx'
+              ? { ...ch, new: 1 }
+              : ch.where === 'vizier'
+                ? { ...ch, known: 1 }
+                : ch.where === 'ads'
+                  ? { ...ch, state: 'not_checked' as const, note: 'needs an ADS key' }
+                  : ch.where === 'tns'
+                    ? { ...ch, state: 'failed' as const, note: 'the site did not answer' }
+                    : ch,
+          ),
+        }),
+        starClaims({ source_id: 202 }),
+      ],
+    })
+
+  it('hides the strip and chip quietly when the stacker has no claims watch', async () => {
+    const { el, app } = await render(stacker())
+    expect(el.querySelector('.watch')).toBeNull()
+    expect(chips(el).some((c) => c?.startsWith('Mentioned elsewhere'))).toBe(false)
+    expect(el.querySelector('.claims')).toBeNull()
+    app.unmount()
+  })
+
+  it('shows the strip, the chip and a new mention on the star card', async () => {
+    const { el, app } = await render(withClaims(fresh()))
+    expect(chips(el)).toContain('Mentioned elsewhere 1 new')
+    const strip = el.querySelector('.watch')!.textContent!.replace(/\s+/g, ' ')
+    expect(strip).toContain('Claims watch · 3 stars')
+    expect(strip).toContain('last checked Sun, Oct 25, 3:10 AM CDT')
+    expect(strip).toContain('next check Sun, Nov 1')
+    expect(strip).toContain('Your record: Zenodo, published Oct 20, 7:12 PM CDT')
+    expect(strip).toContain('1 new mention')
+    const card = el.querySelector(
+      '.find[class*="s-"] .claims[aria-label="Who else lists find #101"]',
+    )!
+    expect(card).not.toBeNull()
+    const hits = card.querySelectorAll('.hit')
+    expect(hits).toHaveLength(2)
+    expect(hits[0]!.textContent).toContain('New since your record')
+    expect(hits[0]!.textContent).toContain('VSX, made-up entry, dated Oct 23, 2026')
+    expect(hits[0]!.textContent).toContain(
+      'Your Zenodo record is dated Oct 20, 2026, 3 days before this.',
+    )
+    expect(hits[0]!.querySelector('a[href="https://vsx.example/1"]')!.textContent).toBe(
+      'Open the VSX entry',
+    )
+    expect(hits[1]!.classList.contains('old')).toBe(true)
+    expect(hits[1]!.textContent).toContain('Known before your record')
+    expect(hits[1]!.querySelector('a')).toBeNull()
+    const cells = [...card.querySelectorAll('tbody tr')].map((r) =>
+      [...r.querySelectorAll('td')].map((d) => d.textContent?.replace(/\s+/g, ' ').trim()),
+    )
+    expect(cells.map((r) => r[0])).toEqual([
+      'VSX',
+      'TNS',
+      'SIMBAD',
+      'ADS',
+      'arXiv',
+      'ATels and Gaia alerts',
+      'VizieR',
+    ])
+    expect(cells[0]![2]).toBe('1 new')
+    expect(cells[1]![2]).toMatch(/^could not check\s*the site did not answer$/)
+    expect(cells[3]![2]).toBe('needs an ADS key')
+    expect(cells[2]![2]).toBe('none')
+    expect(cells[6]![2]).toBe('1 known')
+    const quiet = el.querySelector('.claims[aria-label="Who else lists find #202"]')!
+    expect(quiet.querySelector('.hit')).toBeNull()
+    expect(quiet.querySelector('table')).toBeNull()
+    expect(quiet.textContent).toContain('nobody else lists it')
+    app.unmount()
+  })
+
+  it('marks a mention as citing and clears the new count', async () => {
+    const { el, app, fetch } = await render(withClaims(fresh()))
+    const box = el.querySelector('.claims[aria-label="Who else lists find #101"]')!
+    button(box, 'Mark as citing my work')!.click()
+    await settle()
+    await settle()
+    const put = puts(fetch)
+    expect(put).toHaveLength(1)
+    expect(new URL(String(put[0]![0]), 'http://x').pathname).toBe(
+      '/api/v1/discoveries/claims/mentions/7',
+    )
+    expect(JSON.parse(String((put[0]![1] as RequestInit).body))).toEqual({ mark: 'citing' })
+    expect(chips(el)).toContain('Mentioned elsewhere none new')
+    expect(el.querySelector('.watch')!.textContent).toContain('no new mentions')
+    const hit = el.querySelector('.hit[data-mention="7"]')!
+    expect(hit.textContent).toContain('Cites your work')
+    expect(hit.textContent).toContain('You marked this as citing your work.')
+    expect(button(hit, 'Clear the mark')).toBeDefined()
+    app.unmount()
+  })
+
+  it('shows only stars with new mentions from the chip', async () => {
+    const { el, app } = await render(withClaims(fresh()))
+    button(el, 'Mentioned elsewhere')!.click()
+    await settle()
+    expect(
+      [...el.querySelectorAll('.find')].map((c) => c.querySelector('.t')!.textContent),
+    ).toEqual([expect.stringContaining('find #101')])
+    app.unmount()
+  })
+
+  it('says not checked yet before the first check', async () => {
+    const c = claims({
+      last_checked: null,
+      next_check: null,
+      per_star: [starClaims({ last_checked: null })],
+    })
+    const { el, app } = await render(withClaims(c))
+    expect(el.querySelector('.watch')!.textContent).toContain('not checked yet')
+    expect(el.querySelector('.claims')!.textContent).toContain('not checked yet')
+    app.unmount()
   })
 })

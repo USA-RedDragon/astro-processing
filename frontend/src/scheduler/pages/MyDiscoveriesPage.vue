@@ -4,6 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import DipWindowsBox from '../components/DipWindowsBox.vue'
 import SharePicture from '../components/SharePicture.vue'
+import ClaimsBox from '../components/ClaimsBox.vue'
+import { getClaims, type Claims, type Mention, type StarClaims } from '../api/claims'
+import {
+  chipText,
+  lastCheckedText,
+  nextCheckText,
+  openNew,
+  recordText,
+  totalOpenNew,
+} from '../claims'
 import {
   getBinaries,
   updateBinary,
@@ -74,16 +84,56 @@ watch(
   },
 )
 
-onMounted(load)
+const claims = ref<Claims | null>(null)
+const claimsReq = latestOnly()
+
+async function loadClaims() {
+  const current = claimsReq.next()
+  try {
+    const r = await getClaims()
+    if (current()) claims.value = r
+  } catch {
+    if (current()) claims.value = null
+  }
+}
+
+const claimsOf = computed(() => {
+  const m = new Map<number, StarClaims>()
+  for (const s of claims.value?.per_star ?? []) m.set(s.source_id, s)
+  return m
+})
+const newMentions = computed(() => (claims.value ? totalOpenNew(claims.value) : 0))
+const onlyNew = ref(false)
+
+function hasNew(id: number): boolean {
+  return openNew(claimsOf.value.get(id)) > 0
+}
+
+function marked(m: Mention) {
+  for (const s of claims.value?.per_star ?? []) {
+    const i = s.mentions.findIndex((x) => x.id === m.id)
+    if (i >= 0) s.mentions[i] = m
+  }
+  loadClaims()
+}
+
+onMounted(() => {
+  load()
+  loadClaims()
+})
 onUnmounted(() => {
   if (factsTimer) clearInterval(factsTimer)
 })
 
 const stars = computed(() => data.value?.stars ?? [])
 const counts = computed(() => starViewCounts(stars.value))
-const rows = computed(() => stars.value.filter((b) => inStarView(b, view.value)))
+const rows = computed(() =>
+  stars.value.filter((b) => inStarView(b, view.value) && (!onlyNew.value || hasNew(b.source_id))),
+)
 const others = computed(() => data.value?.others ?? [])
-const otherRows = computed(() => others.value.filter((o) => inOtherView(o, view.value)))
+const otherRows = computed(() =>
+  others.value.filter((o) => inOtherView(o, view.value) && (!onlyNew.value || hasNew(o.source_id))),
+)
 const starTypes = computed(() => data.value?.star_types ?? [])
 const viewLabel = computed(() => STAR_VIEWS.find((v) => v.key === view.value)?.label ?? 'All')
 const factsText = computed(() => {
@@ -212,6 +262,41 @@ const pageState = computed(() => {
         >
           {{ v.label }} <span class="n">{{ counts[v.key] }}</span>
         </button>
+        <button
+          v-if="claims"
+          type="button"
+          class="chip"
+          :class="{ alert: newMentions > 0 }"
+          :aria-pressed="onlyNew"
+          title="Show only stars with new mentions elsewhere"
+          @click="onlyNew = !onlyNew"
+        >
+          Mentioned elsewhere <span class="n">{{ chipText(claims) }}</span>
+        </button>
+      </div>
+      <div v-if="claims" class="watch" role="status">
+        <span
+          ><b>Claims watch</b> · {{ claims.stars }}
+          {{ claims.stars === 1 ? 'star' : 'stars' }}</span
+        >
+        <span class="dim">{{ lastCheckedText(claims) }}</span>
+        <span v-if="nextCheckText(claims)" class="dim">{{ nextCheckText(claims) }}</span>
+        <span
+          >Your record:
+          <a
+            v-if="claims.record?.url"
+            class="dim"
+            :href="claims.record.url"
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ recordText(claims.record) }}</a
+          ><span v-else class="dim">{{ recordText(claims.record) }}</span></span
+        >
+        <span class="badge" :class="newMentions ? 'bad' : 'ok'">{{
+          newMentions
+            ? `${newMentions} new ${newMentions === 1 ? 'mention' : 'mentions'}`
+            : 'no new mentions'
+        }}</span>
       </div>
       <div class="sec">{{ starsLine(viewLabel, rows.length) }}</div>
       <div class="list">
@@ -349,6 +434,13 @@ const pageState = computed(() => {
               </div>
             </template>
           </div>
+          <ClaimsBox
+            v-if="claims && claimsOf.get(b.source_id)"
+            :star="claimsOf.get(b.source_id)!"
+            :sources="claims.sources"
+            :record="claims.record"
+            @marked="marked"
+          />
           <div v-if="b.timing" class="tline">
             <div class="k">Eclipse timings</div>
             <div class="v">
@@ -526,6 +618,13 @@ const pageState = computed(() => {
                 </div>
               </template>
             </div>
+            <ClaimsBox
+              v-if="claims && claimsOf.get(o.source_id)"
+              :star="claimsOf.get(o.source_id)!"
+              :sources="claims.sources"
+              :record="claims.record"
+              @marked="marked"
+            />
             <DipWindowsBox
               v-if="isDipper(o) && dipOpen[o.source_id]"
               class="dips"
@@ -540,6 +639,27 @@ const pageState = computed(() => {
 </template>
 
 <style scoped>
+.watch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--d-card);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.watch a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.chip.alert:not([aria-pressed='true']) {
+  border-color: var(--bad);
+  color: var(--bad);
+}
 .list {
   display: flex;
   flex-direction: column;
