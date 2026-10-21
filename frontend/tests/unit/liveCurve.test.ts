@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import { createApp, nextTick } from 'vue'
 import type { LiveCurve, LivePoint } from '@/scheduler/api/binaries'
 import { clock, hm } from '@/scheduler/format'
@@ -14,7 +14,9 @@ import {
   showLive,
   subline,
   title,
+  TICK_GAP,
   whyText,
+  xTicks,
   yTicks,
 } from '@/scheduler/liveCurve'
 import LiveCurveCard from '@/scheduler/components/LiveCurveCard.vue'
@@ -231,4 +233,78 @@ describe('live curve card', () => {
     expect(el.textContent).toContain('Depths seen before, 0.15 to 0.60 mag')
     empty.unmount()
   })
+})
+
+const LABEL_W = 5 * 6.5
+
+function longWatch(): LiveCurve {
+  return dipWatch({
+    from: at(-600),
+    to: at(720),
+    points: points(60, 20, -580),
+    dip: { ...dipWatch().dip!, start: at(-600), end: at(720) },
+  })
+}
+
+function expectApart(xs: number[], w: number) {
+  for (let i = 1; i < xs.length; i++)
+    expect(xs[i]! - xs[i - 1]!).toBeGreaterThanOrEqual(LABEL_W + 8)
+  for (const x of xs) {
+    expect(x - LABEL_W / 2).toBeGreaterThanOrEqual(0)
+    expect(x + LABEL_W / 2).toBeLessThanOrEqual(w)
+  }
+}
+
+describe('live curve time labels', () => {
+  it('spaces a 22 h window by the chart width so labels never touch', () => {
+    const live = longWatch()
+    const wide = chartOf(live, mid, 1200)
+    const narrow = chartOf(live, mid, 400)
+    const wt = xTicks(wide)
+    const nt = xTicks(narrow)
+    expect(wt[1]! - wt[0]!).toBe(2 * 3600e3)
+    expect(nt[1]! - nt[0]!).toBe(4 * 3600e3)
+    expectApart(wt.map(wide.sx), 1200)
+    expectApart(nt.map(narrow.sx), 400)
+    for (const t of [...wt, ...nt]) expect(hm(t)).toMatch(/^\d\d:00$/)
+    expect(nt.map(hm)).toEqual(expect.arrayContaining(['00:00', '04:00']))
+  })
+
+  it('keeps half hours on a short window and labels at least TICK_GAP apart', () => {
+    const c = chartOf(eclipse(), mid, 640)
+    const t = xTicks(c)
+    expect(t[1]! - t[0]!).toBe(1800e3)
+    for (let i = 1; i < t.length; i++)
+      expect(c.sx(t[i]!) - c.sx(t[i - 1]!)).toBeGreaterThanOrEqual(TICK_GAP)
+  })
+})
+
+describe('live curve card at a measured width', () => {
+  const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')!
+  afterEach(() => Object.defineProperty(Element.prototype, 'clientWidth', desc))
+
+  for (const w of [400, 1200]) {
+    it(`draws a 22 h window at ${w} px with apart time labels and the axis title above`, async () => {
+      Object.defineProperty(Element.prototype, 'clientWidth', {
+        configurable: true,
+        get: () => w,
+      })
+      const el = document.createElement('div')
+      const app = createApp(LiveCurveCard, { live: longWatch(), now: mid })
+      app.mount(el)
+      await nextTick()
+      const svg = el.querySelector('svg')!
+      expect(svg.getAttribute('viewBox')).toBe(`0 0 ${w} 260`)
+      const xs = [...el.querySelectorAll('text.xt')].map((t) => Number(t.getAttribute('x')))
+      expect(xs.length).toBeGreaterThan(3)
+      expectApart(xs, w)
+      const svgText = [...svg.querySelectorAll('text')].map((t) => t.textContent?.trim())
+      expect(svgText).not.toContain('mag')
+      expect(svgText).not.toContain('fainter')
+      expect(el.querySelector('.chart > div')?.textContent).toBe(
+        'Change in brightness, mag, fainter down',
+      )
+      app.unmount()
+    })
+  }
 })

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import type { LiveCurve } from '../api/binaries'
 import { hm } from '../format'
 import {
-  CHART,
   bandPath,
   chartOf,
   compPath,
@@ -20,8 +19,27 @@ import {
 
 const props = defineProps<{ live: LiveCurve; now: number }>()
 
+const wrap = ref<HTMLElement | null>(null)
+const width = ref(640)
+let ro: ResizeObserver | undefined
+
+function measure() {
+  const w = wrap.value?.clientWidth
+  if (w && w > 0) width.value = Math.round(w)
+}
+
+onMounted(() => {
+  measure()
+  if (typeof ResizeObserver !== 'undefined' && wrap.value) {
+    ro = new ResizeObserver(measure)
+    ro.observe(wrap.value)
+  }
+})
+onUnmounted(() => ro?.disconnect())
+
 const pill = computed(() => pillFor(props.live.state))
-const chart = computed(() => chartOf(props.live, props.now))
+const chart = computed(() => chartOf(props.live, props.now, width.value))
+const box = computed(() => chart.value.box)
 const facts = computed(() =>
   props.live.kind === 'dip-watch' ? dipFacts(props.live, props.now) : eclipseFacts(props.live),
 )
@@ -68,34 +86,40 @@ const label = computed(() =>
     </div>
     <p class="small muted sub">{{ subline(live, now) }}</p>
     <p v-if="why" class="small sub">{{ why }}</p>
-    <div class="chart">
-      <svg :viewBox="`0 0 ${CHART.w} ${CHART.h}`" role="img" :aria-label="label">
+    <div ref="wrap" class="chart">
+      <div class="xsmall muted">Change in brightness, mag, fainter down</div>
+      <svg
+        :viewBox="`0 0 ${box.w} ${box.h}`"
+        :width="box.w"
+        :height="box.h"
+        role="img"
+        :aria-label="label"
+      >
         <g v-for="v in yTicks(chart)" :key="'y' + v">
-          <line :x1="CHART.l" :x2="CHART.r" :y1="chart.sy(v)" :y2="chart.sy(v)" class="grid" />
-          <text :x="CHART.l - 6" :y="chart.sy(v) + 4" text-anchor="end">
+          <line :x1="box.l" :x2="box.r" :y1="chart.sy(v)" :y2="chart.sy(v)" class="grid" />
+          <text :x="box.l - 6" :y="chart.sy(v) + 4" text-anchor="end">
             {{ (v > 0 ? '+' : '') + v.toFixed(1) }}
           </text>
         </g>
         <text
           v-for="t in xTicks(chart)"
           :key="'x' + t"
+          class="xt"
           :x="chart.sx(t)"
-          :y="CHART.b + 16"
+          :y="box.b + 16"
           text-anchor="middle"
         >
           {{ hm(t) }}
         </text>
-        <text x="10" :y="CHART.t + 4">mag</text>
-        <text x="10" :y="CHART.b">fainter</text>
         <template v-if="win">
-          <rect :x="win.x" :y="CHART.t" :width="win.w" :height="CHART.b - CHART.t" class="window" />
+          <rect :x="win.x" :y="box.t" :width="win.w" :height="box.b - box.t" class="window" />
           <rect :x="win.x" :y="win.y" :width="win.w" :height="win.h" class="band" />
           <text :x="win.x + 4" :y="win.y + win.h - 4">past dips fell in here</text>
         </template>
         <line
           v-if="live.dip"
-          :x1="CHART.l"
-          :x2="CHART.r"
+          :x1="box.l"
+          :x2="box.r"
           :y1="chart.sy(0)"
           :y2="chart.sy(0)"
           class="expect"
@@ -104,8 +128,8 @@ const label = computed(() =>
           <path :d="bandPath(live, chart)" class="band" />
           <path :d="expectedPath(live, chart)" class="expect" fill="none" />
           <template v-if="midX !== null">
-            <line :x1="midX" :x2="midX" :y1="CHART.t" :y2="CHART.b" class="mid" />
-            <text :x="midX + 4" :y="CHART.t + 10">expected middle</text>
+            <line :x1="midX" :x2="midX" :y1="box.t" :y2="box.b" class="mid" />
+            <text :x="midX + 4" :y="box.t + 10">expected middle</text>
           </template>
         </template>
         <path v-if="points.length > 1" :d="compPath(live, chart)" class="comp" fill="none" />
@@ -114,8 +138,8 @@ const label = computed(() =>
           <circle :cx="p.x" :cy="p.y" r="3" class="pt" />
         </g>
         <template v-if="nowX !== null">
-          <line :x1="nowX" :x2="nowX" :y1="CHART.t" :y2="CHART.b" class="now" />
-          <text :x="nowX + 4" :y="CHART.b - 6" class="now-t">now {{ hm(now) }}</text>
+          <line :x1="nowX" :x2="nowX" :y1="box.t" :y2="box.b" class="now" />
+          <text :x="nowX + 4" :y="box.b - 6" class="now-t">now {{ hm(now) }}</text>
         </template>
       </svg>
     </div>
@@ -188,9 +212,7 @@ const label = computed(() =>
 }
 .chart svg {
   display: block;
-  width: 100%;
-  min-width: 520px;
-  height: auto;
+  max-width: none;
 }
 .chart text {
   font-size: 11px;

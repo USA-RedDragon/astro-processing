@@ -1,5 +1,6 @@
 import type { LiveCurve, LiveState } from './api/binaries'
 import { clock, hm } from './format'
+import { zoneOffsetMinutes } from './skyEvents'
 
 export interface Pill {
   label: string
@@ -208,12 +209,26 @@ export interface Chart {
   y1: number
   sx: (t: number) => number
   sy: (v: number) => number
+  box: ChartBox
 }
 
-export const CHART = { w: 640, h: 260, l: 52, r: 628, t: 14, b: 226 }
+export interface ChartBox {
+  w: number
+  h: number
+  l: number
+  r: number
+  t: number
+  b: number
+}
 
-/** chartOf scales the card's chart: time across, magnitudes fainter down. */
-export function chartOf(live: LiveCurve, now: number): Chart {
+/** chartBox is the card's chart area for a chart drawn w pixels wide. */
+export function chartBox(w = 640): ChartBox {
+  const width = Math.max(280, Math.round(w))
+  return { w: width, h: 260, l: 52, r: width - 12, t: 14, b: 226 }
+}
+
+/** chartOf scales the card's chart, w pixels wide: time across, magnitudes fainter down. */
+export function chartOf(live: LiveCurve, now: number, w = 640): Chart {
   const pts = live.points ?? []
   let x0 = new Date(live.from).getTime()
   let x1 = Math.max(
@@ -243,12 +258,14 @@ export function chartOf(live: LiveCurve, now: number): Chart {
   }
   const y0 = Math.floor(lo * 10) / 10
   const y1 = Math.ceil(hi * 10) / 10
-  const { l, r, t, b } = CHART
+  const box = chartBox(w)
+  const { l, r, t, b } = box
   return {
     x0,
     x1,
     y0,
     y1,
+    box,
     sx: (v) => l + ((v - x0) / (x1 - x0 || 1)) * (r - l),
     sy: (v) => t + ((v - y0) / (y1 - y0 || 1)) * (b - t),
   }
@@ -264,12 +281,29 @@ export function yTicks(c: Chart): number[] {
   return out
 }
 
-/** xTicks are the times on the axis, on whole half hours or hours. */
+/** TICK_GAP is the least room, in pixels, from one time label's middle to the next. */
+export const TICK_GAP = 48
+
+const TICK_STEPS = [15, 30, 60, 120, 180, 240, 360, 720, 1440].map((m) => m * 60e3)
+
+/**
+ * xTicks are the times on the axis, on whole site-time quarter hours or hours. The
+ * step is the shortest that leaves TICK_GAP pixels between labels, and labels
+ * that would run past the chart's edges are left off.
+ */
 export function xTicks(c: Chart): number[] {
   const span = c.x1 - c.x0
-  const step = span > 6 * 3600e3 ? 3600e3 : span > 90 * 60e3 ? 1800e3 : 900e3
+  const px = c.box.r - c.box.l
+  if (span <= 0 || px <= 0) return []
+  const step =
+    TICK_STEPS.find((s) => (s / span) * px >= TICK_GAP) ?? TICK_STEPS[TICK_STEPS.length - 1]!
+  const off = zoneOffsetMinutes(c.x0) * 60e3
+  const half = TICK_GAP / 2 - 6
   const out: number[] = []
-  for (let t = Math.ceil(c.x0 / step) * step; t <= c.x1; t += step) out.push(t)
+  for (let t = Math.ceil((c.x0 + off) / step) * step - off; t <= c.x1; t += step) {
+    const x = c.sx(t)
+    if (x - half >= 0 && x + half <= c.box.w) out.push(t)
+  }
   return out
 }
 
