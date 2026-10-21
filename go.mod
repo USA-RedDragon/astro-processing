@@ -3,7 +3,7 @@ module github.com/USA-RedDragon/astro-processing
 go 1.27.3
 
 require (
-	github.com/99designs/gqlgen v0.17.96
+	github.com/99designs/gqlgen v0.17.97
 	github.com/USA-RedDragon/configulator/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.9
 	github.com/gin-contrib/pprof v1.5.6
