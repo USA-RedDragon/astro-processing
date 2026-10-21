@@ -45,6 +45,18 @@ const button = (el: Element, text: string) =>
     HTMLButtonElement | undefined
 
 describe('SharePicture', () => {
+  it('says under a made picture why it differs from the usual one', () => {
+    const note =
+      'The star is at the edge of the frame, outside the colour picture, which keeps only the part every filter covered well. This picture is made from the same colour stacks over the whole frame, edges included.'
+    const { el, unmount } = mount({ share: { ...ready, note } })
+    expect(el.querySelector('.thumb img')).not.toBeNull()
+    expect(el.querySelector('p.note')!.textContent!.trim()).toBe(note)
+    unmount()
+    const plain = mount({ share: ready })
+    expect(plain.el.querySelector('p.note')).toBeNull()
+    plain.unmount()
+  })
+
   it('shows the thumbnail with download and opens it full size until Escape', async () => {
     const { el, unmount } = mount({ share: ready })
     expect(el.querySelector('.thumb img')!.getAttribute('src')).toBe(ready.url)

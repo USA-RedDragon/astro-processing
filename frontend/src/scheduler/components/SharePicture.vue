@@ -58,6 +58,7 @@ async function sendLink() {
         <a class="btn sm" :href="downloadUrl(share.url)" download>Download</a>
         <button type="button" class="btn sm" @click="sendLink">Share</button>
       </div>
+      <p v-if="share.note" class="note">{{ share.note }}</p>
     </template>
     <p v-else-if="error" class="note bad" role="alert">The picture is not available: {{ error }}</p>
     <p v-else-if="share" class="note" :class="{ bad: share.state === 'failed' }">
