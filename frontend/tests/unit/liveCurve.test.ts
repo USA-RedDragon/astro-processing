@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createApp, nextTick } from 'vue'
-import type { LiveCurve, LivePoint } from '@/scheduler/api/binaries'
+import type { DipWindow, LiveCurve, LivePoint } from '@/scheduler/api/binaries'
 import { clock, hm } from '@/scheduler/format'
 import {
   bandPath,
@@ -12,6 +12,7 @@ import {
   eclipseFacts,
   lowSpan,
   measuredText,
+  nextWindow,
   nightText,
   pillFor,
   shareWords,
@@ -340,7 +341,67 @@ function storedWatch(): LiveCurve {
   })
 }
 
+function dipWindow(n: number, startMin: number, extra: Partial<DipWindow> = {}): DipWindow {
+  return {
+    source_id: 15523,
+    name: '15523',
+    field: 'Cygnis Loop Panel 1',
+    magnitude: '14.2',
+    period_text: '9.356 days',
+    n,
+    mid: at(startMin + 600),
+    start: at(startMin),
+    end: at(startMin + 1200),
+    group_at: at(startMin),
+    day_label: `Window ${n} day`,
+    window_text: '5:41 AM to 1:41 AM',
+    zone: 'CDT',
+    mid_text: '',
+    mid_label: '',
+    dark: [],
+    dark_minutes: 295,
+    dark_text: '7:44 PM to 12:39 AM',
+    dark_note: 'dark from 7:44 PM to 12:39 AM, 4 h 55 min',
+    observable: true,
+    observable_note: '',
+    why: '',
+    every_window: false,
+    over: false,
+    request: null,
+    imaging: null,
+    result: { state: 'waiting', label: '', note: '' },
+    ...extra,
+  }
+}
+
+const nineDays = 9 * 1440
+
 describe('stored night on the live card', () => {
+  const fetched: string[] = []
+  beforeEach(() => {
+    fetched.length = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        fetched.push(url)
+        const view = {
+          source_id: 15523,
+          ephemeris: null,
+          every_window: false,
+          windows_text: '',
+          dips_text: '',
+          past_text: '',
+          zone_note: '',
+          windows: [dipWindow(4, 0), dipWindow(5, nineDays, { day_label: 'Fri Oct 30' })],
+        }
+        return new Response(JSON.stringify(view), {
+          headers: { 'content-type': 'application/json' },
+        })
+      }),
+    )
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
   it('names the night and says the result stays until the next night starts', () => {
     const live = storedWatch()
     expect(nightText('2026-10-20')).toBe('Oct 20')
@@ -385,6 +446,79 @@ describe('stored night on the live card', () => {
     const n = lowSpan(live, narrow)!
     expect(n.anchor).toBe('end')
     expect(n.tx).toBeCloseTo(n.x + n.w - 4)
+  })
+
+  it('picks the first window after the stored one that has not ended', () => {
+    const live = storedWatch()
+    const ws = [dipWindow(6, 2 * nineDays), dipWindow(4, 0), dipWindow(5, nineDays)]
+    expect(nextWindow(live, ws, mid + 86400e3)!.n).toBe(5)
+    expect(nextWindow(live, ws, mid + nineDays * 60e3 + 1300 * 60e3)!.n).toBe(6)
+    expect(nextWindow(live, [dipWindow(4, 0)], mid + 86400e3)).toBeNull()
+    expect(nextWindow(live, null, mid + 86400e3)).toBeNull()
+    expect(nextWindow(live, [], mid + 86400e3)).toBeNull()
+  })
+
+  it('shows the next window instead of the time left, and no box when none is known', () => {
+    const live = storedWatch()
+    const now = mid + 60 * 60e3
+    const next = dipWindow(5, nineDays, { day_label: 'Fri Oct 30' })
+    const facts = dipFacts(live, now, next)
+    expect(facts.map((f) => f.label)).not.toContain('Window left')
+    expect(facts.at(-1)).toEqual({
+      label: 'Next window',
+      value: 'Fri Oct 30',
+      note: 'window 5:41 AM to 1:41 AM CDT, dark from 7:44 PM to 12:39 AM, 4 h 55 min',
+    })
+    const dim = dipWindow(7, nineDays, {
+      day_label: 'Tue Nov 17',
+      zone: 'CST',
+      observable: false,
+      observable_note: 'Not requested, under the 1 hour of usable dark a request needs',
+    })
+    expect(dipFacts(live, now, dim).at(-1)!.note).toBe(
+      'window 5:41 AM to 1:41 AM CST. Not requested, under the 1 hour of usable dark a request needs',
+    )
+    const none = dipFacts(live, now)
+    expect(none.map((f) => f.label)).toEqual([
+      'Level at the end',
+      'Smallest dip it would catch',
+      'Nearby stars',
+    ])
+    expect(dipFacts(dipWatch(), now, next).at(-1)!.label).toBe('Window left')
+  })
+
+  it('fetches the star windows for a stored card only and shows the next one', async () => {
+    const el = document.createElement('div')
+    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 60 * 60e3 })
+    app.mount(el)
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
+    expect(fetched).toEqual(['/api/v1/discoveries/dippers/15523'])
+    expect(el.textContent).toContain('Next window')
+    expect(el.textContent).toContain('Fri Oct 30')
+    expect(el.textContent).not.toContain('Window left')
+    app.unmount()
+    const live = document.createElement('div')
+    const app2 = createApp(LiveCurveCard, { live: dipWatch(), now: mid + 46 * 60e3 })
+    app2.mount(live)
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
+    expect(fetched).toHaveLength(1)
+    expect(live.textContent).toContain('Window left')
+    expect(live.textContent).not.toContain('Next window')
+    app2.unmount()
+  })
+
+  it('drops the box when the windows do not load', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('boom', { status: 500 })),
+    )
+    const el = document.createElement('div')
+    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 60 * 60e3 })
+    app.mount(el)
+    for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
+    expect(el.textContent).not.toContain('Next window')
+    expect(el.textContent).not.toContain('Window left')
+    app.unmount()
   })
 
   it('draws the stored card with no now line, the shading and per-average titles', async () => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
-import type { LiveCurve } from '../api/binaries'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { getDipper, type DipWindow, type LiveCurve } from '../api/binaries'
+import { latestOnly } from '../latest'
 import { hm } from '../format'
 import {
   bandPath,
@@ -12,6 +13,7 @@ import {
   eclipseFacts,
   expectedPath,
   lowSpan,
+  nextWindow,
   pillFor,
   storedText,
   subline,
@@ -39,13 +41,33 @@ onMounted(() => {
     ro.observe(wrap.value)
   }
 })
-onUnmounted(() => ro?.disconnect())
+onUnmounted(() => {
+  ro?.disconnect()
+  windowsReq.cancel()
+})
 
 const pill = computed(() => pillFor(props.live.state, !!props.live.stored))
 const chart = computed(() => chartOf(props.live, props.now, width.value))
 const box = computed(() => chart.value.box)
+const windows = ref<DipWindow[] | null>(null)
+const windowsReq = latestOnly()
+
+async function loadWindows() {
+  const current = windowsReq.next()
+  windows.value = null
+  if (!props.live.stored || props.live.kind !== 'dip-watch') return
+  const r = await getDipper(props.live.source_id).catch(() => null)
+  if (current() && r) windows.value = r.windows
+}
+
+watch(() => [props.live.stored, props.live.kind, props.live.source_id] as const, loadWindows, {
+  immediate: true,
+})
+
 const facts = computed(() =>
-  props.live.kind === 'dip-watch' ? dipFacts(props.live, props.now) : eclipseFacts(props.live),
+  props.live.kind === 'dip-watch'
+    ? dipFacts(props.live, props.now, nextWindow(props.live, windows.value, props.now))
+    : eclipseFacts(props.live),
 )
 const points = computed(() =>
   (props.live.points ?? []).map((p) => {

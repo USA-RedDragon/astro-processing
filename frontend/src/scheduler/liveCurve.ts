@@ -1,4 +1,4 @@
-import type { LiveCurve, LiveState } from './api/binaries'
+import type { DipWindow, LiveCurve, LiveState } from './api/binaries'
 import { clock, hm } from './format'
 import { zoneOffsetMinutes } from './skyEvents'
 
@@ -180,8 +180,11 @@ export function eclipseFacts(live: LiveCurve): Fact[] {
   return out
 }
 
-/** dipFacts are the facts row of a dip watch. */
-export function dipFacts(live: LiveCurve, now: number): Fact[] {
+/**
+ * dipFacts are the facts row of a dip watch. A stored night shows the star's
+ * next dip window in place of the time left, and no box when none is known.
+ */
+export function dipFacts(live: LiveCurve, now: number, next: DipWindow | null = null): Fact[] {
   const d = live.dip
   if (!d) return []
   const out: Fact[] = []
@@ -219,6 +222,10 @@ export function dipFacts(live: LiveCurve, now: number): Fact[] {
     })
   }
   out.push(compsFact(live))
+  if (live.stored) {
+    if (next) out.push(nextWindowFact(next))
+    return out
+  }
   const left = new Date(d.end).getTime() - now
   out.push({
     label: 'Window left',
@@ -226,6 +233,31 @@ export function dipFacts(live: LiveCurve, now: number): Fact[] {
     note: d.active_share > 0 ? `a quiet window is expected ${quietWords(d.active_share)}` : '',
   })
   return out
+}
+
+/**
+ * nextWindow is the star's first dip window that starts after the stored
+ * night's window and has not ended yet, or null when there is none.
+ */
+export function nextWindow(
+  live: LiveCurve,
+  windows: DipWindow[] | null | undefined,
+  now: number,
+): DipWindow | null {
+  const d = live.dip
+  if (!d || !windows?.length) return null
+  const after = Date.parse(d.end)
+  const left = windows.filter((w) => Date.parse(w.start) >= after && Date.parse(w.end) > now)
+  left.sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+  return left[0] ?? null
+}
+
+function nextWindowFact(w: DipWindow): Fact {
+  const when = `window ${w.window_text} ${w.zone}`
+  let note = when
+  if (!w.observable && w.observable_note) note = `${when}. ${w.observable_note}`
+  else if (w.dark_note) note = `${when}, ${w.dark_note}`
+  return { label: 'Next window', value: w.day_label, note }
 }
 
 function quietWords(share: number): string {
