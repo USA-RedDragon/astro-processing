@@ -253,10 +253,10 @@ export function nextWindow(
 }
 
 function nextWindowFact(w: DipWindow): Fact {
-  const when = `window ${w.window_text} ${w.zone}`
+  const when = `window ${hm(w.start)} to ${clock(w.end)}`
   let note = when
   if (!w.observable && w.observable_note) note = `${when}. ${w.observable_note}`
-  else if (w.dark_note) note = `${when}, ${w.dark_note}`
+  else if (w.dark_minutes > 0) note = `${when}, ${durationText(w.dark_minutes * 60000)} of it dark`
   return { label: 'Next window', value: w.day_label, note }
 }
 

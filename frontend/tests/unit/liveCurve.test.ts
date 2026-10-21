@@ -467,7 +467,7 @@ describe('stored night on the live card', () => {
     expect(facts.at(-1)).toEqual({
       label: 'Next window',
       value: 'Fri Oct 30',
-      note: 'window 5:41 AM to 1:41 AM CDT, dark from 7:44 PM to 12:39 AM, 4 h 55 min',
+      note: `window ${hm(next.start)} to ${clock(next.end)}, 4 h 55 min of it dark`,
     })
     const dim = dipWindow(7, nineDays, {
       day_label: 'Tue Nov 17',
@@ -476,7 +476,7 @@ describe('stored night on the live card', () => {
       observable_note: 'Not requested, under the 1 hour of usable dark a request needs',
     })
     expect(dipFacts(live, now, dim).at(-1)!.note).toBe(
-      'window 5:41 AM to 1:41 AM CST. Not requested, under the 1 hour of usable dark a request needs',
+      `window ${hm(dim.start)} to ${clock(dim.end)}. Not requested, under the 1 hour of usable dark a request needs`,
     )
     const none = dipFacts(live, now)
     expect(none.map((f) => f.label)).toEqual([
