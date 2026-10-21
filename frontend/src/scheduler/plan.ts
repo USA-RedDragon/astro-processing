@@ -742,6 +742,56 @@ export function subChart(
   }
 }
 
+export interface ChartLabel {
+  x: number
+  text: string
+  anchor: 'start' | 'end'
+}
+
+/** labelEdges is the left and right edge of a placed 11 px label. */
+export function labelEdges(l: ChartLabel, weight = 400): [number, number] {
+  const w = textWidth(l.text, 11, weight)
+  return l.anchor === 'end' ? [l.x - w, l.x] : [l.x, l.x + w]
+}
+
+/**
+ * targetLabels places the first target's name at the chart's left and the
+ * current target's name at the last target change so they never overlap. The
+ * current name stays whole, left of its change line when it fits there and
+ * right of it when not. The first name is shortened, or left off, to fit the
+ * room before it.
+ */
+export function targetLabels(
+  first: string,
+  changes: ChartChange[],
+  box: ChartBox,
+): { first: ChartLabel | null; current: ChartLabel | null } {
+  const gap = 10
+  const left = box.x0 + 8
+  const last = changes[changes.length - 1]
+  if (!last) {
+    const text = first ? fitLabel(first, box.x1 - left + 16, 11) : ''
+    return { first: text ? { x: left, text, anchor: 'start' } : null, current: null }
+  }
+  const before: ChartLabel = { x: last.x - 6, text: `${last.label} →`, anchor: 'end' }
+  let current: ChartLabel
+  let limit: number
+  if (labelEdges(before, 600)[0] >= box.x0) {
+    current = before
+    limit = labelEdges(current, 600)[0] - gap
+  } else {
+    const room = box.x1 - (last.x + 6)
+    current = {
+      x: last.x + 6,
+      text: fitLabel(last.label, room + 16, 11, 600) || last.label,
+      anchor: 'start',
+    }
+    limit = last.x - 6
+  }
+  const text = first ? fitLabel(first, limit - left + 16, 11) : ''
+  return { first: text ? { x: left, text, anchor: 'start' } : null, current }
+}
+
 export function ticksBefore(ticks: ChartTick[], x: number): ChartTick[] {
   return ticks.filter((t) => t.pos < x)
 }

@@ -53,6 +53,7 @@ import { errorToast, notifyCommand, queuedShort, shell, whenApplies } from '../s
 import { activityLine } from '../activity'
 import { latestOnly } from '../latest'
 import PageHead from '../components/PageHead.vue'
+import TargetLabels from '../components/TargetLabels.vue'
 import AutofocusPanel from '../components/AutofocusPanel.vue'
 import NowCalibration from '../components/NowCalibration.vue'
 import NowCalibrationLower from '../components/NowCalibrationLower.vue'
@@ -1440,37 +1441,18 @@ const cross = (x: number, y: number, r: number) =>
                 reject above {{ hfrLimit.limit.toFixed(2) }} px
               </text>
             </template>
-            <text
-              v-if="hfr.firstLabel"
-              :x="hfrBox.x0 + 8"
-              y="14"
-              font-size="11"
-              fill="var(--muted-foreground)"
-            >
-              {{ hfr.firstLabel }}
-            </text>
-            <template v-for="(c, i) in hfr.changes" :key="'c' + i">
-              <line
-                :x1="c.x"
-                y1="12"
-                :x2="c.x"
-                y2="192"
-                stroke="var(--foreground)"
-                stroke-width="1"
-                stroke-dasharray="2 3"
-              />
-              <text
-                v-if="i === hfr.changes.length - 1"
-                :x="c.x - 6"
-                y="14"
-                text-anchor="end"
-                font-size="11"
-                font-weight="600"
-                fill="var(--foreground)"
-              >
-                {{ c.label }} →
-              </text>
-            </template>
+            <TargetLabels :first="hfr.firstLabel" :changes="hfr.changes" :box="hfrBox" :y="14" />
+            <line
+              v-for="(c, i) in hfr.changes"
+              :key="'c' + i"
+              :x1="c.x"
+              y1="12"
+              :x2="c.x"
+              y2="192"
+              stroke="var(--foreground)"
+              stroke-width="1"
+              stroke-dasharray="2 3"
+            />
             <line
               v-for="(m, i) in hfr.medians"
               :key="'m' + i"
