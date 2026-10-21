@@ -4,14 +4,19 @@ import type { LiveCurve, LivePoint } from '@/scheduler/api/binaries'
 import { clock, hm } from '@/scheduler/format'
 import {
   bandPath,
+  binLegend,
+  binTitle,
   chartOf,
   dipFacts,
   durationText,
   eclipseFacts,
+  lowSpan,
   measuredText,
+  nightText,
   pillFor,
   shareWords,
   showLive,
+  storedText,
   subline,
   title,
   TICK_GAP,
@@ -312,4 +317,89 @@ describe('live curve card at a measured width', () => {
       app.unmount()
     })
   }
+})
+
+function storedWatch(): LiveCurve {
+  const pts = points(10, 3, 0)
+  return dipWatch({
+    stored: true,
+    night: '2026-10-20',
+    state: 'no-dip',
+    points: pts,
+    last_sub: pts[9]!.time,
+    low_from: at(20),
+    dip: {
+      ...dipWatch().dip!,
+      run: 4,
+      bins: [
+        { time: at(4.5), mag: 0.01, err: 0.02, subs: 4 },
+        { time: at(16.5), mag: 0.0, err: 0.021, subs: 4 },
+        { time: at(25.5), mag: 0.02, err: 0.03, subs: 2 },
+      ],
+    },
+  })
+}
+
+describe('stored night on the live card', () => {
+  it('names the night and says the result stays until the next night starts', () => {
+    const live = storedWatch()
+    expect(nightText('2026-10-20')).toBe('Oct 20')
+    expect(title(live)).toBe('Dip watch on 15523, night of Oct 20')
+    expect(storedText(live)).toBe(
+      "Last night's result, night of Oct 20. It stays here until the next night's imaging starts.",
+    )
+    expect(storedText(dipWatch())).toBe('')
+    expect(pillFor('no-dip', true)).toEqual({ label: 'No dip', tone: 'ok' })
+    expect(pillFor('early', true)).toEqual({ label: 'Could not judge', tone: 'warn' })
+    expect(measuredText(live, mid + 86400e3)).toBe(
+      `10 subs measured, ${hm(at(0))} to ${clock(at(27))}`,
+    )
+  })
+
+  it('keeps showing while another target is current', () => {
+    expect(showLive(storedWatch(), 'p-9')).toBe(true)
+  })
+
+  it('names each average by its own count, a shorter last one included', () => {
+    const live = storedWatch()
+    expect(binLegend(live)).toBe('Average of 4 subs, the last of 2, each with its own error')
+    expect(binLegend(dipWatch())).toBe('')
+    expect(binTitle(live.dip!.bins![2]!)).toBe(
+      `Average of 2 subs at ${hm(at(25.5))}: +0.02 ± 0.03 mag`,
+    )
+  })
+
+  it('shades from the drop below the height limit to the last sub', () => {
+    const live = storedWatch()
+    const c = chartOf(live, mid + 86400e3)
+    const s = lowSpan(live, c)!
+    expect(s.x).toBeCloseTo(c.sx(Date.parse(at(20))))
+    expect(s.x + s.w).toBeCloseTo(c.sx(Date.parse(at(27))))
+    expect(s.anchor).toBe('start')
+    expect(s.tx).toBeCloseTo(s.x + 4)
+    expect(lowSpan(dipWatch(), c)).toBeNull()
+    const pad = (Date.parse(at(27)) - Date.parse(at(0))) * 0.06
+    expect(c.x0).toBeCloseTo(Date.parse(at(0)) - pad)
+    expect(c.x1).toBeCloseTo(Date.parse(at(27)) + pad)
+    const narrow = chartOf(live, mid + 86400e3, 280)
+    const n = lowSpan(live, narrow)!
+    expect(n.anchor).toBe('end')
+    expect(n.tx).toBeCloseTo(n.x + n.w - 4)
+  })
+
+  it('draws the stored card with no now line, the shading and per-average titles', async () => {
+    const el = document.createElement('div')
+    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 86400e3 })
+    app.mount(el)
+    await nextTick()
+    expect(el.querySelector('h2')?.textContent).toBe('Dip watch on 15523, night of Oct 20')
+    expect(el.textContent).toContain("Last night's result")
+    expect(el.querySelector('line.now')).toBeNull()
+    expect(el.querySelector('rect.low')).not.toBeNull()
+    expect(el.textContent).toContain('star below the height limit')
+    const titles = [...el.querySelectorAll('rect.bin title')].map((t) => t.textContent)
+    expect(titles).toHaveLength(3)
+    expect(titles[2]).toContain('Average of 2 subs')
+    app.unmount()
+  })
 })

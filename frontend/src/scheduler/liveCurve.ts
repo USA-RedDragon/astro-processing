@@ -8,7 +8,7 @@ export interface Pill {
 }
 
 /** pillFor is the card's status pill. */
-export function pillFor(state: LiveState): Pill {
+export function pillFor(state: LiveState, stored = false): Pill {
   switch (state) {
     case 'following':
       return { label: 'Following the expected curve', tone: 'ok' }
@@ -21,9 +21,11 @@ export function pillFor(state: LiveState): Pill {
     case 'dip':
       return { label: 'Dip seen', tone: 'ok' }
     case 'no-dip':
-      return { label: 'No dip yet', tone: 'warn' }
+      return stored ? { label: 'No dip', tone: 'ok' } : { label: 'No dip yet', tone: 'warn' }
   }
-  return { label: 'Too early to tell', tone: 'warn' }
+  return stored
+    ? { label: 'Could not judge', tone: 'warn' }
+    : { label: 'Too early to tell', tone: 'warn' }
 }
 
 /**
@@ -32,13 +34,34 @@ export function pillFor(state: LiveState): Pill {
  */
 export function showLive(live: LiveCurve | null, currentGuid: string | null | undefined): boolean {
   if (!live) return false
+  if (live.stored) return true
   return !currentGuid || currentGuid === live.project_guid
 }
 
+const nightFmt = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  timeZone: 'UTC',
+})
+
+/** nightText is a night's evening date in words: "Oct 20". */
+export function nightText(night: string | undefined): string {
+  if (!night) return ''
+  const d = new Date(night + 'T00:00:00Z')
+  return isNaN(d.getTime()) ? night : nightFmt.format(d)
+}
+
 export function title(live: LiveCurve): string {
-  if (live.kind === 'dip-watch') return `Dip watch on ${live.name}, live`
+  const when = live.stored ? `, night of ${nightText(live.night)}` : ', live'
+  if (live.kind === 'dip-watch') return `Dip watch on ${live.name}${when}`
   const kind = live.eclipse?.kind === 'secondary' ? 'Second eclipse' : 'Deep eclipse'
-  return `${kind} of ${live.name}, live`
+  return `${kind} of ${live.name}${when}`
+}
+
+/** storedText is the line that says a card shows a past night's stored result. */
+export function storedText(live: LiveCurve): string {
+  if (!live.stored) return ''
+  return `Last night's result, night of ${nightText(live.night)}. It stays here until the next night's imaging starts.`
 }
 
 function ago(t: string, now: number): string {
@@ -51,6 +74,9 @@ export function measuredText(live: LiveCurve, now: number): string {
   const n = live.points?.length ?? 0
   if (n === 0) return 'no sub measured yet'
   const subs = n === 1 ? '1 sub measured' : `${n} subs measured`
+  if (live.stored && live.points?.length) {
+    return `${subs}, ${hm(live.points[0]!.time)} to ${clock(live.points[n - 1]!.time)}`
+  }
   return live.last_sub ? `${subs}, the last one taken ${ago(live.last_sub, now)}` : subs
 }
 
@@ -172,14 +198,18 @@ export function dipFacts(live: LiveCurve, now: number): Fact[] {
         ? 'At the normal level'
         : `${mag(d.latest)} ${d.latest > 0 ? 'fainter' : 'brighter'}`
     out.push({
-      label: 'Level now',
+      label: live.stored ? 'Level at the end' : 'Level now',
       value: word,
       note: d.run
         ? `last ${d.run} subs averaged; single subs scatter ${live.scatter.toFixed(2)}`
         : `single subs scatter ${live.scatter.toFixed(2)}`,
     })
   } else {
-    out.push({ label: 'Level now', value: 'Not measured yet', note: 'needs 6 subs' })
+    out.push({
+      label: live.stored ? 'Level at the end' : 'Level now',
+      value: live.stored ? 'Not measured' : 'Not measured yet',
+      note: 'needs 6 subs',
+    })
   }
   if (d.smallest !== undefined) {
     out.push({
@@ -243,6 +273,10 @@ export function chartOf(live: LiveCurve, now: number, w = 640): Chart {
     new Date(live.to).getTime(),
     Math.min(now, new Date(live.to).getTime() + 3600e3),
   )
+  if (live.stored && live.dip && pts.length) {
+    x0 = new Date(pts[0]!.time).getTime()
+    x1 = new Date(pts[pts.length - 1]!.time).getTime()
+  }
   const e = live.eclipse
   if (e?.curve?.length) {
     x0 = Math.min(x0, new Date(e.curve[0]!.t).getTime())
@@ -338,6 +372,44 @@ export function expectedPath(live: LiveCurve, c: Chart): string {
 /** compPath is the nearby stars' average, sub by sub. */
 export function compPath(live: LiveCurve, c: Chart): string {
   return linePath((live.points ?? []).map((p) => [c.sx(new Date(p.time).getTime()), c.sy(p.comp)]))
+}
+
+/** LOW_LABEL_W is about how wide the low stretch's label is drawn. */
+export const LOW_LABEL_W = 160
+
+/** lowSpan is the stretch of the chart after the star dropped below the height limit, or null. */
+export function lowSpan(
+  live: LiveCurve,
+  c: Chart,
+): { x: number; w: number; tx: number; anchor: 'start' | 'end' } | null {
+  if (!live.low_from) return null
+  const pts = live.points ?? []
+  const from = new Date(live.low_from).getTime()
+  const last = pts.length ? new Date(pts[pts.length - 1]!.time).getTime() : c.x1
+  const end = Math.min(c.x1, Math.max(last, from))
+  const a = Math.max(c.x0, from)
+  if (!(end > a)) return null
+  const x = c.sx(a)
+  const w = c.sx(end) - x
+  const right = x + 4 + LOW_LABEL_W <= c.box.r
+  return { x, w, tx: right ? x + 4 : x + w - 4, anchor: right ? 'start' : 'end' }
+}
+
+/** binLegend names the averages: how many subs each holds, with a shorter last one said so. */
+export function binLegend(live: LiveCurve): string {
+  const bins = live.dip?.bins ?? []
+  if (!bins.length) return ''
+  const most = Math.max(...bins.map((b) => b.subs))
+  const least = Math.min(...bins.map((b) => b.subs))
+  const n = most === 1 ? '1 sub' : `${most} subs`
+  if (least === most) return `Average of ${n}, with its own error`
+  return `Average of ${n}, the last of ${least}, each with its own error`
+}
+
+/** binTitle is one average's hover text. */
+export function binTitle(b: { time: string; mag: number; err: number; subs: number }): string {
+  const subs = b.subs === 1 ? '1 sub' : `${b.subs} subs`
+  return `Average of ${subs} at ${hm(b.time)}: ${b.mag >= 0 ? '+' : ''}${b.mag.toFixed(2)} ± ${b.err.toFixed(2)} mag`
 }
 
 /** whyText is the card's sentence on why it reads as it does, times in local time. */

@@ -509,6 +509,12 @@ export interface LiveCurve {
   eclipse?: LiveEclipse
   dip?: LiveDip
   updated_at: string
+  /** stored is set when the card is a past night's stored result, not a run being imaged now. */
+  stored?: boolean
+  /** night is the evening date, YYYY-MM-DD, of a stored night. */
+  night?: string
+  /** low_from is when the star dropped below the planner's height limit while subs were still taken. */
+  low_from?: string
 }
 
 export const getLiveCurve = () => api.get<{ live: LiveCurve | null }>('/discoveries/live-curve')

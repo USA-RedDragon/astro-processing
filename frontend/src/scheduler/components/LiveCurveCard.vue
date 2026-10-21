@@ -4,12 +4,16 @@ import type { LiveCurve } from '../api/binaries'
 import { hm } from '../format'
 import {
   bandPath,
+  binLegend,
+  binTitle,
   chartOf,
   compPath,
   dipFacts,
   eclipseFacts,
   expectedPath,
+  lowSpan,
   pillFor,
+  storedText,
   subline,
   title,
   whyText,
@@ -37,7 +41,7 @@ onMounted(() => {
 })
 onUnmounted(() => ro?.disconnect())
 
-const pill = computed(() => pillFor(props.live.state))
+const pill = computed(() => pillFor(props.live.state, !!props.live.stored))
 const chart = computed(() => chartOf(props.live, props.now, width.value))
 const box = computed(() => chart.value.box)
 const facts = computed(() =>
@@ -60,6 +64,7 @@ const bins = computed(() =>
     const x = chart.value.sx(new Date(b.time).getTime())
     return {
       key: b.time,
+      title: binTitle(b),
       x,
       y: chart.value.sy(b.mag),
       y0: chart.value.sy(b.mag - b.err),
@@ -67,7 +72,9 @@ const bins = computed(() =>
     }
   }),
 )
+const low = computed(() => lowSpan(props.live, chart.value))
 const nowX = computed(() => {
+  if (props.live.stored) return null
   const c = chart.value
   return props.now >= c.x0 && props.now <= c.x1 ? c.sx(props.now) : null
 })
@@ -78,8 +85,8 @@ const win = computed(() => {
   const d = props.live.dip
   if (!d) return null
   const c = chart.value
-  const x0 = c.sx(new Date(d.start).getTime())
-  const x1 = c.sx(new Date(d.end).getTime())
+  const x0 = Math.max(c.box.l, c.sx(new Date(d.start).getTime()))
+  const x1 = Math.min(c.box.r, c.sx(new Date(d.end).getTime()))
   return { x: x0, w: x1 - x0, y: c.sy(d.depth_low), h: c.sy(d.depth_high) - c.sy(d.depth_low) }
 })
 const why = computed(() => whyText(props.live))
@@ -96,6 +103,7 @@ const label = computed(() =>
       <h2 id="live-h">{{ title(live) }}</h2>
       <span class="badge" :class="pill.tone">{{ pill.label }}</span>
     </div>
+    <p v-if="live.stored" class="small sub">{{ storedText(live) }}</p>
     <p class="small muted sub">{{ subline(live, now) }}</p>
     <p v-if="why" class="small sub">{{ why }}</p>
     <div ref="wrap" class="chart">
@@ -128,6 +136,12 @@ const label = computed(() =>
           <rect :x="win.x" :y="win.y" :width="win.w" :height="win.h" class="band" />
           <text :x="win.x + 4" :y="win.y + win.h - 4">past dips fell in here</text>
         </template>
+        <template v-if="low">
+          <rect :x="low.x" :y="box.t" :width="low.w" :height="box.b - box.t" class="low" />
+          <text :x="low.tx" :y="box.t + 10" :text-anchor="low.anchor">
+            star below the height limit
+          </text>
+        </template>
         <line
           v-if="live.dip"
           :x1="box.l"
@@ -151,7 +165,9 @@ const label = computed(() =>
         </g>
         <g v-for="b in bins" :key="'b' + b.key">
           <line :x1="b.x" :x2="b.x" :y1="b.y0" :y2="b.y1" class="bin-err" />
-          <rect :x="b.x - 5" :y="b.y - 5" width="10" height="10" class="bin" />
+          <rect :x="b.x - 5" :y="b.y - 5" width="10" height="10" class="bin">
+            <title>{{ b.title }}</title>
+          </rect>
         </g>
         <template v-if="nowX !== null">
           <line :x1="nowX" :x2="nowX" :y1="box.t" :y2="box.b" class="now" />
@@ -189,8 +205,11 @@ const label = computed(() =>
         }}</span
       >
       <span v-if="bins.length"
-        ><i class="sw" style="background: var(--lc-bin)"></i>Average of {{ live.dip?.run }} subs,
-        what the watch judges</span
+        ><i class="sw" style="background: var(--lc-bin)"></i>{{ binLegend(live) }}</span
+      >
+      <span v-if="low"
+        ><i class="sw" style="background: var(--lc-low)"></i>Star below the planner's height
+        limit</span
       >
       <span
         ><i class="sw line" style="background: var(--lc-comp)"></i>Nearby stars together, already
@@ -250,6 +269,9 @@ const label = computed(() =>
 }
 .window {
   fill: var(--lc-window);
+}
+.low {
+  fill: var(--lc-low);
 }
 .expect {
   stroke: var(--lc-expect);
