@@ -552,3 +552,181 @@ export function whyText(live: LiveCurve): string {
   const s = live.why.replace(/(\d{4}-\d{2}-\d{2}T[\d:]+Z)/g, (m) => clock(m))
   return s.charAt(0).toUpperCase() + s.slice(1) + '.'
 }
+
+/** LABEL_CHAR_W is about how wide one character of a chart label is drawn, in pixels. */
+export const LABEL_CHAR_W = 6.2
+
+/** LABEL_ROW is the room, in pixels, from one label row's baseline to the next. */
+export const LABEL_ROW = 14
+
+export interface LabelBox {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
+export interface ChartLabel {
+  key: 'mid' | 'dark' | 'low' | 'now'
+  text: string
+  x: number
+  y: number
+  anchor: 'start' | 'end'
+}
+
+/** labelBox is the room a chart label takes, a little more than the drawn text. */
+export function labelBox(l: {
+  text: string
+  x: number
+  y: number
+  anchor: 'start' | 'end'
+}): LabelBox {
+  const w = Math.ceil(l.text.length * LABEL_CHAR_W)
+  const x0 = l.anchor === 'start' ? l.x : l.x - w
+  return { x0, y0: l.y - 9, x1: x0 + w, y1: l.y + 3 }
+}
+
+/** boxesMeet says whether two boxes come within pad pixels of each other. */
+export function boxesMeet(a: LabelBox, b: LabelBox, pad = 0): boolean {
+  return a.x0 < b.x1 + pad && b.x0 < a.x1 + pad && a.y0 < b.y1 + pad && b.y0 < a.y1 + pad
+}
+
+interface LabelWant {
+  key: ChartLabel['key']
+  text: string
+  sides: [number, 'start' | 'end'][]
+  rows: number[]
+}
+
+/**
+ * chartLabels places the chart's labels so none runs over another, a sub, an
+ * average or the chart's edges. Each label tries its rows near the top, then
+ * near the foot, and its sides in turn, the first fit as on a wide chart. The
+ * now and middle lines, the nearby stars' line and the expected curve count
+ * as taken too. A label with no room is left off and named in dropped, so the
+ * legend can say it.
+ */
+export function chartLabels(
+  live: LiveCurve,
+  c: Chart,
+  now: number,
+): { labels: ChartLabel[]; dropped: ChartLabel['key'][] } {
+  const { l, r, t, b } = c.box
+  const top = [0, 1, 2, 3].map((i) => t + 10 + i * LABEL_ROW)
+  const foot = [0, 1, 2].map((i) => b - 6 - i * LABEL_ROW)
+  const wants: LabelWant[] = []
+  if (!live.stored && now >= c.x0 && now <= c.x1) {
+    const x = c.sx(now)
+    wants.push({
+      key: 'now',
+      text: `now ${hm(now)}`,
+      sides: [
+        [x + 4, 'start'],
+        [x - 4, 'end'],
+      ],
+      rows: foot,
+    })
+  }
+  if (live.eclipse) {
+    const x = c.sx(new Date(live.eclipse.mid).getTime())
+    if (x >= l && x <= r)
+      wants.push({
+        key: 'mid',
+        text: 'expected middle',
+        sides: [
+          [x + 4, 'start'],
+          [x - 4, 'end'],
+        ],
+        rows: [...top, ...foot],
+      })
+  }
+  const low = lowSpan(live, c)
+  if (low)
+    wants.push({
+      key: 'low',
+      text: 'star below the height limit',
+      sides: spanSides(low),
+      rows: [...top, ...foot],
+    })
+  const dark = darkSpan(live, c)
+  if (dark)
+    wants.push({
+      key: 'dark',
+      text: dark.label,
+      sides: spanSides(dark),
+      rows: [top[1]!, top[2]!, top[0]!, top[3]!, ...foot],
+    })
+  const taken: LabelBox[] = []
+  for (const w of wants) {
+    const x = w.key === 'now' || w.key === 'mid' ? w.sides[0]![0] - 4 : null
+    if (x !== null) taken.push({ x0: x - 1, y0: t, x1: x + 1, y1: b })
+  }
+  for (const p of live.points ?? []) {
+    const x = c.sx(new Date(p.time).getTime())
+    const y = c.sy(p.mag)
+    taken.push({ x0: x - 3, y0: y - 3, x1: x + 3, y1: y + 3 })
+  }
+  const lines = [
+    (live.points ?? []).map((p) => [c.sx(new Date(p.time).getTime()), c.sy(p.comp)]),
+    (live.eclipse?.curve ?? []).map((p) => [c.sx(new Date(p.t).getTime()), c.sy(p.v)]),
+  ]
+  for (const ln of lines)
+    for (let i = 1; i < ln.length; i++) {
+      const [ax, ay] = ln[i - 1]!
+      const [bx, by] = ln[i]!
+      taken.push({
+        x0: Math.min(ax!, bx!),
+        y0: Math.min(ay!, by!) - 1,
+        x1: Math.max(ax!, bx!),
+        y1: Math.max(ay!, by!) + 1,
+      })
+    }
+  for (const bn of live.dip?.bins ?? []) {
+    const x = c.sx(new Date(bn.time).getTime())
+    const y = c.sy(bn.mag)
+    taken.push({ x0: x - 5, y0: y - 5, x1: x + 5, y1: y + 5 })
+  }
+  const d = live.dip
+  if (d) {
+    const x = Math.max(l, c.sx(new Date(d.start).getTime()))
+    taken.push(
+      labelBox({
+        text: 'past dips fell in here',
+        x: x + 4,
+        y: c.sy(d.depth_high) - 4,
+        anchor: 'start',
+      }),
+    )
+  }
+  const labels: ChartLabel[] = []
+  const dropped: ChartLabel['key'][] = []
+  for (const w of wants) {
+    let got: ChartLabel | null = null
+    for (const y of w.rows) {
+      for (const [x, anchor] of w.sides) {
+        const l1 = { key: w.key, text: w.text, x, y, anchor }
+        const bx = labelBox(l1)
+        if (bx.x0 < l + 1 || bx.x1 > r - 1 || bx.y0 < t || bx.y1 > b) continue
+        if (taken.some((o) => boxesMeet(bx, o, 2))) continue
+        got = l1
+        break
+      }
+      if (got) break
+    }
+    if (got) {
+      labels.push(got)
+      taken.push(labelBox(got))
+    } else dropped.push(w.key)
+  }
+  return { labels, dropped }
+}
+
+function spanSides(s: {
+  x: number
+  w: number
+  anchor: 'start' | 'end'
+}): [number, 'start' | 'end'][] {
+  const a: [number, 'start' | 'end'] = [s.x + 4, 'start']
+  const e: [number, 'start' | 'end'] = [s.x + s.w - 4, 'end']
+  return s.anchor === 'start' ? [a, e] : [e, a]
+}

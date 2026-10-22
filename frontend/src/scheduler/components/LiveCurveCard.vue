@@ -6,6 +6,7 @@ import { latestOnly } from '../latest'
 import { hm } from '../format'
 import {
   bandPath,
+  chartLabels,
   binLegend,
   binTitle,
   chartOf,
@@ -128,6 +129,8 @@ const win = computed(() => {
   const x1 = Math.min(c.box.r, c.sx(new Date(d.end).getTime()))
   return { x: x0, w: x1 - x0, y: c.sy(d.depth_low), h: c.sy(d.depth_high) - c.sy(d.depth_low) }
 })
+const placed = computed(() => chartLabels(props.live, chart.value, props.now))
+const hidden = computed(() => new Set(placed.value.dropped))
 const why = computed(() => whyText(props.live))
 const label = computed(() =>
   props.live.kind === 'dip-watch'
@@ -167,7 +170,6 @@ const label = computed(() =>
         </defs>
         <template v-if="dark">
           <rect :x="dark.x" :y="box.t" :width="dark.w" :height="box.b - box.t" class="darkspan" />
-          <text :x="dark.tx" :y="box.t + 24" :text-anchor="dark.anchor">{{ dark.label }}</text>
         </template>
         <g v-for="v in yTicks(chart)" :key="'y' + v">
           <line :x1="box.l" :x2="box.r" :y1="chart.sy(v)" :y2="chart.sy(v)" class="grid" />
@@ -192,9 +194,6 @@ const label = computed(() =>
         </template>
         <template v-if="low">
           <rect :x="low.x" :y="box.t" :width="low.w" :height="box.b - box.t" class="low" />
-          <text :x="low.tx" :y="box.t + 10" :text-anchor="low.anchor">
-            star below the height limit
-          </text>
         </template>
         <line
           v-if="live.dip"
@@ -212,10 +211,7 @@ const label = computed(() =>
             fill="none"
             :clip-path="`url(#${clipId})`"
           />
-          <template v-if="midX !== null">
-            <line :x1="midX" :x2="midX" :y1="box.t" :y2="box.b" class="mid" />
-            <text :x="midX + 4" :y="box.t + 10">expected middle</text>
-          </template>
+          <line v-if="midX !== null" :x1="midX" :x2="midX" :y1="box.t" :y2="box.b" class="mid" />
         </template>
         <path v-if="points.length > 1" :d="compPath(live, chart)" class="comp" fill="none" />
         <g v-for="p in points" :key="p.id">
@@ -228,10 +224,18 @@ const label = computed(() =>
             <title>{{ b.title }}</title>
           </rect>
         </g>
-        <template v-if="nowX !== null">
-          <line :x1="nowX" :x2="nowX" :y1="box.t" :y2="box.b" class="now" />
-          <text :x="nowX + 4" :y="box.b - 6" class="now-t">now {{ hm(now) }}</text>
-        </template>
+        <line v-if="nowX !== null" :x1="nowX" :x2="nowX" :y1="box.t" :y2="box.b" class="now" />
+        <text
+          v-for="t in placed.labels"
+          :key="'l' + t.key"
+          :class="['lbl', { 'now-t': t.key === 'now' }]"
+          :data-label="t.key"
+          :x="t.x"
+          :y="t.y"
+          :text-anchor="t.anchor"
+        >
+          {{ t.text }}
+        </text>
       </svg>
     </div>
     <p v-if="!points.length" class="small muted sub">
@@ -246,6 +250,9 @@ const label = computed(() =>
         <span
           ><i class="sw" style="background: var(--lc-band)"></i>Where the timing error allows
           it</span
+        >
+        <span v-if="midX !== null && hidden.has('mid')"
+          ><i class="sw line dash"></i>Expected middle, {{ hm(live.eclipse.mid) }}</span
         >
       </template>
       <template v-else-if="live.dip">
@@ -268,11 +275,16 @@ const label = computed(() =>
       >
       <span v-if="dark"
         ><i class="sw" style="background: var(--lc-dark)"></i>Dark and high enough for the
-        planner</span
+        planner<template v-if="hidden.has('dark') && live.dark_end">
+          to {{ hm(live.dark_end) }}</template
+        ></span
       >
       <span v-if="low"
         ><i class="sw" style="background: var(--lc-low)"></i>Star below the planner's height
         limit</span
+      >
+      <span v-if="nowX !== null && hidden.has('now')"
+        ><i class="sw line" style="background: var(--lc-now)"></i>Now, {{ hm(now) }}</span
       >
       <span
         ><i class="sw line" style="background: var(--lc-comp)"></i>Nearby stars together, already
@@ -402,6 +414,9 @@ const label = computed(() =>
 }
 .sw.line {
   height: 2px;
+}
+.sw.dash {
+  background: repeating-linear-gradient(to right, var(--lc-expect) 0 3px, transparent 3px 7px);
 }
 .sw.dot {
   width: 6px;

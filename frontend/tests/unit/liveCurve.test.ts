@@ -7,9 +7,13 @@ import {
   bandPath,
   binLegend,
   binTitle,
+  chartLabels,
   chartOf,
   DARK_PAD,
   darkSpan,
+  labelBox,
+  boxesMeet,
+  type LabelBox,
   dipFacts,
   durationText,
   eclipseFacts,
@@ -31,6 +35,7 @@ import {
   yTicks,
 } from '@/scheduler/liveCurve'
 import LiveCurveCard from '@/scheduler/components/LiveCurveCard.vue'
+import real27822 from './fixtures/liveCurve27822Real.json'
 
 const blank = defineComponent({ render: () => null })
 
@@ -692,5 +697,66 @@ describe('eclipse card on the night of 27822', () => {
     expect(el.textContent).toContain(`imaging planned to ${hm(t('2026-10-22T08:18:16Z'))}`)
     expect(el.textContent).not.toContain('min early')
     app.unmount()
+  })
+})
+
+describe('chart labels on the real 27822 night', () => {
+  const live = real27822.live as unknown as LiveCurve
+  const now = Date.parse(live.updated_at)
+  const desc = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')!
+  afterEach(() => Object.defineProperty(Element.prototype, 'clientWidth', desc))
+
+  for (const w of [300, 326, 400, 760, 1206]) {
+    it(`keeps labels off each other, the subs and the edges at ${w} px`, async () => {
+      Object.defineProperty(Element.prototype, 'clientWidth', {
+        configurable: true,
+        get: () => w,
+      })
+      const el = document.createElement('div')
+      const app = cardApp({ live, now })
+      app.mount(el)
+      await nextTick()
+      const svg = el.querySelector('svg')!
+      const num = (e: Element, a: string) => Number(e.getAttribute(a))
+      const labels = [...svg.querySelectorAll(':scope > text:not(.xt)')].map((t) =>
+        labelBox({
+          text: t.textContent!.trim(),
+          x: num(t, 'x'),
+          y: num(t, 'y'),
+          anchor: (t.getAttribute('text-anchor') ?? 'start') as 'start' | 'end',
+        }),
+      )
+      const dots: LabelBox[] = [...svg.querySelectorAll('circle')].map((c) => ({
+        x0: num(c, 'cx') - 3,
+        y0: num(c, 'cy') - 3,
+        x1: num(c, 'cx') + 3,
+        y1: num(c, 'cy') + 3,
+      }))
+      expect(dots.length).toBe(151)
+      expect(labels.length).toBeGreaterThan(0)
+      labels.forEach((a, i) => {
+        expect(a.x0).toBeGreaterThanOrEqual(52)
+        expect(a.x1).toBeLessThanOrEqual(w - 12)
+        labels.slice(i + 1).forEach((b) => expect(boxesMeet(a, b)).toBe(false))
+        dots.forEach((d) => expect(boxesMeet(a, d)).toBe(false))
+      })
+      const shown = [...svg.querySelectorAll('text')].map((t) => t.textContent!.trim())
+      const legend = el.querySelector('.legend')!.textContent!.replace(/\s+/g, ' ')
+      const end = hm(live.dark_end!)
+      if (!shown.includes(`dark and high enough to ${end}`))
+        expect(legend).toContain(`Dark and high enough for the planner to ${end}`)
+      else expect(legend).not.toContain(`planner to ${end}`)
+      if (!shown.includes('expected middle'))
+        expect(legend).toContain(`Expected middle, ${hm(live.eclipse!.mid)}`)
+      if (!shown.includes(`now ${hm(now)}`)) expect(legend).toContain(`Now, ${hm(now)}`)
+      app.unmount()
+    })
+  }
+
+  it('shows every label on a wide chart', () => {
+    const c = chartOf(live, now, 1206)
+    const { labels, dropped } = chartLabels(live, c, now)
+    expect(dropped).toEqual([])
+    expect(labels.map((l) => l.key)).toEqual(['now', 'mid', 'dark'])
   })
 })
