@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createApp, nextTick } from 'vue'
+import { createApp, defineComponent, nextTick } from 'vue'
+import { createMemoryHistory, createRouter } from 'vue-router'
 import type { DipWindow, LiveCurve, LivePoint } from '@/scheduler/api/binaries'
 import { clock, hm } from '@/scheduler/format'
 import {
@@ -7,6 +8,8 @@ import {
   binLegend,
   binTitle,
   chartOf,
+  DARK_PAD,
+  darkSpan,
   dipFacts,
   durationText,
   eclipseFacts,
@@ -15,17 +18,36 @@ import {
   nextWindow,
   nightText,
   pillFor,
+  plannedEnd,
   shareWords,
   showLive,
   storedText,
   subline,
   title,
+  titleParts,
   TICK_GAP,
   whyText,
   xTicks,
   yTicks,
 } from '@/scheduler/liveCurve'
 import LiveCurveCard from '@/scheduler/components/LiveCurveCard.vue'
+
+const blank = defineComponent({ render: () => null })
+
+function cardApp(props: Record<string, unknown>) {
+  const app = createApp(LiveCurveCard, props)
+  app.use(
+    createRouter({
+      history: createMemoryHistory(),
+      routes: [
+        { path: '/', component: blank },
+        { path: '/discoveries/mine', name: 'discoveries-mine', component: blank },
+        { path: '/discoveries/mine/:id/timings', name: 'discovery-timings', component: blank },
+      ],
+    }),
+  )
+  return app
+}
 
 const mid = Date.parse('2026-10-21T03:41:00Z')
 const at = (min: number) => new Date(mid + min * 60e3).toISOString()
@@ -76,7 +98,6 @@ function eclipse(extra: Partial<LiveCurve> = {}): LiveCurve {
       shift_err_min: 4.6,
       fit_depth: 0.43,
       fit_depth_err: 0.01,
-      planned_end: at(110),
     },
     updated_at: at(66),
     ...extra,
@@ -136,8 +157,8 @@ describe('live curve card words', () => {
 
   it('titles and sublines each kind', () => {
     const now = mid + 66 * 60e3
-    expect(title(eclipse())).toBe('Deep eclipse of 2217, live')
-    expect(title(dipWatch())).toBe('Dip watch on 15523, live')
+    expect(title(eclipse())).toBe('Deep eclipse of 2217, Cygnis Loop Panel 2, live')
+    expect(title(dipWatch())).toBe('Dip watch on 15523, Cygnis Loop Panel 1, live')
     expect(subline(eclipse(), now)).toBe(
       `Expected middle ${clock(at(0))}, give or take 4 min · 0.45 mag deep in r · 26 subs measured, the last one taken 1 min ago`,
     )
@@ -224,7 +245,7 @@ describe('live curve card words', () => {
 describe('live curve card', () => {
   it('draws a point with an error bar per sub and the not measured line with none', async () => {
     const el = document.createElement('div')
-    const app = createApp(LiveCurveCard, { live: eclipse(), now: mid + 66 * 60e3 })
+    const app = cardApp({ live: eclipse(), now: mid + 66 * 60e3 })
     app.mount(el)
     await nextTick()
     expect(el.querySelectorAll('circle.pt')).toHaveLength(26)
@@ -233,7 +254,7 @@ describe('live curve card', () => {
     expect(el.textContent).toContain('Expected, from ATLAS, TESS and ZTF')
     expect(el.textContent).not.toContain('Not measured yet. Each sub')
     app.unmount()
-    const empty = createApp(LiveCurveCard, {
+    const empty = cardApp({
       live: dipWatch({ points: null, state: 'early' }),
       now: mid,
     })
@@ -301,7 +322,7 @@ describe('live curve card at a measured width', () => {
         get: () => w,
       })
       const el = document.createElement('div')
-      const app = createApp(LiveCurveCard, { live: longWatch(), now: mid })
+      const app = cardApp({ live: longWatch(), now: mid })
       app.mount(el)
       await nextTick()
       const svg = el.querySelector('svg')!
@@ -405,7 +426,7 @@ describe('stored night on the live card', () => {
   it('names the night and says the result stays until the next night starts', () => {
     const live = storedWatch()
     expect(nightText('2026-10-20')).toBe('Oct 20')
-    expect(title(live)).toBe('Dip watch on 15523, night of Oct 20')
+    expect(title(live)).toBe('Dip watch on 15523, Cygnis Loop Panel 1, night of Oct 20')
     expect(storedText(live)).toBe(
       "Last night's result, night of Oct 20. It stays here until the next night's imaging starts.",
     )
@@ -489,7 +510,7 @@ describe('stored night on the live card', () => {
 
   it('fetches the star windows for a stored card only and shows the next one', async () => {
     const el = document.createElement('div')
-    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 60 * 60e3 })
+    const app = cardApp({ live: storedWatch(), now: mid + 60 * 60e3 })
     app.mount(el)
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
     expect(fetched).toEqual(['/api/v1/discoveries/dippers/15523'])
@@ -498,7 +519,7 @@ describe('stored night on the live card', () => {
     expect(el.textContent).not.toContain('Window left')
     app.unmount()
     const live = document.createElement('div')
-    const app2 = createApp(LiveCurveCard, { live: dipWatch(), now: mid + 46 * 60e3 })
+    const app2 = cardApp({ live: dipWatch(), now: mid + 46 * 60e3 })
     app2.mount(live)
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
     expect(fetched).toHaveLength(1)
@@ -513,7 +534,7 @@ describe('stored night on the live card', () => {
       vi.fn(async () => new Response('boom', { status: 500 })),
     )
     const el = document.createElement('div')
-    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 60 * 60e3 })
+    const app = cardApp({ live: storedWatch(), now: mid + 60 * 60e3 })
     app.mount(el)
     for (let i = 0; i < 6; i++) await new Promise((r) => setTimeout(r, 0))
     expect(el.textContent).not.toContain('Next window')
@@ -523,10 +544,14 @@ describe('stored night on the live card', () => {
 
   it('draws the stored card with no now line, the shading and per-average titles', async () => {
     const el = document.createElement('div')
-    const app = createApp(LiveCurveCard, { live: storedWatch(), now: mid + 86400e3 })
+    const app = cardApp({ live: storedWatch(), now: mid + 86400e3 })
     app.mount(el)
     await nextTick()
-    expect(el.querySelector('h2')?.textContent).toBe('Dip watch on 15523, night of Oct 20')
+    expect(el.querySelector('h2')?.textContent?.trim()).toBe(
+      'Dip watch on 15523, Cygnis Loop Panel 1, night of Oct 20',
+    )
+    expect(el.querySelector('h2 a')?.getAttribute('href')).toBe('/discoveries/mine#find-15523')
+    expect(el.textContent).not.toContain('Eclipse timings')
     expect(el.textContent).toContain("Last night's result")
     expect(el.querySelector('line.now')).toBeNull()
     expect(el.querySelector('rect.low')).not.toBeNull()
@@ -534,6 +559,128 @@ describe('stored night on the live card', () => {
     const titles = [...el.querySelectorAll('rect.bin title')].map((t) => t.textContent)
     expect(titles).toHaveLength(3)
     expect(titles[2]).toContain('Average of 2 subs')
+    app.unmount()
+  })
+})
+
+describe('eclipse card on the night of 27822', () => {
+  const t = (s: string) => Date.parse(s)
+  function garlic(extra: Partial<LiveCurve> = {}): LiveCurve {
+    const e = eclipse().eclipse!
+    return eclipse({
+      source_id: 27822,
+      name: '27822',
+      star: 'Gaia DR3 2012790179372810240',
+      object: 'Garlic Nebula',
+      from: '2026-10-21T21:35:00Z',
+      to: '2026-10-22T15:43:00Z',
+      dark_start: '2026-10-22T00:52:00Z',
+      dark_end: '2026-10-22T11:52:00Z',
+      points: Array.from({ length: 88 }, (_, i) => ({
+        frame_id: i + 1,
+        time: new Date(t('2026-10-22T01:34:54Z') + i * 146e3).toISOString(),
+        filter: 'Red',
+        mag: 0,
+        err: 0.04,
+        comp: 0,
+      })),
+      eclipse: {
+        ...e,
+        kind: 'secondary',
+        mid: '2026-10-22T06:35:12Z',
+        err_min: 5.1,
+        start: '2026-10-22T03:25:07Z',
+        end: '2026-10-22T09:45:18Z',
+        depth: 0.12,
+        curve: [
+          { t: '2026-10-21T21:35:00Z', v: 0, lo: 0, hi: 0 },
+          { t: '2026-10-22T06:35:12Z', v: 0.12, lo: 0.11, hi: 0.12 },
+          { t: '2026-10-22T15:43:00Z', v: 0, lo: 0, hi: 0 },
+        ],
+        shift_min: undefined,
+        shift_err_min: undefined,
+        fit_depth: 0.087,
+      },
+      ...extra,
+    })
+  }
+  const now = t('2026-10-22T05:10:00Z')
+
+  it('names the star as My discoveries does and links to it', () => {
+    expect(title(garlic())).toBe(
+      'Second eclipse of 27822 · Gaia DR3 2012790179372810240, Garlic Nebula, live',
+    )
+    expect(titleParts(garlic({ star: undefined })).star).toBe('27822')
+  })
+
+  it('gives no minimum time before any sub is past the middle', () => {
+    const f = eclipseFacts(garlic())[0]!
+    expect(f).toEqual({
+      label: 'Minimum so far',
+      value: 'Not measured yet',
+      note: 'needs subs after the middle',
+    })
+  })
+
+  it('says when the plan stops imaging, else when the dark ends, never the request end', () => {
+    const plan = [
+      { start: '2026-10-22T05:10:16Z', end: '2026-10-22T08:18:16Z', wait: false, project_id: 180 },
+      { start: '2026-10-22T08:18:16Z', end: '2026-10-22T11:38:16Z', wait: false, project_id: 181 },
+    ]
+    const end = plannedEnd(plan, 180, now)
+    expect(end).toBe(t('2026-10-22T08:18:16Z'))
+    expect(plannedEnd(plan, 999, now)).toBeNull()
+    expect(plannedEnd(plan, 180, t('2026-10-22T09:00:00Z'))).toBeNull()
+    expect(plannedEnd(plan, undefined, now)).toBeNull()
+    const cov = (end: number | null, live = garlic()) => eclipseFacts(live, end).at(-1)!.note
+    expect(cov(end)).toBe(
+      `the eclipse ends ${hm('2026-10-22T09:45:18Z')}, imaging planned to ${hm(end!)}`,
+    )
+    expect(cov(null)).toBe(
+      `the eclipse ends ${hm('2026-10-22T09:45:18Z')}, dark and high enough to ${hm('2026-10-22T11:52:00Z')}`,
+    )
+    expect(cov(null, garlic({ dark_end: undefined }))).toBe(
+      `the eclipse ends ${hm('2026-10-22T09:45:18Z')}`,
+    )
+    expect(cov(end)).not.toContain(hm('2026-10-22T15:43:00Z'))
+  })
+
+  it('spans the dark time with a margin and the eclipse, not the request window', () => {
+    const live = garlic()
+    const c = chartOf(live, now)
+    expect(c.x0).toBe(t('2026-10-22T00:52:00Z') - DARK_PAD)
+    expect(c.x1).toBe(t('2026-10-22T11:52:00Z') + DARK_PAD)
+    const d = darkSpan(live, c)!
+    expect(d.x).toBeCloseTo(c.sx(t('2026-10-22T00:52:00Z')))
+    expect(d.x + d.w).toBeCloseTo(c.sx(t('2026-10-22T11:52:00Z')))
+    expect(d.label).toBe(`dark and high enough to ${hm('2026-10-22T11:52:00Z')}`)
+    const short = garlic({ dark_end: '2026-10-22T08:00:00Z' })
+    expect(chartOf(short, now).x1).toBe(t('2026-10-22T09:45:18Z'))
+    const none = chartOf(garlic({ dark_start: undefined, dark_end: undefined }), now)
+    expect(none.x0).toBe(t('2026-10-21T21:35:00Z'))
+    expect(darkSpan(garlic({ dark_start: undefined }), none)).toBeNull()
+    expect(darkSpan(dipWatch({ dark_start: at(0), dark_end: at(60) }), none)).toBeNull()
+  })
+
+  it('draws the dark band, clips the curve and links the star and its timings', async () => {
+    const el = document.createElement('div')
+    const app = cardApp({ live: garlic(), now, plannedEnd: t('2026-10-22T08:18:16Z') })
+    app.mount(el)
+    await nextTick()
+    await nextTick()
+    expect(el.querySelector('rect.darkspan')).not.toBeNull()
+    expect(el.textContent).toContain('Dark and high enough for the planner')
+    const clip = el.querySelector('clipPath')!.id
+    expect(el.querySelector('path.expect')!.getAttribute('clip-path')).toBe(`url(#${clip})`)
+    const links = [...el.querySelectorAll('a')].map((a) => [a.textContent, a.getAttribute('href')])
+    expect(links).toContainEqual([
+      '27822 · Gaia DR3 2012790179372810240',
+      '/discoveries/mine#find-27822',
+    ])
+    expect(links).toContainEqual(['Eclipse timings', '/discoveries/mine/27822/timings'])
+    expect(el.textContent).toContain('needs subs after the middle')
+    expect(el.textContent).toContain(`imaging planned to ${hm(t('2026-10-22T08:18:16Z'))}`)
+    expect(el.textContent).not.toContain('min early')
     app.unmount()
   })
 })

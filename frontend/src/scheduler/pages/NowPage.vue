@@ -72,7 +72,7 @@ import {
 import MoonKeepNote from '../components/MoonKeepNote.vue'
 import LiveCurveCard from '../components/LiveCurveCard.vue'
 import { getLiveCurve, type LiveCurve } from '../api/binaries'
-import { showLive } from '../liveCurve'
+import { plannedEnd, showLive } from '../liveCurve'
 import { getMoonKeep, type MoonKeepView } from '../api/moonkeep'
 import { nowNote } from '../moonKeep'
 import { getAutofocusRuns } from '../api/autofocus'
@@ -243,6 +243,13 @@ const live = ref<LiveCurve | null>(null)
 const liveShown = computed(() =>
   !calCard.value && showLive(live.value, target.value?.project_guid) ? live.value : null,
 )
+
+const livePlannedEnd = computed(() => {
+  const l = liveShown.value
+  const t = target.value
+  if (!l || l.stored || !t || t.project_guid !== l.project_guid) return null
+  return plannedEnd(preview.value?.blocks, t.project_id, shell.now)
+})
 
 async function loadLive() {
   try {
@@ -1171,7 +1178,12 @@ const cross = (x: number, y: number, r: number) =>
         >
       </section>
 
-      <LiveCurveCard v-if="liveShown" :live="liveShown" :now="shell.now" />
+      <LiveCurveCard
+        v-if="liveShown"
+        :live="liveShown"
+        :now="shell.now"
+        :planned-end="livePlannedEnd"
+      />
 
       <section v-if="!calSide" aria-labelledby="sub-h" class="card latest">
         <div class="spread">

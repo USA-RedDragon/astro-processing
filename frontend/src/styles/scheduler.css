@@ -2,6 +2,7 @@
   --lc-expect: oklch(0.5 0.15 230);
   --lc-band: oklch(0.62 0.13 230 / 0.16);
   --lc-window: oklch(0.769 0.188 70.08 / 0.12);
+  --lc-dark: oklch(0.769 0.188 70.08 / 0.14);
   --lc-point: oklch(0.141 0.005 285.823);
   --lc-comp: oklch(0.552 0.016 285.938);
   --lc-now: oklch(0.56 0.2 25);

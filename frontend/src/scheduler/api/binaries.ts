@@ -467,7 +467,6 @@ export interface LiveEclipse {
   shift_err_min?: number
   fit_depth?: number
   fit_depth_err?: number
-  planned_end: string
 }
 
 export interface LiveDip {
@@ -492,6 +491,8 @@ export interface LiveCurve {
   object: string
   source_id: number
   name: string
+  /** star is the star's name as My discoveries shows it, "Gaia DR3 …". */
+  star?: string
   state: LiveState
   why: string
   note?: string
@@ -515,6 +516,9 @@ export interface LiveCurve {
   night?: string
   /** low_from is when the star dropped below the planner's height limit while subs were still taken. */
   low_from?: string
+  /** dark_start and dark_end bound the night's dark and high enough time in the run. */
+  dark_start?: string
+  dark_end?: string
 }
 
 export const getLiveCurve = () => api.get<{ live: LiveCurve | null }>('/discoveries/live-curve')

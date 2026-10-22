@@ -51,11 +51,36 @@ export function nightText(night: string | undefined): string {
   return isNaN(d.getTime()) ? night : nightFmt.format(d)
 }
 
-export function title(live: LiveCurve): string {
+export interface TitleParts {
+  lead: string
+  star: string
+  field: string
+  when: string
+}
+
+/**
+ * titleParts are the card's title in pieces: what is watched, the star as My
+ * discoveries names it, its field and whether it is live or a stored night.
+ */
+export function titleParts(live: LiveCurve): TitleParts {
   const when = live.stored ? `, night of ${nightText(live.night)}` : ', live'
-  if (live.kind === 'dip-watch') return `Dip watch on ${live.name}${when}`
-  const kind = live.eclipse?.kind === 'secondary' ? 'Second eclipse' : 'Deep eclipse'
-  return `${kind} of ${live.name}${when}`
+  const kind = live.eclipse?.kind === 'secondary' ? 'Second eclipse of' : 'Deep eclipse of'
+  return {
+    lead: live.kind === 'dip-watch' ? 'Dip watch on' : kind,
+    star: live.star ? `${live.name} · ${live.star}` : live.name,
+    field: live.object ? `, ${live.object}` : '',
+    when,
+  }
+}
+
+export function title(live: LiveCurve): string {
+  const t = titleParts(live)
+  return `${t.lead} ${t.star}${t.field}${t.when}`
+}
+
+/** findHash is the anchor of the star's card on My discoveries. */
+export function findHash(sourceId: number): string {
+  return `#find-${sourceId}`
 }
 
 /** storedText is the line that says a card shows a past night's stored result. */
@@ -134,11 +159,19 @@ function compsFact(live: LiveCurve): Fact {
   }
 }
 
-/** eclipseFacts are the facts row of an eclipse run. */
-export function eclipseFacts(live: LiveCurve): Fact[] {
+/**
+ * eclipseFacts are the facts row of an eclipse run. plannedEnd is when the
+ * scheduler's plan for tonight stops imaging the run, when known; else the
+ * coverage says when the star stops being dark and high enough.
+ */
+export function eclipseFacts(live: LiveCurve, plannedEnd: number | null = null): Fact[] {
   const e = live.eclipse
   if (!e) return []
   const out: Fact[] = []
+  const mid = new Date(e.mid).getTime()
+  const pts = live.points ?? []
+  const before = pts.filter((p) => new Date(p.time).getTime() < mid).length
+  const after = pts.length - before
   if (e.shift_min !== undefined && e.shift_err_min !== undefined) {
     const s = e.shift_min
     const word =
@@ -146,13 +179,13 @@ export function eclipseFacts(live: LiveCurve): Fact[] {
     out.push({
       label: 'Minimum so far',
       value: `${word}, give or take ${Math.max(1, Math.round(e.shift_err_min))}`,
-      note: 'firms up after the middle passes',
+      note: 'from subs on both sides of the middle',
     })
   } else {
     out.push({
       label: 'Minimum so far',
       value: 'Not measured yet',
-      note: 'needs subs on both sides of the middle',
+      note: after ? 'needs more subs on both sides of the middle' : 'needs subs after the middle',
     })
   }
   if (e.fit_depth !== undefined) {
@@ -169,15 +202,34 @@ export function eclipseFacts(live: LiveCurve): Fact[] {
     })
   }
   out.push(compsFact(live))
-  const mid = new Date(e.mid).getTime()
-  const pts = live.points ?? []
-  const before = pts.filter((p) => new Date(p.time).getTime() < mid).length
+  let until = ''
+  if (plannedEnd !== null && !live.stored) until = `, imaging planned to ${hm(plannedEnd)}`
+  else if (live.dark_end) until = `, dark and high enough to ${hm(live.dark_end)}`
   out.push({
     label: 'Coverage',
-    value: `${before} before and ${pts.length - before} after the middle`,
-    note: `the eclipse ends ${hm(e.end)}, imaging planned to ${hm(e.planned_end)}`,
+    value: `${before} before and ${after} after the middle`,
+    note: `the eclipse ends ${hm(e.end)}${until}`,
   })
   return out
+}
+
+/**
+ * plannedEnd is when tonight's plan stops imaging project projectId: the end
+ * of its last block still to end after now, or null when the plan has none.
+ */
+export function plannedEnd(
+  blocks: { start: string; end: string; wait: boolean; project_id?: number }[] | null | undefined,
+  projectId: number | undefined,
+  now: number,
+): number | null {
+  if (projectId === undefined) return null
+  let end: number | null = null
+  for (const b of blocks ?? []) {
+    const t = Date.parse(b.end)
+    if (b.wait || b.project_id !== projectId || isNaN(t) || t <= now) continue
+    end = end === null ? t : Math.max(end, t)
+  }
+  return end
 }
 
 /**
@@ -297,7 +349,14 @@ export function chartBox(w = 640): ChartBox {
   return { w: width, h: 260, l: 52, r: width - 12, t: 14, b: 226 }
 }
 
-/** chartOf scales the card's chart, w pixels wide: time across, magnitudes fainter down. */
+/** DARK_PAD is the margin the chart keeps either side of the dark time. */
+export const DARK_PAD = 15 * 60e3
+
+/**
+ * chartOf scales the card's chart, w pixels wide: time across, magnitudes
+ * fainter down. An eclipse with a known dark time spans that time, a little
+ * margin and the eclipse, not the whole request window.
+ */
 export function chartOf(live: LiveCurve, now: number, w = 640): Chart {
   const pts = live.points ?? []
   let x0 = new Date(live.from).getTime()
@@ -310,7 +369,11 @@ export function chartOf(live: LiveCurve, now: number, w = 640): Chart {
     x1 = new Date(pts[pts.length - 1]!.time).getTime()
   }
   const e = live.eclipse
-  if (e?.curve?.length) {
+  const dark = darkOf(live)
+  if (e && dark) {
+    x0 = Math.min(dark.start - DARK_PAD, new Date(e.start).getTime())
+    x1 = Math.max(dark.end + DARK_PAD, new Date(e.end).getTime())
+  } else if (e?.curve?.length) {
     x0 = Math.min(x0, new Date(e.curve[0]!.t).getTime())
     x1 = Math.max(x1, new Date(e.curve[e.curve.length - 1]!.t).getTime())
   }
@@ -404,6 +467,41 @@ export function expectedPath(live: LiveCurve, c: Chart): string {
 /** compPath is the nearby stars' average, sub by sub. */
 export function compPath(live: LiveCurve, c: Chart): string {
   return linePath((live.points ?? []).map((p) => [c.sx(new Date(p.time).getTime()), c.sy(p.comp)]))
+}
+
+function darkOf(live: LiveCurve): { start: number; end: number } | null {
+  if (!live.dark_start || !live.dark_end) return null
+  const start = Date.parse(live.dark_start)
+  const end = Date.parse(live.dark_end)
+  return end > start ? { start, end } : null
+}
+
+/** DARK_LABEL_W is about how wide the dark time's label is drawn. */
+export const DARK_LABEL_W = 190
+
+/**
+ * darkSpan is the eclipse chart's dark and high enough stretch with its
+ * label, or null when the dark time is not known or off the chart.
+ */
+export function darkSpan(
+  live: LiveCurve,
+  c: Chart,
+): { x: number; w: number; tx: number; anchor: 'start' | 'end'; label: string } | null {
+  const d = darkOf(live)
+  if (!live.eclipse || !d) return null
+  const a = Math.max(c.x0, d.start)
+  const b = Math.min(c.x1, d.end)
+  if (!(b > a)) return null
+  const x = c.sx(a)
+  const w = c.sx(b) - x
+  const right = x + 4 + DARK_LABEL_W <= c.box.r
+  return {
+    x,
+    w,
+    tx: right ? x + 4 : x + w - 4,
+    anchor: right ? 'start' : 'end',
+    label: `dark and high enough to ${hm(d.end)}`,
+  }
 }
 
 /** LOW_LABEL_W is about how wide the low stretch's label is drawn. */

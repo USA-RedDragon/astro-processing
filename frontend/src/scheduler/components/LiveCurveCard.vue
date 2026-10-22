@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, useId, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { getDipper, type DipWindow, type LiveCurve } from '../api/binaries'
 import { latestOnly } from '../latest'
 import { hm } from '../format'
@@ -9,21 +10,27 @@ import {
   binTitle,
   chartOf,
   compPath,
+  darkSpan,
   dipFacts,
   eclipseFacts,
   expectedPath,
+  findHash,
   lowSpan,
   nextWindow,
   pillFor,
   storedText,
   subline,
-  title,
+  titleParts,
   whyText,
   xTicks,
   yTicks,
 } from '../liveCurve'
 
-const props = defineProps<{ live: LiveCurve; now: number }>()
+const props = withDefaults(
+  defineProps<{ live: LiveCurve; now: number; plannedEnd?: number | null }>(),
+  { plannedEnd: null },
+)
+const clipId = 'lc-clip-' + useId()
 
 const wrap = ref<HTMLElement | null>(null)
 const width = ref(640)
@@ -67,8 +74,17 @@ watch(() => [props.live.stored, props.live.kind, props.live.source_id] as const,
 const facts = computed(() =>
   props.live.kind === 'dip-watch'
     ? dipFacts(props.live, props.now, nextWindow(props.live, windows.value, props.now))
-    : eclipseFacts(props.live),
+    : eclipseFacts(props.live, props.plannedEnd),
 )
+const head = computed(() => titleParts(props.live))
+const starLink = computed(() => ({
+  name: 'discoveries-mine',
+  hash: findHash(props.live.source_id),
+}))
+const timingsLink = computed(() => ({
+  name: 'discovery-timings',
+  params: { id: String(props.live.source_id) },
+}))
 const points = computed(() =>
   (props.live.points ?? []).map((p) => {
     const x = chart.value.sx(new Date(p.time).getTime())
@@ -95,6 +111,7 @@ const bins = computed(() =>
   }),
 )
 const low = computed(() => lowSpan(props.live, chart.value))
+const dark = computed(() => darkSpan(props.live, chart.value))
 const nowX = computed(() => {
   if (props.live.stored) return null
   const c = chart.value
@@ -122,9 +139,15 @@ const label = computed(() =>
 <template>
   <section aria-labelledby="live-h" class="card live">
     <div class="head">
-      <h2 id="live-h">{{ title(live) }}</h2>
+      <h2 id="live-h">
+        {{ head.lead }} <RouterLink :to="starLink" class="star">{{ head.star }}</RouterLink
+        >{{ head.field }}{{ head.when }}
+      </h2>
       <span class="badge" :class="pill.tone">{{ pill.label }}</span>
     </div>
+    <p v-if="live.kind === 'eclipse'" class="small sub links">
+      <RouterLink :to="timingsLink">Eclipse timings</RouterLink>
+    </p>
     <p v-if="live.stored" class="small sub">{{ storedText(live) }}</p>
     <p class="small muted sub">{{ subline(live, now) }}</p>
     <p v-if="why" class="small sub">{{ why }}</p>
@@ -137,6 +160,15 @@ const label = computed(() =>
         role="img"
         :aria-label="label"
       >
+        <defs>
+          <clipPath :id="clipId">
+            <rect :x="box.l" :y="0" :width="box.r - box.l" :height="box.h" />
+          </clipPath>
+        </defs>
+        <template v-if="dark">
+          <rect :x="dark.x" :y="box.t" :width="dark.w" :height="box.b - box.t" class="darkspan" />
+          <text :x="dark.tx" :y="box.t + 24" :text-anchor="dark.anchor">{{ dark.label }}</text>
+        </template>
         <g v-for="v in yTicks(chart)" :key="'y' + v">
           <line :x1="box.l" :x2="box.r" :y1="chart.sy(v)" :y2="chart.sy(v)" class="grid" />
           <text :x="box.l - 6" :y="chart.sy(v) + 4" text-anchor="end">
@@ -173,8 +205,13 @@ const label = computed(() =>
           class="expect"
         />
         <template v-if="live.eclipse">
-          <path :d="bandPath(live, chart)" class="band" />
-          <path :d="expectedPath(live, chart)" class="expect" fill="none" />
+          <path :d="bandPath(live, chart)" class="band" :clip-path="`url(#${clipId})`" />
+          <path
+            :d="expectedPath(live, chart)"
+            class="expect"
+            fill="none"
+            :clip-path="`url(#${clipId})`"
+          />
           <template v-if="midX !== null">
             <line :x1="midX" :x2="midX" :y1="box.t" :y2="box.b" class="mid" />
             <text :x="midX + 4" :y="box.t + 10">expected middle</text>
@@ -229,6 +266,10 @@ const label = computed(() =>
       <span v-if="bins.length"
         ><i class="sw" style="background: var(--lc-bin)"></i>{{ binLegend(live) }}</span
       >
+      <span v-if="dark"
+        ><i class="sw" style="background: var(--lc-dark)"></i>Dark and high enough for the
+        planner</span
+      >
       <span v-if="low"
         ><i class="sw" style="background: var(--lc-low)"></i>Star below the planner's height
         limit</span
@@ -266,6 +307,14 @@ const label = computed(() =>
 }
 .head h2 {
   margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.links a,
+.head h2 .star {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .sub {
   margin: 0;
@@ -291,6 +340,9 @@ const label = computed(() =>
 }
 .window {
   fill: var(--lc-window);
+}
+.darkspan {
+  fill: var(--lc-dark);
 }
 .low {
   fill: var(--lc-low);
