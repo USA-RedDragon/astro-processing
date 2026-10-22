@@ -172,6 +172,9 @@ export function eclipseFacts(live: LiveCurve, plannedEnd: number | null = null):
   const pts = live.points ?? []
   const before = pts.filter((p) => new Date(p.time).getTime() < mid).length
   const after = pts.length - before
+  const needs = after
+    ? 'needs more subs on both sides of the middle'
+    : 'needs subs after the middle'
   if (e.shift_min !== undefined && e.shift_err_min !== undefined) {
     const s = e.shift_min
     const word =
@@ -185,20 +188,20 @@ export function eclipseFacts(live: LiveCurve, plannedEnd: number | null = null):
     out.push({
       label: 'Minimum so far',
       value: 'Not measured yet',
-      note: after ? 'needs more subs on both sides of the middle' : 'needs subs after the middle',
+      note: needs,
     })
   }
   if (e.fit_depth !== undefined) {
     out.push({
       label: 'Depth so far',
       value: mag(e.fit_depth),
-      note: `expected ${e.depth.toFixed(2)}`,
+      note: `expected ${e.depth.toFixed(2)}, from subs on both sides of the middle`,
     })
   } else {
     out.push({
       label: 'Depth so far',
       value: 'Not measured yet',
-      note: `expected ${e.depth.toFixed(2)}`,
+      note: `${needs}, expected ${e.depth.toFixed(2)}`,
     })
   }
   out.push(compsFact(live))

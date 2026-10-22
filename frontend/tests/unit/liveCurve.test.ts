@@ -599,7 +599,8 @@ describe('eclipse card on the night of 27822', () => {
         ],
         shift_min: undefined,
         shift_err_min: undefined,
-        fit_depth: 0.087,
+        fit_depth: undefined,
+        fit_depth_err: undefined,
       },
       ...extra,
     })
@@ -619,6 +620,15 @@ describe('eclipse card on the night of 27822', () => {
       label: 'Minimum so far',
       value: 'Not measured yet',
       note: 'needs subs after the middle',
+    })
+  })
+
+  it('gives no depth before any sub is past the middle', () => {
+    const f = eclipseFacts(garlic())[1]!
+    expect(f).toEqual({
+      label: 'Depth so far',
+      value: 'Not measured yet',
+      note: 'needs subs after the middle, expected 0.12',
     })
   })
 
