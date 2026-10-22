@@ -15,6 +15,7 @@ import {
   noteLines,
   rangeText,
   requestView,
+  heldText,
   starViewCounts,
   starsLine,
   typeText,
@@ -181,11 +182,30 @@ describe('eclipse planner helpers', () => {
       canRequest: true,
       canCancel: false,
     })
+    expect(
+      requestView({ id: 1, state: 'held', note: 'Withdrawn: made-up reason.', auto: true }),
+    ).toMatchObject({
+      label: 'Withdrawn, timing too uncertain',
+      note: 'Withdrawn: made-up reason.',
+      canRequest: false,
+      canCancel: false,
+    })
     expect(requestView({ id: 1, state: 'moved', note: '', auto: false })).toMatchObject({
       label: 'Moved to the new eclipse time',
       canRequest: true,
       canCancel: false,
     })
+  })
+
+  it('shows why an eclipse is not requested unless a request is still open', () => {
+    const held = 'Not requested: made-up reason.'
+    expect(heldText({ held, request: null })).toBe(held)
+    expect(heldText({ held: '', request: null })).toBe('')
+    expect(heldText({ request: null })).toBe('')
+    expect(heldText({ held, request: { id: 1, state: 'failed', note: '', auto: false } })).toBe(
+      held,
+    )
+    expect(heldText({ held, request: { id: 1, state: 'sent', note: '', auto: false } })).toBe('')
   })
 
   it('marks requests the app made so they can still be cancelled', () => {

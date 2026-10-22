@@ -158,7 +158,7 @@ export interface Kit {
 }
 
 export type EclipsePurpose = 'flag' | 'period' | 'own'
-export type RequestState = 'waiting' | 'sent' | 'failed' | 'done' | 'cancelled' | 'moved'
+export type RequestState = 'waiting' | 'sent' | 'failed' | 'done' | 'cancelled' | 'moved' | 'held'
 
 export interface EclipseRequest {
   id: number
@@ -188,6 +188,7 @@ export interface PlannedEclipse {
   why: string
   window: { start: string; end: string }
   request: EclipseRequest | null
+  held?: string
 }
 
 export interface EclipsePlan {

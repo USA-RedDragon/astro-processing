@@ -242,6 +242,15 @@ export function requestView(r: EclipseRequest | null): RequestView {
     }
   if (r.state === 'cancelled')
     return { label: 'Cancelled', tone: '', note: r.note, by, canRequest: true, canCancel: false }
+  if (r.state === 'held')
+    return {
+      label: 'Withdrawn, timing too uncertain',
+      tone: '',
+      note: r.note,
+      by,
+      canRequest: false,
+      canCancel: false,
+    }
   if (r.state === 'moved')
     return {
       label: 'Moved to the new eclipse time',
@@ -259,6 +268,12 @@ export function requestView(r: EclipseRequest | null): RequestView {
     canRequest: true,
     canCancel: false,
   }
+}
+
+export function heldText(e: Pick<PlannedEclipse, 'held' | 'request'>): string {
+  if (!e.held) return ''
+  if (e.request && (e.request.state === 'waiting' || e.request.state === 'sent')) return ''
+  return e.held
 }
 
 export function checklistText(items: KitCheck[]): string {

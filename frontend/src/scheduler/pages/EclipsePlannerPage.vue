@@ -20,6 +20,7 @@ import {
   planRows,
   rangeText,
   requestView,
+  heldText,
   uncertaintyText,
   type EclipseView,
 } from '../binaries'
@@ -174,8 +175,8 @@ const pageState = computed(() => {
     <PageHead context="Discover" title="Eclipse planner">
       {{ lede }}
       <span v-if="data && !data.site_known" class="block xsmall mt-1" role="note"
-        >The site location is not known yet, so the planner cannot tell which eclipses the site
-        can see.</span
+        >The site location is not known yet, so the planner cannot tell which eclipses the site can
+        see.</span
       >
     </PageHead>
 
@@ -272,8 +273,9 @@ const pageState = computed(() => {
                   requestView(r.e.request).note
                 }}</span>
               </template>
+              <span v-if="heldText(r.e)" class="xsmall warn" role="note">{{ heldText(r.e) }}</span>
               <button
-                v-if="requestView(r.e.request).canRequest"
+                v-if="requestView(r.e.request).canRequest && !heldText(r.e)"
                 type="button"
                 class="btn sm"
                 :disabled="busy[r.key] || !r.e.observable"
@@ -441,7 +443,8 @@ const pageState = computed(() => {
 .who b {
   overflow-wrap: anywhere;
 }
-.who .warn {
+.who .warn,
+.go .warn {
   color: var(--warn);
 }
 .why {

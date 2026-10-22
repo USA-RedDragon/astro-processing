@@ -23,7 +23,9 @@ async function render(handler: Handler, path = '/discoveries/eclipses') {
   vi.stubGlobal('fetch', fetch)
   const router: Router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: '/discoveries/eclipses', name: 'discovery-eclipses', component: EclipsePlannerPage }],
+    routes: [
+      { path: '/discoveries/eclipses', name: 'discovery-eclipses', component: EclipsePlannerPage },
+    ],
   })
   router.push(path)
   await router.isReady()
@@ -91,7 +93,9 @@ describe('EclipsePlannerPage', () => {
       'Predicted eclipses of your confirmed binaries from Sat Oct 17 to Mon Nov 16, 2026.',
     )
     expect(el.textContent).toContain('Times are US Central (made-up zone note).')
-    const chips = [...el.querySelectorAll('.chip')].map((c) => c.textContent?.replace(/\s+/g, ' ').trim())
+    const chips = [...el.querySelectorAll('.chip')].map((c) =>
+      c.textContent?.replace(/\s+/g, ' ').trim(),
+    )
     expect(chips).toEqual(['Settles a flag 1', 'Period check 1', 'Dip windows 0', 'All 3'])
     const shown = el.querySelectorAll('.ecl')
     expect(shown).toHaveLength(1)
@@ -156,7 +160,9 @@ describe('EclipsePlannerPage', () => {
     expect(row().textContent).toContain('Requested')
     button(row(), 'Cancel request')!.click()
     await settle()
-    const del = fetch.mock.calls.find((c) => (c[1] as RequestInit | undefined)?.method === 'DELETE')!
+    const del = fetch.mock.calls.find(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'DELETE',
+    )!
     expect(String(del[0])).toBe('/api/v1/discoveries/eclipses/requests/55')
     expect(button(row(), 'Request imaging')).toBeDefined()
     app.unmount()
@@ -194,7 +200,14 @@ describe('EclipsePlannerPage', () => {
 
   it('shows a failed request with its note and offers to ask again', async () => {
     const { el, app } = await render(() =>
-      json(plan([eclipse({ purpose: 'flag', request: { id: 3, state: 'failed', note: 'Made-up scheduler error', auto: false } })])),
+      json(
+        plan([
+          eclipse({
+            purpose: 'flag',
+            request: { id: 3, state: 'failed', note: 'Made-up scheduler error', auto: false },
+          }),
+        ]),
+      ),
     )
     const row = el.querySelector('.ecl')!
     expect(row.textContent).toContain('Request failed')
@@ -203,9 +216,35 @@ describe('EclipsePlannerPage', () => {
     app.unmount()
   })
 
+  it('says why a vague second eclipse is not requested and offers no request', async () => {
+    const held =
+      "Not requested: the second eclipse's timing is uncertain by ±5.7 h, so its dip could fall anywhere in 42.1 h, more than the 9.0 h the star is up in the dark that night. It comes back when its timing is measured better."
+    const { el, app } = await render(() =>
+      json(
+        plan([
+          eclipse({
+            purpose: 'flag',
+            kind: 'secondary',
+            kind_label: 'Second eclipse',
+            request: null,
+            held,
+          }),
+        ]),
+      ),
+    )
+    const row = el.querySelector('.ecl')!
+    expect(row.textContent).toContain(held)
+    expect(button(row, 'Request imaging')).toBeUndefined()
+    app.unmount()
+  })
+
   it('marks a request the app made and lets it be cancelled', async () => {
     const { el, app } = await render(() =>
-      json(plan([eclipse({ purpose: 'flag', request: { id: 9, state: 'waiting', note: '', auto: true } })])),
+      json(
+        plan([
+          eclipse({ purpose: 'flag', request: { id: 9, state: 'waiting', note: '', auto: true } }),
+        ]),
+      ),
     )
     const row = el.querySelector('.ecl')!
     expect(row.textContent).toContain('Requested')
