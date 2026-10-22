@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PageHead from '../components/PageHead.vue'
 import DipWindowsBox from '../components/DipWindowsBox.vue'
@@ -62,12 +62,22 @@ async function load() {
     if (!current()) return
     data.value = r
     error.value = ''
+    scrollToHash()
   } catch (e) {
     if (!current()) return
     error.value = e instanceof Error ? e.message : String(e)
   } finally {
     if (current()) loading.value = false
   }
+}
+
+let scrolled = false
+
+/** scrollToHash brings the star the link names, "#find-27822", into view once. */
+function scrollToHash() {
+  if (scrolled || !/^#find-\d+$/.test(route.hash)) return
+  scrolled = true
+  nextTick(() => document.getElementById(route.hash.slice(1))?.scrollIntoView({ block: 'start' }))
 }
 
 let factsTimer: ReturnType<typeof setInterval> | undefined
@@ -300,7 +310,13 @@ const pageState = computed(() => {
       </div>
       <div class="sec">{{ starsLine(viewLabel, rows.length) }}</div>
       <div class="list">
-        <article v-for="b in rows" :key="b.source_id" class="find" :class="vsxClass(b)">
+        <article
+          v-for="b in rows"
+          :id="'find-' + b.source_id"
+          :key="b.source_id"
+          class="find"
+          :class="vsxClass(b)"
+        >
           <div class="who">
             <div class="meta">
               <span class="pill" :class="b.vsx.submitted ? 'known' : 'low'">{{ vsxLabel(b) }}</span>
@@ -473,6 +489,7 @@ const pageState = computed(() => {
         <div class="list">
           <article
             v-for="o in otherRows"
+            :id="'find-' + o.source_id"
             :key="o.source_id"
             class="find other"
             :class="vsxClass(o)"
@@ -667,6 +684,7 @@ const pageState = computed(() => {
   margin-top: 10px;
 }
 .find {
+  scroll-margin-top: 4rem;
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) minmax(0, 1.2fr);
   gap: 10px 20px;
