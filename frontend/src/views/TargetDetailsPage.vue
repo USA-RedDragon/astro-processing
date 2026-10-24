@@ -276,7 +276,9 @@
                   >
                     cut {{ s.cut.toFixed(2) }}
                   </div>
-                  <span v-else class="text-xs text-muted-foreground">{{ s.score_missing }}</span>
+                  <div v-else class="text-xs text-muted-foreground whitespace-normal min-w-44 max-w-56">
+                    {{ s.score_missing }}
+                  </div>
                   <div
                     v-if="s.photometry === 'pending' && s.stack_status !== 'pending'"
                     class="text-xs text-muted-foreground"
@@ -286,7 +288,9 @@
                 </TableCell>
                 <TableCell class="text-right tabular-nums" :title="s.pedestal_basis ?? undefined">
                   <template v-if="s.sky != null">{{ s.sky.toFixed(0) }}</template>
-                  <span v-else class="text-xs text-muted-foreground">{{ s.sky_missing }}</span>
+                  <div v-else class="text-xs text-muted-foreground whitespace-normal min-w-44 max-w-56 ml-auto">
+                    {{ s.sky_missing }}
+                  </div>
                   <div v-if="s.sky_per_second != null" class="text-xs text-muted-foreground whitespace-nowrap">
                     {{ formatRate(s.sky_per_second) }} a second
                   </div>
@@ -298,9 +302,12 @@
                       {{ s.transparency_source === 'photometry' ? 'star photometry' : 'light above sky' }}
                     </div>
                   </template>
-                  <span v-else-if="s.transparency_missing" class="text-xs text-muted-foreground">
+                  <div
+                    v-else-if="s.transparency_missing"
+                    class="text-xs text-muted-foreground whitespace-normal min-w-44 max-w-56 ml-auto"
+                  >
                     not measured: {{ s.transparency_missing }}
-                  </span>
+                  </div>
                 </TableCell>
                 <TableCell v-if="skyBinned" class="text-right tabular-nums">
                   {{ formatNumber(s.clarity, 2) }}
@@ -320,7 +327,9 @@
                   <Badge :variant="statusVariant(s.stack_status)">
                     {{ s.stack_status === 'night' ? "added to its night's stack" : s.stack_status.replace(/_/g, ' ') }}
                   </Badge>
-                  <div v-if="s.stack_reason" class="text-xs text-muted-foreground max-w-56">{{ s.stack_reason }}</div>
+                  <div v-if="s.stack_reason" class="text-xs text-muted-foreground whitespace-normal min-w-44 max-w-56">
+                    {{ s.stack_reason }}
+                  </div>
                 </TableCell>
                 <TableCell class="text-xs text-muted-foreground whitespace-nowrap">
                   <PreviewLink
