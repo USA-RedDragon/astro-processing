@@ -166,7 +166,9 @@ type FilterQuality struct {
 	MinScore *float64 `json:"min_score,omitempty"`
 	// This target's best score in the filter, as the stacker scores it now.
 	TargetBest *float64 `json:"target_best,omitempty"`
-	Cut        *float64 `json:"cut,omitempty"`
+	// The lowest and highest of the subs' own cuts. They differ when the stacker judges each sub against the subs taken in a similar sky.
+	CutLow  *float64 `json:"cut_low,omitempty"`
+	CutHigh *float64 `json:"cut_high,omitempty"`
 	// The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target.
 	ReferenceWeight     *float64 `json:"reference_weight,omitempty"`
 	ReferenceSubs       *int32   `json:"reference_subs,omitempty"`
@@ -313,8 +315,23 @@ type Subframe struct {
 	Weight *float64 `json:"weight,omitempty"`
 	// The best score of this target's subs in the filter, as the stacker scores them now.
 	TargetBest *float64 `json:"target_best,omitempty"`
-	// The stacker's cut: subs scoring under it are left out (min score × target_best).
+	// The stacker's cut for this sub: it is left out when its score is under it (min_score × cut_best).
 	Cut *float64 `json:"cut,omitempty"`
+	// The cut in words: what the sub's score is judged against.
+	CutBasis *string `json:"cut_basis,omitempty"`
+	// The stacker's min score: the fraction of cut_best a sub must score, and of its target's clear subs its clarity must reach.
+	MinScore *float64 `json:"min_score,omitempty"`
+	// The best score among the subs the cut judges this sub against. Null from a stacker that judges against target_best.
+	CutBest *float64 `json:"cut_best,omitempty"`
+	// How many subs the cut judges this sub against. Null from a stacker that judges against target_best.
+	CutSubs *int32 `json:"cut_subs,omitempty"`
+	// The sky per second of the subs the cut judges this sub against, in ADU a second. Null when that is all of the target's subs in the filter.
+	CutSkyLow  *float64 `json:"cut_sky_low,omitempty"`
+	CutSkyHigh *float64 `json:"cut_sky_high,omitempty"`
+	// Sky above the pedestal per second of exposure, in ADU a second.
+	SkyPerSecond *float64 `json:"sky_per_second,omitempty"`
+	// Star sharpness and transparency (transparency² / HFR⁴), which moonlight does not change, as a fraction of what this target's clearest subs in the filter reach. Under min_score the sub is left out whatever the sky.
+	Clarity *float64 `json:"clarity,omitempty"`
 	// The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured.
 	Transparency *float64 `json:"transparency,omitempty"`
 	// How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record).

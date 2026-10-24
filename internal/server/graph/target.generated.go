@@ -382,16 +382,16 @@ func (ec *executionContext) fieldContext_FilterQuality_target_best(_ context.Con
 	return graphql.NewScalarFieldContext("FilterQuality", field, false, false, "Float")
 }
 
-func (ec *executionContext) _FilterQuality_cut(ctx context.Context, field graphql.CollectedField, obj *model.FilterQuality) (ret graphql.Marshaler) {
+func (ec *executionContext) _FilterQuality_cut_low(ctx context.Context, field graphql.CollectedField, obj *model.FilterQuality) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
 		field,
 		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_FilterQuality_cut(ctx, field)
+			return ec.fieldContext_FilterQuality_cut_low(ctx, field)
 		},
 		func(ctx context.Context) (any, error) {
-			return obj.Cut, nil
+			return obj.CutLow, nil
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
@@ -401,7 +401,30 @@ func (ec *executionContext) _FilterQuality_cut(ctx context.Context, field graphq
 		false,
 	)
 }
-func (ec *executionContext) fieldContext_FilterQuality_cut(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+func (ec *executionContext) fieldContext_FilterQuality_cut_low(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("FilterQuality", field, false, false, "Float")
+}
+
+func (ec *executionContext) _FilterQuality_cut_high(ctx context.Context, field graphql.CollectedField, obj *model.FilterQuality) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_FilterQuality_cut_high(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutHigh, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_FilterQuality_cut_high(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("FilterQuality", field, false, false, "Float")
 }
 
@@ -1000,6 +1023,190 @@ func (ec *executionContext) _Subframe_cut(ctx context.Context, field graphql.Col
 	)
 }
 func (ec *executionContext) fieldContext_Subframe_cut(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_cut_basis(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_cut_basis(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutBasis, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_cut_basis(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "String")
+}
+
+func (ec *executionContext) _Subframe_min_score(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_min_score(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MinScore, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_min_score(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_cut_best(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_cut_best(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutBest, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_cut_best(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_cut_subs(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_cut_subs(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutSubs, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_cut_subs(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Int")
+}
+
+func (ec *executionContext) _Subframe_cut_sky_low(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_cut_sky_low(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutSkyLow, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_cut_sky_low(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_cut_sky_high(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_cut_sky_high(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CutSkyHigh, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_cut_sky_high(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_sky_per_second(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_sky_per_second(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.SkyPerSecond, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_sky_per_second(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
+}
+
+func (ec *executionContext) _Subframe_clarity(ctx context.Context, field graphql.CollectedField, obj *model.Subframe) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Subframe_clarity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Clarity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *float64) graphql.Marshaler {
+			return ec.marshalOFloat2ᚖfloat64(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Subframe_clarity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Subframe", field, false, false, "Float")
 }
 
@@ -1990,8 +2197,13 @@ func (ec *executionContext) _FilterQuality(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
-		case "cut":
-			out.Values[i] = ec._FilterQuality_cut(ctx, field, obj)
+		case "cut_low":
+			out.Values[i] = ec._FilterQuality_cut_low(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_high":
+			out.Values[i] = ec._FilterQuality_cut_high(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -2150,6 +2362,46 @@ func (ec *executionContext) _Subframe(ctx context.Context, sel ast.SelectionSet,
 			}
 		case "cut":
 			out.Values[i] = ec._Subframe_cut(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_basis":
+			out.Values[i] = ec._Subframe_cut_basis(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "min_score":
+			out.Values[i] = ec._Subframe_min_score(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_best":
+			out.Values[i] = ec._Subframe_cut_best(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_subs":
+			out.Values[i] = ec._Subframe_cut_subs(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_sky_low":
+			out.Values[i] = ec._Subframe_cut_sky_low(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "cut_sky_high":
+			out.Values[i] = ec._Subframe_cut_sky_high(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "sky_per_second":
+			out.Values[i] = ec._Subframe_sky_per_second(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "clarity":
+			out.Values[i] = ec._Subframe_clarity(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

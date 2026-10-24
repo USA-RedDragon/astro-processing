@@ -185,6 +185,12 @@ type Scoring struct {
 	MinScore            float64  `json:"min_score"`
 	TargetBest          *float64 `json:"target_best"`
 	Cut                 *float64 `json:"cut"`
+	CutBest             *float64 `json:"cut_best"`
+	CutSubs             int32    `json:"cut_subs"`
+	CutSkyLow           *float64 `json:"cut_sky_low"`
+	CutSkyHigh          *float64 `json:"cut_sky_high"`
+	SkyPerSecond        *float64 `json:"sky_per_second"`
+	Clarity             *float64 `json:"clarity"`
 	ReferenceWeight     *float64 `json:"reference_weight"`
 	ReferenceSubs       int32    `json:"reference_subs"`
 	ReferencePercentile float64  `json:"reference_percentile"`

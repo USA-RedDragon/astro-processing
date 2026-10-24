@@ -111,8 +111,23 @@ type Subframe {
   weight: Float
   "The best score of this target's subs in the filter, as the stacker scores them now."
   target_best: Float
-  "The stacker's cut: subs scoring under it are left out (min score × target_best)."
+  "The stacker's cut for this sub: it is left out when its score is under it (min_score × cut_best)."
   cut: Float
+  "The cut in words: what the sub's score is judged against."
+  cut_basis: String
+  "The stacker's min score: the fraction of cut_best a sub must score, and of its target's clear subs its clarity must reach."
+  min_score: Float
+  "The best score among the subs the cut judges this sub against. Null from a stacker that judges against target_best."
+  cut_best: Float
+  "How many subs the cut judges this sub against. Null from a stacker that judges against target_best."
+  cut_subs: Int
+  "The sky per second of the subs the cut judges this sub against, in ADU a second. Null when that is all of the target's subs in the filter."
+  cut_sky_low: Float
+  cut_sky_high: Float
+  "Sky above the pedestal per second of exposure, in ADU a second."
+  sky_per_second: Float
+  "Star sharpness and transparency (transparency² / HFR⁴), which moonlight does not change, as a fraction of what this target's clearest subs in the filter reach. Under min_score the sub is left out whatever the sky."
+  clarity: Float
   "The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured."
   transparency: Float
   "How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record)."
@@ -166,7 +181,9 @@ type FilterQuality {
   min_score: Float
   "This target's best score in the filter, as the stacker scores it now."
   target_best: Float
-  cut: Float
+  "The lowest and highest of the subs' own cuts. They differ when the stacker judges each sub against the subs taken in a similar sky."
+  cut_low: Float
+  cut_high: Float
   "The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target."
   reference_weight: Float
   reference_subs: Int

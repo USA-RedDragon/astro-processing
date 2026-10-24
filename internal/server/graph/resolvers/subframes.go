@@ -143,13 +143,66 @@ func (s subframe) notInStacker() string {
 	return ""
 }
 
-func (s subframe) lowScoreReason() string {
+// cutBasis says in plain words what the sub's score is judged against: the
+// best score among the subs of its target and filter taken in a similar sky,
+// or, from a stacker without sky bins, its target's best.
+func (s subframe) cutBasis() string {
 	sc := s.scoring()
-	if sc == nil || sc.Cut == nil || sc.TargetBest == nil || s.stack.Score == nil {
+	if sc == nil || s.stack == nil {
 		return ""
 	}
-	return fmt.Sprintf("score %.2f is under the cut %.2f as scored now: %g × the target's best %s score, %.2f",
-		*s.stack.Score, *sc.Cut, sc.MinScore, s.stack.Filter, *sc.TargetBest)
+	filter := s.stack.Filter
+	if filter == "" {
+		filter = s.group().filter
+	}
+	if sc.CutBest == nil || sc.CutSubs == 0 {
+		if sc.TargetBest == nil {
+			return ""
+		}
+		return fmt.Sprintf("%g × the target's best %s score (%.2f)", sc.MinScore, filter, *sc.TargetBest)
+	}
+	head := fmt.Sprintf("%g × the best %s score (%.2f)", sc.MinScore, filter, *sc.CutBest)
+	if sc.CutSkyLow == nil || sc.CutSkyHigh == nil {
+		return fmt.Sprintf("%s among all %d of the target's subs in the filter", head, sc.CutSubs)
+	}
+	return fmt.Sprintf("%s among %d subs taken in a similar sky (%s to %s ADU a second)",
+		head, sc.CutSubs, plainNumber(*sc.CutSkyLow), plainNumber(*sc.CutSkyHigh))
+}
+
+// plainNumber prints v to about two significant figures without exponents.
+func plainNumber(v float64) string {
+	a := math.Abs(v)
+	switch {
+	case a >= 10:
+		return fmt.Sprintf("%.0f", v)
+	case a >= 1:
+		return fmt.Sprintf("%.1f", v)
+	case a == 0:
+		return "0"
+	}
+	digits := min(int(math.Ceil(-math.Log10(a)))+1, 6)
+	return fmt.Sprintf("%.*f", digits, v)
+}
+
+// lowScoreReason says why the stacker cut the sub: its score under its cut,
+// or its clarity under the min score whatever the sky. Empty when the
+// stacker's inputs show neither.
+func (s subframe) lowScoreReason() string {
+	sc := s.scoring()
+	if sc == nil || s.stack.Score == nil {
+		return ""
+	}
+	score := *s.stack.Score
+	if sc.Cut != nil && score < *sc.Cut {
+		if basis := s.cutBasis(); basis != "" {
+			return fmt.Sprintf("score %.2f is under %s", score, basis)
+		}
+	}
+	if sc.Clarity != nil && *sc.Clarity < sc.MinScore {
+		return fmt.Sprintf("stars too soft or too dimmed, whatever the sky: clarity %.2f of what this target's clearest %s subs reach, under %g",
+			*sc.Clarity, s.stack.Filter, sc.MinScore)
+	}
+	return ""
 }
 
 func (s subframe) reason() *string {
@@ -169,12 +222,18 @@ func (s subframe) reason() *string {
 		if s.row.RejectReason != nil && *s.row.RejectReason != "" {
 			why += ": " + *s.row.RejectReason
 		}
+	case statusLowScore:
+		why = s.lowScoreReason()
+		if why == "" {
+			why = s.stack.Error
+		}
+		if why == "" {
+			why = "The stacker recorded no reason"
+		}
 	default:
 		why = s.stack.Error
 		switch {
 		case why != "":
-		case st == statusLowScore:
-			why = s.lowScoreReason()
 		case st == statusUnmeasured && s.scoring() != nil && s.scoring().Unmeasured != "":
 			why = "not measured: " + s.scoring().Unmeasured
 		default:
@@ -366,6 +425,14 @@ func toModelSubframe(s subframe) *model.Subframe {
 		out.TransparencySource = optional(sc.TransparencySource)
 		out.TransparencyMissing = optional(sc.TransparencyMissing)
 		out.TargetBest, out.Cut = sc.TargetBest, sc.Cut
+		out.CutBasis = optional(s.cutBasis())
+		out.MinScore = &sc.MinScore
+		out.CutBest, out.CutSkyLow, out.CutSkyHigh = sc.CutBest, sc.CutSkyLow, sc.CutSkyHigh
+		if sc.CutBest != nil {
+			n := sc.CutSubs
+			out.CutSubs = &n
+		}
+		out.SkyPerSecond, out.Clarity = sc.SkyPerSecond, sc.Clarity
 	}
 	return out
 }
@@ -445,7 +512,15 @@ func summarizeQuality(subs []subframe) []*model.FilterQuality {
 				a.out.MinScore = &sc.MinScore
 			}
 			if a.out.TargetBest == nil && sc.TargetBest != nil {
-				a.out.TargetBest, a.out.Cut = sc.TargetBest, sc.Cut
+				a.out.TargetBest = sc.TargetBest
+			}
+			if c := sc.Cut; c != nil {
+				if a.out.CutLow == nil || *c < *a.out.CutLow {
+					a.out.CutLow = c
+				}
+				if a.out.CutHigh == nil || *c > *a.out.CutHigh {
+					a.out.CutHigh = c
+				}
 			}
 			if a.out.ReferenceWeight == nil && sc.ReferenceWeight != nil {
 				n, pct := sc.ReferenceSubs, sc.ReferencePercentile

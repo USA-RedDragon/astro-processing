@@ -129,7 +129,8 @@ type ComplexityRoot struct {
 
 	FilterQuality struct {
 		BelowCut            func(childComplexity int) int
-		Cut                 func(childComplexity int) int
+		CutHigh             func(childComplexity int) int
+		CutLow              func(childComplexity int) int
 		EffectiveHours      func(childComplexity int) int
 		ExposureTime        func(childComplexity int) int
 		FilterName          func(childComplexity int) int
@@ -242,7 +243,13 @@ type ComplexityRoot struct {
 	Subframe struct {
 		AcquiredDate        func(childComplexity int) int
 		Airmass             func(childComplexity int) int
+		Clarity             func(childComplexity int) int
 		Cut                 func(childComplexity int) int
+		CutBasis            func(childComplexity int) int
+		CutBest             func(childComplexity int) int
+		CutSkyHigh          func(childComplexity int) int
+		CutSkyLow           func(childComplexity int) int
+		CutSubs             func(childComplexity int) int
 		Eccentricity        func(childComplexity int) int
 		ExposureTime        func(childComplexity int) int
 		FileName            func(childComplexity int) int
@@ -252,6 +259,7 @@ type ComplexityRoot struct {
 		GuidingRmsArcsec    func(childComplexity int) int
 		Hfr                 func(childComplexity int) int
 		ID                  func(childComplexity int) int
+		MinScore            func(childComplexity int) int
 		PedestalAdu         func(childComplexity int) int
 		PedestalBasis       func(childComplexity int) int
 		PedestalSource      func(childComplexity int) int
@@ -263,6 +271,7 @@ type ComplexityRoot struct {
 		ScoreMissing        func(childComplexity int) int
 		Sky                 func(childComplexity int) int
 		SkyMissing          func(childComplexity int) int
+		SkyPerSecond        func(childComplexity int) int
 		StackReason         func(childComplexity int) int
 		StackStatus         func(childComplexity int) int
 		Stars               func(childComplexity int) int
@@ -767,12 +776,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.FilterQuality.BelowCut(childComplexity), true
-	case "FilterQuality.cut":
-		if e.ComplexityRoot.FilterQuality.Cut == nil {
+	case "FilterQuality.cut_high":
+		if e.ComplexityRoot.FilterQuality.CutHigh == nil {
 			break
 		}
 
-		return e.ComplexityRoot.FilterQuality.Cut(childComplexity), true
+		return e.ComplexityRoot.FilterQuality.CutHigh(childComplexity), true
+	case "FilterQuality.cut_low":
+		if e.ComplexityRoot.FilterQuality.CutLow == nil {
+			break
+		}
+
+		return e.ComplexityRoot.FilterQuality.CutLow(childComplexity), true
 	case "FilterQuality.effective_hours":
 		if e.ComplexityRoot.FilterQuality.EffectiveHours == nil {
 			break
@@ -1335,12 +1350,48 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.Airmass(childComplexity), true
+	case "Subframe.clarity":
+		if e.ComplexityRoot.Subframe.Clarity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.Clarity(childComplexity), true
 	case "Subframe.cut":
 		if e.ComplexityRoot.Subframe.Cut == nil {
 			break
 		}
 
 		return e.ComplexityRoot.Subframe.Cut(childComplexity), true
+	case "Subframe.cut_basis":
+		if e.ComplexityRoot.Subframe.CutBasis == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.CutBasis(childComplexity), true
+	case "Subframe.cut_best":
+		if e.ComplexityRoot.Subframe.CutBest == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.CutBest(childComplexity), true
+	case "Subframe.cut_sky_high":
+		if e.ComplexityRoot.Subframe.CutSkyHigh == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.CutSkyHigh(childComplexity), true
+	case "Subframe.cut_sky_low":
+		if e.ComplexityRoot.Subframe.CutSkyLow == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.CutSkyLow(childComplexity), true
+	case "Subframe.cut_subs":
+		if e.ComplexityRoot.Subframe.CutSubs == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.CutSubs(childComplexity), true
 	case "Subframe.eccentricity":
 		if e.ComplexityRoot.Subframe.Eccentricity == nil {
 			break
@@ -1395,6 +1446,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.ID(childComplexity), true
+	case "Subframe.min_score":
+		if e.ComplexityRoot.Subframe.MinScore == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.MinScore(childComplexity), true
 	case "Subframe.pedestal_adu":
 		if e.ComplexityRoot.Subframe.PedestalAdu == nil {
 			break
@@ -1461,6 +1518,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Subframe.SkyMissing(childComplexity), true
+	case "Subframe.sky_per_second":
+		if e.ComplexityRoot.Subframe.SkyPerSecond == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Subframe.SkyPerSecond(childComplexity), true
 	case "Subframe.stack_reason":
 		if e.ComplexityRoot.Subframe.StackReason == nil {
 			break
@@ -2143,8 +2206,23 @@ type Subframe {
   weight: Float
   "The best score of this target's subs in the filter, as the stacker scores them now."
   target_best: Float
-  "The stacker's cut: subs scoring under it are left out (min score × target_best)."
+  "The stacker's cut for this sub: it is left out when its score is under it (min_score × cut_best)."
   cut: Float
+  "The cut in words: what the sub's score is judged against."
+  cut_basis: String
+  "The stacker's min score: the fraction of cut_best a sub must score, and of its target's clear subs its clarity must reach."
+  min_score: Float
+  "The best score among the subs the cut judges this sub against. Null from a stacker that judges against target_best."
+  cut_best: Float
+  "How many subs the cut judges this sub against. Null from a stacker that judges against target_best."
+  cut_subs: Int
+  "The sky per second of the subs the cut judges this sub against, in ADU a second. Null when that is all of the target's subs in the filter."
+  cut_sky_low: Float
+  cut_sky_high: Float
+  "Sky above the pedestal per second of exposure, in ADU a second."
+  sky_per_second: Float
+  "Star sharpness and transparency (transparency² / HFR⁴), which moonlight does not change, as a fraction of what this target's clearest subs in the filter reach. Under min_score the sub is left out whatever the sky."
+  clarity: Float
   "The sub's starlight against the best subs of its field, 0 to 1, squared into its score. Null when not measured."
   transparency: Float
   "How transparency was measured: photometry (the stacker's star photometry) or sky_excess (light above the sky in Target Scheduler's record)."
@@ -2198,7 +2276,9 @@ type FilterQuality {
   min_score: Float
   "This target's best score in the filter, as the stacker scores it now."
   target_best: Float
-  cut: Float
+  "The lowest and highest of the subs' own cuts. They differ when the stacker judges each sub against the subs taken in a similar sky."
+  cut_low: Float
+  cut_high: Float
   "The reference raw weight, 1/(sky × HFR⁴), scores are relative to: the reference_percentile of the reference_subs subs of this filter and exposure, of every target."
   reference_weight: Float
   reference_subs: Int
@@ -2430,8 +2510,10 @@ func (ec *executionContext) childFields_FilterQuality(ctx context.Context, field
 		return ec.fieldContext_FilterQuality_min_score(ctx, field)
 	case "target_best":
 		return ec.fieldContext_FilterQuality_target_best(ctx, field)
-	case "cut":
-		return ec.fieldContext_FilterQuality_cut(ctx, field)
+	case "cut_low":
+		return ec.fieldContext_FilterQuality_cut_low(ctx, field)
+	case "cut_high":
+		return ec.fieldContext_FilterQuality_cut_high(ctx, field)
 	case "reference_weight":
 		return ec.fieldContext_FilterQuality_reference_weight(ctx, field)
 	case "reference_subs":
@@ -2646,6 +2728,22 @@ func (ec *executionContext) childFields_Subframe(ctx context.Context, field grap
 		return ec.fieldContext_Subframe_target_best(ctx, field)
 	case "cut":
 		return ec.fieldContext_Subframe_cut(ctx, field)
+	case "cut_basis":
+		return ec.fieldContext_Subframe_cut_basis(ctx, field)
+	case "min_score":
+		return ec.fieldContext_Subframe_min_score(ctx, field)
+	case "cut_best":
+		return ec.fieldContext_Subframe_cut_best(ctx, field)
+	case "cut_subs":
+		return ec.fieldContext_Subframe_cut_subs(ctx, field)
+	case "cut_sky_low":
+		return ec.fieldContext_Subframe_cut_sky_low(ctx, field)
+	case "cut_sky_high":
+		return ec.fieldContext_Subframe_cut_sky_high(ctx, field)
+	case "sky_per_second":
+		return ec.fieldContext_Subframe_sky_per_second(ctx, field)
+	case "clarity":
+		return ec.fieldContext_Subframe_clarity(ctx, field)
 	case "transparency":
 		return ec.fieldContext_Subframe_transparency(ctx, field)
 	case "transparency_source":

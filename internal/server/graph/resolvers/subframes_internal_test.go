@@ -77,7 +77,7 @@ func TestToModelSubframeShowsStackerVerdict(t *testing.T) {
 	wants := map[int]want{
 		1: {status: statusAdded, score: f(0.8), weight: f(240), photometry: photometryMeasured},
 		2: {status: statusLowScore, score: f(0.05), weight: f(0),
-			reason: "score 0.05 is under the cut 0.24 as scored now: 0.3 × the target's best L score, 0.80", photometry: photometryMeasured},
+			reason: "score 0.05 is under 0.3 × the target's best L score (0.80)", photometry: photometryMeasured},
 		3: {status: statusMoon, score: f(0.6), weight: f(0),
 			reason: "the Moon was 20° from the target at mid-exposure; the filter's moon avoidance needed 60°", photometry: photometryPending},
 		4: {status: "off_target", score: f(0.5), weight: f(0), reason: "pointed 2.1° off"},
@@ -133,8 +133,8 @@ func TestSummarizeQualityUsesStackerWeights(t *testing.T) {
 	if g.Subframes != 5 || g.Stacked != 2 || g.Pending != 1 {
 		t.Errorf("subframes %d stacked %d pending %d, want 5 2 1", g.Subframes, g.Stacked, g.Pending)
 	}
-	if g.RejectedInScheduler != 2 || g.BelowCut != 1 || deref(g.Cut) != 0.24 || deref(g.MedianSky) != 194.0 || g.SkyBasis == nil {
-		t.Errorf("rejected %d below cut %d cut %v sky %v basis %v", g.RejectedInScheduler, g.BelowCut, deref(g.Cut), deref(g.MedianSky), g.SkyBasis)
+	if g.RejectedInScheduler != 2 || g.BelowCut != 1 || deref(g.CutLow) != 0.24 || deref(g.CutHigh) != 0.24 || deref(g.MedianSky) != 194.0 || g.SkyBasis == nil {
+		t.Errorf("rejected %d below cut %d cut %v sky %v basis %v", g.RejectedInScheduler, g.BelowCut, deref(g.CutLow), deref(g.MedianSky), g.SkyBasis)
 	}
 	if want := 5 * 300.0 / 3600; math.Abs(g.NominalHours-want) > 1e-9 {
 		t.Errorf("nominal %v, want %v", g.NominalHours, want)
@@ -142,6 +142,88 @@ func TestSummarizeQualityUsesStackerWeights(t *testing.T) {
 	// The stacked subs' weights: 240 s + 150 s.
 	if want := 390.0 / 3600; math.Abs(g.EffectiveHours-want) > 1e-9 {
 		t.Errorf("effective %v, want %v", g.EffectiveHours, want)
+	}
+}
+
+func skyBinnedSub(id int, file string, score float64, sc *workerclient.Scoring) (subframe, *workerclient.Sub) {
+	return sub(id, file, gradingAccepted, ""), &workerclient.Sub{
+		File: file, Filter: "L", Status: statusLowScore, Score: fp(score), Weight: fp(0), Scoring: sc,
+		Error: "score 0.01 is under the cut 0.02: 0.3 × the best L score, 0.08, among the target's 15 subs in a similar sky (0.33 to 1.3 ADU/s)",
+	}
+}
+
+func TestLowScoreReasonNamesTheSkyBin(t *testing.T) {
+	t.Parallel()
+	binned := &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.024), CutBest: fp(0.08), CutSubs: 15,
+		CutSkyLow: fp(0.325), CutSkyHigh: fp(1.3), SkyPerSecond: fp(0.65), Clarity: fp(0.9)}
+	whole := &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.24), CutBest: fp(0.8), CutSubs: 4, Clarity: fp(0.9)}
+	soft := &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.024), CutBest: fp(0.08), CutSubs: 15,
+		CutSkyLow: fp(0.325), CutSkyHigh: fp(1.3), Clarity: fp(0.21)}
+	drifted := &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.024), CutBest: fp(0.08), CutSubs: 15, Clarity: fp(0.9)}
+	cases := []struct {
+		score float64
+		sc    *workerclient.Scoring
+		want  string
+	}{
+		{0.01, binned, "score 0.01 is under 0.3 × the best L score (0.08) among 15 subs taken in a similar sky (0.33 to 1.3 ADU a second)"},
+		{0.05, whole, "score 0.05 is under 0.3 × the best L score (0.80) among all 4 of the target's subs in the filter"},
+		{0.05, soft, "stars too soft or too dimmed, whatever the sky: clarity 0.21 of what this target's clearest L subs reach, under 0.3"},
+		{0.05, drifted, "score 0.01 is under the cut 0.02: 0.3 × the best L score, 0.08, among the target's 15 subs in a similar sky (0.33 to 1.3 ADU/s)"},
+	}
+	for i, c := range cases {
+		s, st := skyBinnedSub(i+1, "low.fits", c.score, c.sc)
+		subs := []subframe{s}
+		matchStacker(subs, indexStackerSubs([]workerclient.Sub{*st}))
+		m := toModelSubframe(subs[0])
+		if got := derefS(m.StackReason); got != c.want {
+			t.Errorf("case %d: reason %q, want %q", i, got, c.want)
+		}
+	}
+
+	s, st := skyBinnedSub(1, "low.fits", 0.01, binned)
+	subs := []subframe{s}
+	matchStacker(subs, indexStackerSubs([]workerclient.Sub{*st}))
+	m := toModelSubframe(subs[0])
+	if deref(m.CutBest) != 0.08 || m.CutSubs == nil || *m.CutSubs != 15 || deref(m.CutSkyLow) != 0.325 ||
+		deref(m.SkyPerSecond) != 0.65 || deref(m.Clarity) != 0.9 || deref(m.MinScore) != 0.3 ||
+		derefS(m.CutBasis) != "0.3 × the best L score (0.08) among 15 subs taken in a similar sky (0.33 to 1.3 ADU a second)" {
+		t.Errorf("got %+v", m)
+	}
+}
+
+func TestOldStackerLeavesSkyBinFieldsNull(t *testing.T) {
+	t.Parallel()
+	subs := []subframe{sub(2, "hazy.fits", gradingAccepted, "")}
+	matchStacker(subs, stackerFixture())
+	m := toModelSubframe(subs[0])
+	if m.CutBest != nil || m.CutSubs != nil || m.CutSkyLow != nil || m.SkyPerSecond != nil || m.Clarity != nil {
+		t.Errorf("got %+v", m)
+	}
+	if derefS(m.CutBasis) != "0.3 × the target's best L score (0.80)" {
+		t.Errorf("basis %q", derefS(m.CutBasis))
+	}
+}
+
+func TestSummarizeQualityGivesTheRangeOfCuts(t *testing.T) {
+	t.Parallel()
+	subs := []subframe{sub(1, "a.fits", gradingAccepted, ""), sub(2, "b.fits", gradingAccepted, ""), sub(3, "c.fits", gradingAccepted, "")}
+	matchStacker(subs, indexStackerSubs([]workerclient.Sub{
+		{File: "a.fits", Filter: "L", Status: statusAdded, Score: fp(0.5), Scoring: &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.06)}},
+		{File: "b.fits", Filter: "L", Status: statusAdded, Score: fp(0.8), Scoring: &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.24)}},
+		{File: "c.fits", Filter: "L", Status: statusAdded, Score: fp(0.3), Scoring: &workerclient.Scoring{MinScore: 0.3, TargetBest: fp(0.8), Cut: fp(0.1)}},
+	}))
+	g := summarizeQuality(subs)[0]
+	if deref(g.CutLow) != 0.06 || deref(g.CutHigh) != 0.24 {
+		t.Errorf("cuts %v to %v, want 0.06 to 0.24", deref(g.CutLow), deref(g.CutHigh))
+	}
+}
+
+func TestPlainNumber(t *testing.T) {
+	t.Parallel()
+	for v, want := range map[float64]string{0: "0", 0.325: "0.33", 0.0123: "0.012", 1.3: "1.3", 12.6: "13", 1500: "1500"} {
+		if got := plainNumber(v); got != want {
+			t.Errorf("plainNumber(%v) = %q, want %q", v, got, want)
+		}
 	}
 }
 
