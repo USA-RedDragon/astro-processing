@@ -100,13 +100,19 @@
             A score is the sub's 1/(sky &times; HFR&#8308;) over the reference below, times its transparency squared,
             capped at 1. The stacker leaves out subs under the cut.
           </p>
+          <p v-if="skyBinned" class="text-xs text-muted-foreground">
+            Each sub is judged against the best subs of its filter taken in a similar sky brightness, so moonlit subs
+            are not cut for the Moon alone. The cut differs from sub to sub; each sub's own cut is under its score
+            below. A sub is also left out when its clarity, its star sharpness and transparency, is under the min
+            score of what this target's clearest subs in the filter reach, however dark the sky.
+          </p>
           <UiTable>
             <TableHeader>
               <TableRow>
                 <TableHead>Filter</TableHead>
                 <TableHead class="text-right">Reference 1/(ADU&middot;px&#8308;)</TableHead>
                 <TableHead class="text-right">This target's best</TableHead>
-                <TableHead class="text-right">Cut</TableHead>
+                <TableHead class="text-right">{{ skyBinned ? 'Cuts' : 'Cut' }}</TableHead>
                 <TableHead class="text-right">Under the cut</TableHead>
                 <TableHead class="text-right">Not measured</TableHead>
               </TableRow>
@@ -126,9 +132,11 @@
                 </TableCell>
                 <TableCell class="text-right tabular-nums">{{ formatNumber(q.target_best, 2) }}</TableCell>
                 <TableCell class="text-right tabular-nums">
-                  <template v-if="q.cut != null">
-                    {{ q.cut.toFixed(2) }}
-                    <span class="text-muted-foreground">({{ q.min_score }} &times; best)</span>
+                  <template v-if="q.cut_low != null">
+                    {{ cutRange(q.cut_low, q.cut_high) }}
+                    <span class="text-muted-foreground">
+                      ({{ q.min_score }} &times; {{ skyBinned ? 'the best in a similar sky' : 'best' }})
+                    </span>
                   </template>
                 </TableCell>
                 <TableCell class="text-right tabular-nums">{{ q.below_cut }}</TableCell>
@@ -205,7 +213,11 @@
         </div>
 
         <p v-if="threshold === null" class="text-xs text-muted-foreground">
-          Culling at each filter's stacker cut: {{ cutsText }}.
+          <template v-if="skyBinned">
+            Culling where the stacker cuts: each sub at its own cut, or its clarity under the min score. Cuts by
+            filter: {{ cutsText }}.
+          </template>
+          <template v-else>Culling at each filter's stacker cut: {{ cutsText }}.</template>
         </p>
         <p class="text-sm tabular-nums">
           Culled: {{ culled.length }} / {{ visible.length }} subs
@@ -223,6 +235,13 @@
                 <TableHead class="w-40">Score</TableHead>
                 <TableHead class="text-right">Sky above pedestal</TableHead>
                 <TableHead class="text-right">Transparency</TableHead>
+                <TableHead
+                  v-if="skyBinned"
+                  class="text-right"
+                  :title="clarityHelp"
+                >
+                  Clarity
+                </TableHead>
                 <TableHead class="text-right">HFR</TableHead>
                 <TableHead class="text-right">Stars</TableHead>
                 <TableHead class="text-right">Ecc.</TableHead>
@@ -233,7 +252,7 @@
               </TableRow>
             </TableHeader>
             <TableBody>
-              <SkeletonRows v-if="!done.subframes" :rows="8" :cols="12" />
+              <SkeletonRows v-if="!done.subframes" :rows="8" :cols="skyBinned ? 13 : 12" />
               <TableRow
                 v-for="s in shown"
                 :key="s.id"
@@ -250,6 +269,13 @@
                     </div>
                     <span class="tabular-nums">{{ s.score.toFixed(2) }}</span>
                   </div>
+                  <div
+                    v-if="s.cut != null"
+                    class="text-xs text-muted-foreground tabular-nums"
+                    :title="s.cut_basis ?? undefined"
+                  >
+                    cut {{ s.cut.toFixed(2) }}
+                  </div>
                   <span v-else class="text-xs text-muted-foreground">{{ s.score_missing }}</span>
                   <div
                     v-if="s.photometry === 'pending' && s.stack_status !== 'pending'"
@@ -261,6 +287,9 @@
                 <TableCell class="text-right tabular-nums" :title="s.pedestal_basis ?? undefined">
                   <template v-if="s.sky != null">{{ s.sky.toFixed(0) }}</template>
                   <span v-else class="text-xs text-muted-foreground">{{ s.sky_missing }}</span>
+                  <div v-if="s.sky_per_second != null" class="text-xs text-muted-foreground whitespace-nowrap">
+                    {{ formatRate(s.sky_per_second) }} a second
+                  </div>
                 </TableCell>
                 <TableCell class="text-right tabular-nums">
                   <template v-if="s.transparency != null">
@@ -272,6 +301,15 @@
                   <span v-else-if="s.transparency_missing" class="text-xs text-muted-foreground">
                     not measured: {{ s.transparency_missing }}
                   </span>
+                </TableCell>
+                <TableCell v-if="skyBinned" class="text-right tabular-nums">
+                  {{ formatNumber(s.clarity, 2) }}
+                  <div
+                    v-if="s.clarity != null && s.min_score != null && s.clarity < s.min_score"
+                    class="text-xs text-muted-foreground whitespace-nowrap"
+                  >
+                    under {{ s.min_score }}
+                  </div>
                 </TableCell>
                 <TableCell class="text-right tabular-nums">{{ formatNumber(s.hfr, 2) }}</TableCell>
                 <TableCell class="text-right tabular-nums">{{ s.stars ?? '' }}</TableCell>
@@ -342,7 +380,7 @@ import API from '@/lib/API';
 import { onChange, onEvent, status, type LiveEvent } from '@/lib/events';
 import { onReconnectOrUrlsAging } from '@/lib/signedUrls';
 import { formatDate } from '@/lib/formatters';
-import { isCulled } from '@/lib/cull';
+import { cutRange, isCulled } from '@/lib/cull';
 import { nightsOf } from '@/lib/calibrationRequests';
 import type { CalibrationRow, FilterMaster, FilterQuality, Subframe, Target } from '../graphql/graphql';
 
@@ -411,7 +449,8 @@ const GET_TARGET_SUBFRAMES_QUERY = `
           unmeasured
           min_score
           target_best
-          cut
+          cut_low
+          cut_high
           reference_weight
           reference_subs
           reference_percentile
@@ -435,6 +474,11 @@ const GET_TARGET_SUBFRAMES_QUERY = `
         weight
         target_best
         cut
+        cut_basis
+        min_score
+        cut_subs
+        sky_per_second
+        clarity
         sky_missing
         pedestal_adu
         pedestal_source
@@ -526,6 +570,8 @@ export default {
       threshold: null as number | null,
       sort: 'date-desc',
       copied: false,
+      clarityHelp: 'Star sharpness and transparency, which moonlight does not change, '
+        + "as a fraction of what this target's clearest subs in the filter reach",
       stopEvents: () => {},
       stopReconnect: () => {},
       stopChanges: [] as (() => void)[],
@@ -579,10 +625,15 @@ export default {
     calibrationLights(): number {
       return this.calibration.reduce((t, r) => t + r.lights, 0);
     },
+    // The stacker judges each sub against subs taken in a similar sky; an
+    // older stacker sends no cut_subs and cuts every sub at its target's best.
+    skyBinned(): boolean {
+      return this.subframes.some((s) => s.cut_subs != null);
+    },
     cutsText(): string {
       const cuts = this.scoringRows
-        .filter((q) => q.cut != null && (!this.filter || this.filter === `${q.filter_name} ${q.exposure_time}s`))
-        .map((q) => `${q.filter_name} ${q.exposure_time}s ${q.cut?.toFixed(2)}`);
+        .filter((q) => q.cut_low != null && (!this.filter || this.filter === `${q.filter_name} ${q.exposure_time}s`))
+        .map((q) => `${q.filter_name} ${q.exposure_time}s ${cutRange(q.cut_low, q.cut_high)}`);
       return cuts.length > 0 ? cuts.join(', ') : 'none known yet';
     },
     visible(): Subframe[] {
@@ -642,7 +693,7 @@ export default {
       return `${s.filter_name} ${s.exposure_time ?? '?'}s`;
     },
     isCulled(s: Subframe): boolean {
-      return isCulled(s.score, s.cut, this.threshold);
+      return isCulled(s.score, s.cut, this.threshold, s.clarity, s.min_score);
     },
     setThreshold(e: Event) {
       const v = (e.target as HTMLInputElement).value;
@@ -662,6 +713,10 @@ export default {
     },
     formatPercent(part: number, whole: number): string {
       return whole > 0 ? `${Math.round((part / whole) * 100)}%` : '';
+    },
+    cutRange,
+    formatRate(v: number): string {
+      return String(Number(v.toPrecision(2)));
     },
     formatNumber(v: number | null | undefined, digits: number): string {
       return v === null || v === undefined ? '' : v.toFixed(digits);
