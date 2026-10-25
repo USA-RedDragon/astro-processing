@@ -75,6 +75,8 @@ type ProjectCover {
   "For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter."
   panels: Int
   panels_total: Int
+  "True when no channel is fit to show yet; then preview_url, palette and filter are empty."
+  waiting: Boolean!
 }
 
 type ProjectStats {

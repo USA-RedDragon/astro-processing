@@ -16,7 +16,6 @@ import (
 	"github.com/USA-RedDragon/astro-processing/internal/server/graph/model"
 	"github.com/USA-RedDragon/astro-processing/internal/store/models/targetscheduler"
 	"github.com/USA-RedDragon/astro-processing/internal/utils"
-	"github.com/USA-RedDragon/astro-processing/internal/workerclient"
 	"gorm.io/gorm"
 )
 
@@ -222,32 +221,20 @@ func (r *projectResolver) Cover(ctx context.Context, obj *model.Project) (*model
 	}
 	if c, ok := covers.Mosaics[obj.Name]; ok {
 		return &model.ProjectCover{Palette: c.Palette, Filter: c.Filter, PreviewURL: c.PreviewURL, Mosaic: true,
-			UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339), Panels: c.Panels, PanelsTotal: c.PanelsTotal}, nil
+			UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339), Panels: c.Panels, PanelsTotal: c.PanelsTotal,
+			Waiting: c.Waiting}, nil
 	}
 	var names []string
 	if err := r.db.WithContext(ctx).Model(&targetscheduler.Target{}).Where("projectid = ?", obj.ID).
 		Order("name").Pluck("name", &names).Error; err != nil {
 		return nil, err
 	}
-	// A colour composite beats any single filter; among single filters, the
-	// most effective exposure.
-	var best *workerclient.Cover
-	bestColour := false
-	for _, n := range names {
-		c, ok := covers.Objects[n]
-		if !ok {
-			continue
-		}
-		colour := c.Palette != ""
-		if best == nil || (colour && !bestColour) || (colour == bestColour && c.EffectiveSeconds > best.EffectiveSeconds) {
-			best, bestColour = &c, colour
-		}
-	}
+	best := bestCover(covers.Objects, names)
 	if best == nil {
 		return nil, nil
 	}
 	return &model.ProjectCover{Palette: best.Palette, Filter: best.Filter, PreviewURL: best.PreviewURL,
-		UpdatedAt: best.UpdatedAt.UTC().Format(time.RFC3339)}, nil
+		UpdatedAt: best.UpdatedAt.UTC().Format(time.RFC3339), Waiting: best.Waiting}, nil
 }
 
 // Project returns graph.ProjectResolver implementation.

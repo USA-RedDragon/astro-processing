@@ -136,3 +136,31 @@ func graphObject(o workerclient.Object) *model.OtherTarget {
 	return &model.OtherTarget{Name: o.Name, Lights: o.Lights, Recorded: o.Recorded, Stacked: o.Stacked, Nights: o.Nights,
 		FirstNight: o.FirstNight, LastNight: o.LastNight}
 }
+
+// bestCover picks the cover for a project from its targets' covers. A shown
+// picture beats a waiting one, a colour composite beats any single filter,
+// and among the rest the most effective exposure wins. Nil when no target
+// has a cover.
+func bestCover(objects map[string]workerclient.Cover, names []string) *workerclient.Cover {
+	var best *workerclient.Cover
+	rank := func(c *workerclient.Cover) int {
+		switch {
+		case c.Waiting:
+			return 0
+		case c.Palette != "":
+			return 2
+		default:
+			return 1
+		}
+	}
+	for _, n := range names {
+		c, ok := objects[n]
+		if !ok {
+			continue
+		}
+		if best == nil || rank(&c) > rank(best) || (rank(&c) == rank(best) && c.EffectiveSeconds > best.EffectiveSeconds) {
+			best = &c
+		}
+	}
+	return best
+}

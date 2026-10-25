@@ -48,4 +48,30 @@ describe('ProjectCard', () => {
     expect(src()).toContain('sig=b');
     app.unmount();
   });
+
+  it('shows a plain box instead of a picture while the cover waits for data', async () => {
+    const waiting = { palette: '', filter: '', mosaic: true, preview_url: '', updated_at: '2026-10-10T23:16:20Z',
+      waiting: true } as Project['cover'];
+    const el = document.createElement('div');
+    const app = createApp({ render: () => h(ProjectCard, { project: project(waiting), planningState: 'ok' }) });
+    app.mount(el);
+    await nextTick();
+    expect(el.querySelector('img')).toBeNull();
+    expect(el.textContent).toContain('Cover waits for more data');
+    expect(el.textContent).not.toContain('Cover:');
+    app.unmount();
+  });
+
+  it('names the filter of a single-filter cover', async () => {
+    const single = { palette: '', filter: 'Ha', mosaic: false, preview_url: 'https://s3.example/h.jpg',
+      updated_at: '2026-10-10T23:16:20Z', waiting: false } as Project['cover'];
+    const el = document.createElement('div');
+    const app = createApp({ render: () => h(ProjectCard, { project: project(single), planningState: 'ok' }) });
+    app.mount(el);
+    await nextTick();
+    expect(el.querySelector('img')!.getAttribute('src')).toBe('https://s3.example/h.jpg');
+    expect(el.textContent).toContain('Cover: Ha');
+    expect(el.textContent).not.toContain('Cover waits for more data');
+    app.unmount();
+  });
 });

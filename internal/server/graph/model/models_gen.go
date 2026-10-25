@@ -260,6 +260,8 @@ type ProjectCover struct {
 	// For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter.
 	Panels      *int32 `json:"panels,omitempty"`
 	PanelsTotal *int32 `json:"panels_total,omitempty"`
+	// True when no channel is fit to show yet; then preview_url, palette and filter are empty.
+	Waiting bool `json:"waiting"`
 }
 
 type ProjectOrderBy struct {

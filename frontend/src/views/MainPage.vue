@@ -161,6 +161,7 @@ const GET_OTHER_TARGETS_QUERY = `
         filter
         preview_url
         updated_at
+        waiting
       }
     }
   }
@@ -178,6 +179,7 @@ const GET_PROJECT_COVERS_QUERY = `
         updated_at
         panels
         panels_total
+        waiting
       }
     }
   }
@@ -215,6 +217,7 @@ const GET_PROJECTS_QUERY = `
         updated_at
         panels
         panels_total
+        waiting
       }
       flats_handling
       maximum_altitude

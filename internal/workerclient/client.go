@@ -240,6 +240,9 @@ type Cover struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 	Panels           *int32    `json:"panels"`
 	PanelsTotal      *int32    `json:"panels_total"`
+	// Waiting is true when no channel was fit to show yet; PreviewURL,
+	// Palette and Filter are empty then.
+	Waiting bool `json:"waiting,omitempty"`
 }
 
 // Covers holds the best preview per target (by object name) and per mosaic

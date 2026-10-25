@@ -219,6 +219,7 @@ type ComplexityRoot struct {
 		PanelsTotal func(childComplexity int) int
 		PreviewURL  func(childComplexity int) int
 		UpdatedAt   func(childComplexity int) int
+		Waiting     func(childComplexity int) int
 	}
 
 	ProjectStats struct {
@@ -1231,6 +1232,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ProjectCover.UpdatedAt(childComplexity), true
+	case "ProjectCover.waiting":
+		if e.ComplexityRoot.ProjectCover.Waiting == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ProjectCover.Waiting(childComplexity), true
 
 	case "ProjectStats.imaging":
 		if e.ComplexityRoot.ProjectStats.Imaging == nil {
@@ -2082,6 +2089,8 @@ type ProjectCover {
   "For a mosaic cover, panels in its mosaic; for a colour mosaic, the fewest in any filter."
   panels: Int
   panels_total: Int
+  "True when no channel is fit to show yet; then preview_url, palette and filter are empty."
+  waiting: Boolean!
 }
 
 type ProjectStats {
@@ -2662,6 +2671,8 @@ func (ec *executionContext) childFields_ProjectCover(ctx context.Context, field 
 		return ec.fieldContext_ProjectCover_panels(ctx, field)
 	case "panels_total":
 		return ec.fieldContext_ProjectCover_panels_total(ctx, field)
+	case "waiting":
+		return ec.fieldContext_ProjectCover_waiting(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ProjectCover", field.Name)
 }

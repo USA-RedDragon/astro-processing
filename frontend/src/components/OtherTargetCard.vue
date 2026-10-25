@@ -1,13 +1,28 @@
 <template>
   <Card class="relative overflow-hidden">
-    <router-link v-if="target.cover" :to="link" class="block relative -mt-6 mb-2 bg-black">
+    <router-link
+      v-if="target.cover"
+      :to="link"
+      class="block relative -mt-6 mb-2"
+      :class="target.cover.waiting ? 'bg-muted' : 'bg-black'"
+    >
+      <div
+        v-if="target.cover.waiting"
+        class="flex aspect-[3/2] w-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
+      >
+        Cover waits for more data
+      </div>
       <img
+        v-else
         :src="shownCover ?? target.cover.preview_url"
         :alt="`${target.name} preview`"
         loading="lazy"
         class="w-full h-auto"
       >
-      <span class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white">
+      <span
+        v-if="!target.cover.waiting"
+        class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
+      >
         {{ target.cover.palette || target.cover.filter }}
       </span>
       <span v-if="processing" class="absolute top-2 left-2 rounded-full bg-black/60 p-1" title="Processing">
@@ -84,7 +99,7 @@ export default {
     'target.cover': {
       immediate: true,
       handler(cover: OtherTarget['cover']) {
-        if (!cover || cover.preview_url === this.shownCover) return;
+        if (!cover || cover.waiting || cover.preview_url === this.shownCover) return;
         if (samePicture(this.shownCover, this.shownStamp, cover.preview_url, cover.updated_at)) return;
         if (!this.shownCover) {
           this.shownCover = cover.preview_url;

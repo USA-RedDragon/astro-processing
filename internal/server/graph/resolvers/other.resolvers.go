@@ -29,7 +29,7 @@ func (r *otherTargetResolver) Cover(ctx context.Context, obj *model.OtherTarget)
 		return nil, nil
 	}
 	return &model.ProjectCover{Palette: c.Palette, Filter: c.Filter, PreviewURL: c.PreviewURL,
-		UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339)}, nil
+		UpdatedAt: c.UpdatedAt.UTC().Format(time.RFC3339), Waiting: c.Waiting}, nil
 }
 
 // Masters is the resolver for the masters field.

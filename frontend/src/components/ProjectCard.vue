@@ -4,15 +4,24 @@
           :is="titleLink ? 'a' : 'div'"
           v-if="coverShown && project.cover"
           :href="titleLink || undefined"
-          class="block relative -mt-6 mb-2 bg-black"
+          class="block relative -mt-6 mb-2"
+          :class="project.cover.waiting ? 'bg-muted' : 'bg-black'"
         >
+          <div
+            v-if="project.cover.waiting"
+            class="flex aspect-[3/2] w-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
+          >
+            Cover waits for more data
+          </div>
           <img
+            v-else
             :src="shownCover ?? project.cover.preview_url"
             :alt="`${project.name} preview`"
             loading="lazy"
             class="w-full h-auto"
           >
           <span
+            v-if="!project.cover.waiting"
             class="absolute bottom-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-xs text-white"
             title="What the stacker rendered for this picture"
           >
@@ -220,7 +229,7 @@ export default {
     'project.cover': {
       immediate: true,
       handler(cover: Project['cover']) {
-        if (!cover || cover.preview_url === this.shownCover) return;
+        if (!cover || cover.waiting || cover.preview_url === this.shownCover) return;
         if (samePicture(this.shownCover, this.shownStamp, cover.preview_url, cover.updated_at)) return;
         if (!this.shownCover) {
           this.shownCover = cover.preview_url;

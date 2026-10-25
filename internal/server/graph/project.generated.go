@@ -808,6 +808,29 @@ func (ec *executionContext) fieldContext_ProjectCover_panels_total(_ context.Con
 	return graphql.NewScalarFieldContext("ProjectCover", field, false, false, "Int")
 }
 
+func (ec *executionContext) _ProjectCover_waiting(ctx context.Context, field graphql.CollectedField, obj *model.ProjectCover) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ProjectCover_waiting(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Waiting, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ProjectCover_waiting(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ProjectCover", field, false, false, "Boolean")
+}
+
 func (ec *executionContext) _ProjectStats_imaging(ctx context.Context, field graphql.CollectedField, obj *model.ProjectStats) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -1171,6 +1194,11 @@ func (ec *executionContext) _ProjectCover(ctx context.Context, sel ast.Selection
 		case "panels_total":
 			out.Values[i] = ec._ProjectCover_panels_total(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "waiting":
+			out.Values[i] = ec._ProjectCover_waiting(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
 		default:
