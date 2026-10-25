@@ -74,7 +74,7 @@ export interface StarType {
   vsx: string
 }
 
-export type VetKind = '' | 'periodic' | 'fades' | 'brightens'
+export type VetKind = '' | 'periodic' | 'fades' | 'brightens' | 'irregular'
 
 export interface OtherStar {
   source_id: number
