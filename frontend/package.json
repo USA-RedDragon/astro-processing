@@ -45,7 +45,7 @@
     "@graphql-codegen/client-preset": "6.2.3",
     "@graphql-codegen/schema-ast": "6.1.1",
     "@graphql-codegen/typescript": "6.1.2",
-    "@graphql-codegen/typescript-operations": "6.1.10",
+    "@graphql-codegen/typescript-operations": "6.2.0",
     "@iconify-json/radix-icons": "1.2.6",
     "@iconify/vue": "5.0.4",
     "@rushstack/eslint-patch": "1.16.1",
