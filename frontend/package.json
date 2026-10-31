@@ -51,7 +51,7 @@
     "@rushstack/eslint-patch": "1.16.1",
     "@tsconfig/node22": "22.0.6",
     "@types/jsdom": "30.0.0",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.6",
     "@vitejs/plugin-vue": "6.0.10",
     "@vitest/eslint-plugin": "1.6.28",
     "@vitest/ui": "5.0.5",
