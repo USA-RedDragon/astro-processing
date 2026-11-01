@@ -6,7 +6,7 @@ require (
 	github.com/99designs/gqlgen v0.17.97
 	github.com/USA-RedDragon/configulator/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.9
-	github.com/gin-contrib/pprof v1.5.6
+	github.com/gin-contrib/pprof v1.5.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/glebarez/sqlite v1.11.0
 	github.com/goccy/go-yaml v1.19.2
