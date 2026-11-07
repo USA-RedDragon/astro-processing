@@ -3,7 +3,7 @@ module github.com/USA-RedDragon/astro-processing
 go 1.27.3
 
 require (
-	github.com/99designs/gqlgen v0.17.97
+	github.com/99designs/gqlgen v0.17.98
 	github.com/USA-RedDragon/configulator/v2 v2.5.0
 	github.com/gin-contrib/cors v1.7.10
 	github.com/gin-contrib/pprof v1.5.7
@@ -13,7 +13,7 @@ require (
 	github.com/lmittmann/tint v1.2.1
 	github.com/prometheus/client_golang v1.25.0
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/vektah/gqlparser/v2 v2.5.64
 	github.com/ztrue/shutdown v0.1.1
 	golang.org/x/sync v0.24.0
