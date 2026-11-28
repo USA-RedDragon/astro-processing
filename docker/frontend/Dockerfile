@@ -1,6 +1,6 @@
 # The build output is static files, so build natively instead of under
 # emulation for each target platform.
-FROM --platform=$BUILDPLATFORM node:24.22.2-alpine@sha256:a34ab6d7f6f4813f4d0c5469d74685604b962fbdbf5793a7bc7b4998ecb867c8 AS builder
+FROM --platform=$BUILDPLATFORM node:24.22.3-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS builder
 
 WORKDIR /app/frontend
 
@@ -15,7 +15,7 @@ ENV NODE_ENV=production
 RUN npm run generate:graphql
 RUN npm run build
 
-FROM nginx:1.31.8-alpine@sha256:b2f80f8f88146b0772fdcc7d92cea621aa8c2889fa8d07ed61d4884fcea53e09
+FROM nginx:1.31.10-alpine@sha256:7fc0fb4af7bf006aeb31aea88069976060f8f0a0a86b667126742cc17f4e31ae
 
 COPY --chown=root:root docker/frontend/rootfs /
 COPY --from=builder /app/frontend/dist /usr/share/nginx/html
